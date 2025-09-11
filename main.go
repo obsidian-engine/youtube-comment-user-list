@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -10,16 +11,36 @@ import (
 	"strings"
 	"sync"
 	"time"
-	// 標準net/httpで十分。外部SDKなし。
+
+	"github.com/joho/godotenv"
 )
 
 type LiveStreamingDetails struct {
-	ActiveLiveChatID string `json:"activeLiveChatId"`
+	ActiveLiveChatID      string `json:"activeLiveChatId"`
+	ActualStartTime       string `json:"actualStartTime"`
+	ActualEndTime         string `json:"actualEndTime"`
+	ConcurrentViewers     string `json:"concurrentViewers"`
+	ScheduledStartTime    string `json:"scheduledStartTime"`
 }
 type VideosListResp struct {
 	Items []struct {
+		ID                   string               `json:"id"`
+		Snippet              VideoSnippet         `json:"snippet"`
 		LiveStreamingDetails LiveStreamingDetails `json:"liveStreamingDetails"`
 	} `json:"items"`
+	Error *APIError `json:"error,omitempty"`
+}
+
+type VideoSnippet struct {
+	Title           string `json:"title"`
+	ChannelTitle    string `json:"channelTitle"`
+	LiveBroadcastContent string `json:"liveBroadcastContent"`
+}
+
+type APIError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Status  string `json:"status"`
 }
 
 type AuthorDetails struct {
@@ -36,6 +57,7 @@ type LiveChatResp struct {
 	Items                 []ChatMessage `json:"items"`
 	NextPageToken         string        `json:"nextPageToken"`
 	PollingIntervalMillis int           `json:"pollingIntervalMillis"`
+	Error                 *APIError     `json:"error,omitempty"`
 }
 
 type UserList struct {
@@ -93,23 +115,73 @@ func getEnv(k, def string) string {
 }
 
 func fetchActiveLiveChatID(apiKey, videoID string) (string, error) {
-	u := fmt.Sprintf("https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=%s&key=%s", videoID, apiKey)
+	u := fmt.Sprintf("https://www.googleapis.com/youtube/v3/videos?part=snippet,liveStreamingDetails&id=%s&key=%s", videoID, apiKey)
+	// セキュリティ: APIキーを含むURLは完全にログに出力しない
+	log.Printf("Videos API リクエスト: videoID=%s", videoID)
+	
 	resp, err := http.Get(u)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("HTTP リクエスト失敗: %v", err)
 	}
 	defer resp.Body.Close()
+	
+	// レスポンスボディを読み取って詳細ログ出力
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("レスポンス読み取り失敗: %v", err)
+	}
+	log.Printf("APIレスポンス (ステータス: %d): %s", resp.StatusCode, string(body))
+	
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("videos.list status=%d", resp.StatusCode)
+		return "", fmt.Errorf("videos.list API エラー: status=%d, body=%s", resp.StatusCode, string(body))
 	}
+	
 	var v VideosListResp
-	if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
-		return "", err
+	if err := json.Unmarshal(body, &v); err != nil {
+		return "", fmt.Errorf("JSONパース失敗: %v", err)
 	}
-	if len(v.Items) == 0 || v.Items[0].LiveStreamingDetails.ActiveLiveChatID == "" {
-		return "", fmt.Errorf("activeLiveChatId not found (配信が開始前/終了後の可能性)")
+	
+	// API エラーレスポンスのチェック
+	if v.Error != nil {
+		return "", fmt.Errorf("YouTube API エラー: %d %s - %s", v.Error.Code, v.Error.Status, v.Error.Message)
 	}
-	return v.Items[0].LiveStreamingDetails.ActiveLiveChatID, nil
+	
+	if len(v.Items) == 0 {
+		return "", fmt.Errorf("動画が見つかりません (動画ID: %s). 動画IDが正しいか、動画が存在するか確認してください", videoID)
+	}
+	
+	item := v.Items[0]
+	log.Printf("動画情報:")
+	log.Printf("  タイトル: %s", item.Snippet.Title)
+	log.Printf("  チャンネル: %s", item.Snippet.ChannelTitle)
+	log.Printf("  ライブ配信種別: %s", item.Snippet.LiveBroadcastContent)
+	log.Printf("  activeLiveChatId: %s", item.LiveStreamingDetails.ActiveLiveChatID)
+	log.Printf("  actualStartTime: %s", item.LiveStreamingDetails.ActualStartTime)
+	log.Printf("  actualEndTime: %s", item.LiveStreamingDetails.ActualEndTime)
+	log.Printf("  concurrentViewers: %s", item.LiveStreamingDetails.ConcurrentViewers)
+	
+	// ライブ配信状態の詳細チェック（YouTube API仕様: upcoming, active, none + 実際には live も存在）
+	switch item.Snippet.LiveBroadcastContent {
+	case "none":
+		return "", fmt.Errorf("この動画はライブ配信ではありません")
+	case "upcoming":
+		return "", fmt.Errorf("ライブ配信は予定されていますが、まだ開始されていません (開始予定: %s)", item.LiveStreamingDetails.ScheduledStartTime)
+	case "active", "live":
+		log.Printf("ライブ配信中を確認 (状態: %s)", item.Snippet.LiveBroadcastContent)
+		// 実際に開始されているかも確認
+		if item.LiveStreamingDetails.ActualStartTime == "" {
+			log.Printf("警告: liveBroadcastContent=%s ですが actualStartTime が設定されていません", item.Snippet.LiveBroadcastContent)
+		}
+	default:
+		log.Printf("不明なライブ配信状態: %s", item.Snippet.LiveBroadcastContent)
+		return "", fmt.Errorf("サポートされていないライブ配信状態: %s", item.Snippet.LiveBroadcastContent)
+	}
+	
+	if item.LiveStreamingDetails.ActiveLiveChatID == "" {
+		return "", fmt.Errorf("activeLiveChatId が空です。チャット機能が無効化されているか、メンバー限定チャットの可能性があります")
+	}
+	
+	return item.LiveStreamingDetails.ActiveLiveChatID, nil
 }
 
 func fetchLiveChatOnce(apiKey, liveChatID, pageToken string) (LiveChatResp, error) {
@@ -124,18 +196,39 @@ func fetchLiveChatOnce(apiKey, liveChatID, pageToken string) (LiveChatResp, erro
 		params = append(params, "pageToken="+pageToken)
 	}
 	url := base + "?" + strings.Join(params, "&")
+	// セキュリティ: APIキーを含むURLは完全にログに出力しない
+	log.Printf("LiveChat API リクエスト: liveChatId=%s, pageToken=%s", liveChatID, pageToken)
+	
 	resp, err := http.Get(url)
 	if err != nil {
-		return LiveChatResp{}, err
+		return LiveChatResp{}, fmt.Errorf("LiveChat HTTP リクエスト失敗: %v", err)
 	}
 	defer resp.Body.Close()
+	
+	// レスポンスボディを読み取り
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return LiveChatResp{}, fmt.Errorf("LiveChat レスポンス読み取り失敗: %v", err)
+	}
+	
 	if resp.StatusCode != 200 {
-		return LiveChatResp{}, fmt.Errorf("liveChatMessages.list status=%d", resp.StatusCode)
+		log.Printf("LiveChat API エラーレスポンス (ステータス: %d): %s", resp.StatusCode, string(body))
+		return LiveChatResp{}, fmt.Errorf("liveChatMessages.list API エラー: status=%d, body=%s", resp.StatusCode, string(body))
 	}
+	
 	var v LiveChatResp
-	if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
-		return LiveChatResp{}, err
+	if err := json.Unmarshal(body, &v); err != nil {
+		return LiveChatResp{}, fmt.Errorf("LiveChat JSONパース失敗: %v", err)
 	}
+	
+	// API エラーレスポンスのチェック
+	if v.Error != nil {
+		return LiveChatResp{}, fmt.Errorf("LiveChat API エラー: %d %s - %s", v.Error.Code, v.Error.Status, v.Error.Message)
+	}
+	
+	log.Printf("LiveChat API 成功: %d 件のメッセージを取得, NextPageToken: %s, PollingInterval: %dms", 
+		len(v.Items), v.NextPageToken, v.PollingIntervalMillis)
+	
 	return v, nil
 }
 
@@ -160,13 +253,27 @@ func main() {
 	go func() {
 		var pageToken string
 		var lastWait = 2000 // ms フォールバック
+		var consecutiveErrors int
 		for {
 			resp, err := fetchLiveChatOnce(apiKey, liveChatID, pageToken)
 			if err != nil {
-				log.Printf("fetch error: %v", err)
-				time.Sleep(time.Duration(lastWait) * time.Millisecond)
+				consecutiveErrors++
+				log.Printf("LiveChat fetch error (%d回目): %v", consecutiveErrors, err)
+				
+				// エラー回数に応じた待機時間の調整
+				errorWait := lastWait
+				if consecutiveErrors > 5 {
+					errorWait = lastWait * 3 // 3倍待機
+					log.Printf("連続エラーが多いため、待機時間を %dms に延長", errorWait)
+				}
+				
+				time.Sleep(time.Duration(errorWait) * time.Millisecond)
 				continue
 			}
+			
+			// 成功した場合はエラーカウントをリセット
+			consecutiveErrors = 0
+			
 			for _, item := range resp.Items {
 				// 重複排除はchannelIDで行う
 				users.Add(item.AuthorDetails.ChannelID, item.AuthorDetails.DisplayName)
