@@ -2,27 +2,26 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/application/usecase"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
 )
 
 // LogHandler ログ管理のHTTPリクエストを処理します
 type LogHandler struct {
 	logManagementUC *usecase.LogManagementUseCase
-	logger          service.Logger
+	logger          repository.Logger
 }
 
 // NewLogHandler 新しいログハンドラーを作成します
 func NewLogHandler(
 	logManagementUC *usecase.LogManagementUseCase,
-	logger service.Logger,
+	logger repository.Logger,
 ) *LogHandler {
 	return &LogHandler{
 		logManagementUC: logManagementUC,
@@ -31,22 +30,22 @@ func NewLogHandler(
 }
 
 // GetLogs GET /api/logs を処理します
-func (h *LogHandler) GetLogs(c *gin.Context) {
-	correlationID := fmt.Sprintf("logs-%s", c.GetString("requestId"))
+func (h *LogHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
+	correlationID := fmt.Sprintf("logs-%s", r.Header.Get("requestId"))
 
 	h.logger.LogAPI("INFO", "Get logs request received", "", correlationID, nil)
 
 	// フィルタリング用のクエリパラメータを解析
-	filters := h.parseLogFiltersFromGin(c)
+	filters := h.parseLogFilters(r)
 
-	logs, err := h.logManagementUC.GetRecentLogs(c.Request.Context(), filters)
+	logs, err := h.logManagementUC.GetRecentLogs(r.Context(), filters)
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to get logs", "", correlationID, err, nil)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "correlationID": correlationID})
+		h.writeJSONError(w, err.Error(), correlationID)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"logs":    logs,
 		"count":   len(logs),
@@ -55,15 +54,15 @@ func (h *LogHandler) GetLogs(c *gin.Context) {
 }
 
 // GetLogStats GET /api/logs/stats を処理します
-func (h *LogHandler) GetLogStats(c *gin.Context) {
-	correlationID := fmt.Sprintf("logs-stats-%s", c.GetString("requestId"))
+func (h *LogHandler) GetLogStats(w http.ResponseWriter, r *http.Request) {
+	correlationID := fmt.Sprintf("logs-stats-%s", r.Header.Get("requestId"))
 
 	h.logger.LogAPI("INFO", "Get log stats request received", "", correlationID, nil)
 
-	stats, err := h.logManagementUC.GetLogStats(c.Request.Context())
+	stats, err := h.logManagementUC.GetLogStats(r.Context())
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to get log stats", "", correlationID, err, nil)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "correlationID": correlationID})
+		h.writeJSONError(w, err.Error(), correlationID)
 		return
 	}
 
@@ -77,7 +76,7 @@ func (h *LogHandler) GetLogStats(c *gin.Context) {
 		warningCount = levelCounts["WARNING"]
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success":  true,
 		"total":    totalEntries,
 		"errors":   errorCount,
@@ -86,68 +85,71 @@ func (h *LogHandler) GetLogStats(c *gin.Context) {
 }
 
 // ClearLogs DELETE /api/logs を処理します
-func (h *LogHandler) ClearLogs(c *gin.Context) {
-	correlationID := fmt.Sprintf("logs-clear-%s", c.GetString("requestId"))
+func (h *LogHandler) ClearLogs(w http.ResponseWriter, r *http.Request) {
+	correlationID := fmt.Sprintf("logs-clear-%s", r.Header.Get("requestId"))
 
 	h.logger.LogAPI("INFO", "Clear logs request received", "", correlationID, nil)
 
-	err := h.logManagementUC.ClearLogs(c.Request.Context())
+	err := h.logManagementUC.ClearLogs(r.Context())
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to clear logs", "", correlationID, err, nil)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "correlationID": correlationID})
+		h.writeJSONError(w, err.Error(), correlationID)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "All logs cleared successfully",
 	})
 }
 
 // ExportLogs GET /api/logs/export を処理します
-func (h *LogHandler) ExportLogs(c *gin.Context) {
-	correlationID := fmt.Sprintf("logs-export-%s", c.GetString("requestId"))
+func (h *LogHandler) ExportLogs(w http.ResponseWriter, r *http.Request) {
+	correlationID := fmt.Sprintf("logs-export-%s", r.Header.Get("requestId"))
 
 	h.logger.LogAPI("INFO", "Export logs request received", "", correlationID, nil)
 
 	// フィルタリング用のクエリパラメータを解析
-	filters := h.parseLogFiltersFromGin(c)
+	filters := h.parseLogFilters(r)
 
-	exportData, err := h.logManagementUC.ExportLogs(c.Request.Context(), filters)
+	exportData, err := h.logManagementUC.ExportLogs(r.Context(), filters)
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to export logs", "", correlationID, err, nil)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "correlationID": correlationID})
+		h.writeJSONError(w, err.Error(), correlationID)
 		return
 	}
 
 	// ファイルダウンロード用のヘッダーを設定
-	c.Header("Content-Type", "application/json")
-	c.Header("Content-Disposition", "attachment; filename=\"logs_export.json\"")
-
-	c.String(http.StatusOK, exportData)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"logs_export.json\"")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte(exportData)); err != nil {
+		h.logger.LogError("ERROR", "Failed to write export data", "", "", err, nil)
+	}
 }
 
-// parseLogFiltersFromGin Ginからクエリパラメータを解析してログフィルターを作成します
-func (h *LogHandler) parseLogFiltersFromGin(c *gin.Context) usecase.LogFilters {
+// parseLogFilters HTTPリクエストからクエリパラメータを解析してログフィルターを作成します
+func (h *LogHandler) parseLogFilters(r *http.Request) usecase.LogFilters {
 	filters := usecase.LogFilters{}
+	query := r.URL.Query()
 
-	if level := c.Query("level"); level != "" {
+	if level := query.Get("level"); level != "" {
 		filters.Level = level
 	}
 
-	if videoID := c.Query("video_id"); videoID != "" {
+	if videoID := query.Get("video_id"); videoID != "" {
 		filters.VideoID = videoID
 	}
 
-	if component := c.Query("component"); component != "" {
+	if component := query.Get("component"); component != "" {
 		filters.Component = component
 	}
 
-	if correlationID := c.Query("correlation_id"); correlationID != "" {
+	if correlationID := query.Get("correlation_id"); correlationID != "" {
 		filters.CorrelationID = correlationID
 	}
 
-	if limitStr := c.Query("limit"); limitStr != "" {
+	if limitStr := query.Get("limit"); limitStr != "" {
 		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
 			filters.Limit = limit
 		}
@@ -161,4 +163,23 @@ func (h *LogHandler) parseLogFiltersFromGin(c *gin.Context) usecase.LogFilters {
 	return filters
 }
 
-// ヘルパーメソッド
+// writeJSON はJSONレスポンスを書き込みます
+func (h *LogHandler) writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		h.logger.LogError("ERROR", "Failed to encode JSON response", "", "", err, nil)
+	}
+}
+
+// writeJSONError はJSONエラーレスポンスを書き込みます
+func (h *LogHandler) writeJSONError(w http.ResponseWriter, message, correlationID string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"error":         message,
+		"correlationID": correlationID,
+	}); err != nil {
+		h.logger.LogError("ERROR", "Failed to encode JSON error response", "", correlationID, err, nil)
+	}
+}

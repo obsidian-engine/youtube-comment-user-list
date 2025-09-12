@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
 )
 
 // LogEntry 詳細情報を含む構造化ログエントリを表します
@@ -25,7 +25,7 @@ type LogEntry struct {
 
 // LogManagementUseCase アプリケーションのログワークフローを処理します
 type LogManagementUseCase struct {
-	logger    service.Logger
+	logger    repository.Logger
 	logBuffer *LogBuffer
 }
 
@@ -38,7 +38,7 @@ type LogBuffer struct {
 }
 
 // NewLogManagementUseCase 新しいLogManagementUseCaseを作成します
-func NewLogManagementUseCase(logger service.Logger, maxLogEntries int) *LogManagementUseCase {
+func NewLogManagementUseCase(logger repository.Logger, maxLogEntries int) *LogManagementUseCase {
 	return &LogManagementUseCase{
 		logger: logger,
 		logBuffer: &LogBuffer{

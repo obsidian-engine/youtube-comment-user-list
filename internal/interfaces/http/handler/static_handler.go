@@ -3,28 +3,26 @@ package handler
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
-
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
 )
 
 // StaticHandler 静的ファイル配信とHTMLページを処理します
 type StaticHandler struct {
-	logger service.Logger
+	logger repository.Logger
 }
 
 // NewStaticHandler 新しい静的ハンドラーを作成します
-func NewStaticHandler(logger service.Logger) *StaticHandler {
+func NewStaticHandler(logger repository.Logger) *StaticHandler {
 	return &StaticHandler{
 		logger: logger,
 	}
 }
 
 // ServeHome GET / を処理します
-func (h *StaticHandler) ServeHome(c *gin.Context) {
+func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
 	h.logger.LogAPI("INFO", "Home page request", "", "", map[string]interface{}{
-		"userAgent":  c.GetHeader("User-Agent"),
-		"remoteAddr": c.ClientIP(),
+		"userAgent":  r.Header.Get("User-Agent"),
+		"remoteAddr": r.RemoteAddr,
 	})
 
 	html := `<!DOCTYPE html>
@@ -181,15 +179,18 @@ func (h *StaticHandler) ServeHome(c *gin.Context) {
 </body>
 </html>`
 
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.String(http.StatusOK, html)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte(html)); err != nil {
+		h.logger.LogError("ERROR", "Failed to write HTML response", "", "", err, nil)
+	}
 }
 
 // ServeUserListPage GET /users を処理します
-func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
+func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request) {
 	h.logger.LogAPI("INFO", "User list page request", "", "", map[string]interface{}{
-		"userAgent":  c.GetHeader("User-Agent"),
-		"remoteAddr": c.ClientIP(),
+		"userAgent":  r.Header.Get("User-Agent"),
+		"remoteAddr": r.RemoteAddr,
 	})
 
 	html := `<!DOCTYPE html>
@@ -249,9 +250,15 @@ func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
     </div>
 
     <script>
+        let consecutiveErrors = 0;
+        const MAX_CONSECUTIVE_ERRORS = 3;
+        let autoUpdateInterval = null;
+
         // ページ読み込み時に自動でユーザーリストを取得
         window.onload = function() {
             loadUsers();
+            // 自動更新を開始
+            startAutoUpdate();
         };
 
         async function loadUsers() {
@@ -263,26 +270,38 @@ func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
             userListDiv.innerHTML = '';
             
             try {
-                // 現在アクティブなvideoIDを取得
+                // 現在アクティブまたは最後に監視されたvideoIDを取得
                 const activeResponse = await fetch('/api/monitoring/active');
                 
                 if (!activeResponse.ok) {
                     if (activeResponse.status === 404) {
-                        statusDiv.innerHTML = '<div class="status offline">監視セッションが開始されていません</div>';
+                        consecutiveErrors++;
+                        statusDiv.innerHTML = '<div class="status offline">監視セッションがありません</div>';
+                        userListDiv.innerHTML = '<p>監視を開始するには<a href="/">ホームページ</a>に戻ってください。</p>';
+                        
+                        // 連続エラーが上限に達したら自動更新を停止
+                        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+                            stopAutoUpdate();
+                            statusDiv.innerHTML += '<br><small>自動更新を停止しました。</small>';
+                        }
                         return;
                     }
-                    throw new Error('Failed to get active video ID');
+                    throw new Error('Failed to get video ID');
                 }
                 
                 const activeData = await activeResponse.json();
                 const videoId = activeData.videoId;
+                const isActive = activeData.isActive;
                 
                 // videoIDを使ってユーザーリストを取得
                 const response = await fetch('/api/monitoring/' + videoId + '/users');
                 const data = await response.json();
                 
                 if (data.success) {
-                    statusDiv.innerHTML = '<div class="status online">オンライン - ユーザー数: ' + data.count + '</div>';
+                    consecutiveErrors = 0; // 成功時はエラーカウンターをリセット
+                    const statusClass = isActive ? 'status online' : 'status offline';
+                    const statusText = isActive ? 'オンライン' : '停止済み';
+                    statusDiv.innerHTML = '<div class="' + statusClass + '">' + statusText + ' - ユーザー数: ' + data.count + '</div>';
                     
                     if (data.users && data.users.length > 0) {
                         let html = '<div class="user-list">';
@@ -335,23 +354,43 @@ func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
             navigator.sendBeacon('/api/monitoring/stop', new FormData());
         });
 
-        // 10秒ごとに自動更新
-        setInterval(() => {
-            loadUsers();
-        }, 10000);
+        // 自動更新の管理関数
+        function startAutoUpdate() {
+            if (autoUpdateInterval) {
+                clearInterval(autoUpdateInterval);
+            }
+            autoUpdateInterval = setInterval(() => {
+                loadUsers();
+            }, 10000);
+        }
+
+        function stopAutoUpdate() {
+            if (autoUpdateInterval) {
+                clearInterval(autoUpdateInterval);
+                autoUpdateInterval = null;
+            }
+        }
+
+        // ページ離脱時に自動更新を停止
+        window.addEventListener('beforeunload', function() {
+            stopAutoUpdate();
+        });
     </script>
 </body>
 </html>`
 
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.String(http.StatusOK, html)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte(html)); err != nil {
+		h.logger.LogError("ERROR", "Failed to write HTML response", "", "", err, nil)
+	}
 }
 
 // ServeLogsPage GET /logs を処理します
-func (h *StaticHandler) ServeLogsPage(c *gin.Context) {
+func (h *StaticHandler) ServeLogsPage(w http.ResponseWriter, r *http.Request) {
 	h.logger.LogAPI("INFO", "Logs page request", "", "", map[string]interface{}{
-		"userAgent":  c.GetHeader("User-Agent"),
-		"remoteAddr": c.ClientIP(),
+		"userAgent":  r.Header.Get("User-Agent"),
+		"remoteAddr": r.RemoteAddr,
 	})
 
 	html := `<!DOCTYPE html>
@@ -549,6 +588,9 @@ func (h *StaticHandler) ServeLogsPage(c *gin.Context) {
 </body>
 </html>`
 
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.String(http.StatusOK, html)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte(html)); err != nil {
+		h.logger.LogError("ERROR", "Failed to write HTML response", "", "", err, nil)
+	}
 }

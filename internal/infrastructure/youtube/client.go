@@ -233,7 +233,7 @@ func (c *Client) isRetryableError(err error) bool {
 
 	// ネットワークエラー
 	if netErr, ok := err.(net.Error); ok {
-		return netErr.Temporary() || netErr.Timeout()
+		return netErr.Timeout()
 	}
 
 	// DNS解決エラー
@@ -321,6 +321,7 @@ func (c *Client) FetchVideoInfo(ctx context.Context, videoID string) (*entity.Vi
 	defer func() {
 		if err2 := resp.Body.Close(); err2 != nil {
 			// 重要ではないためエラーをログに記録しますが返却しません
+			fmt.Printf("Warning: failed to close response body: %v\n", err2)
 		}
 	}()
 
@@ -393,6 +394,7 @@ func (c *Client) FetchLiveChat(ctx context.Context, liveChatID string, pageToken
 	defer func() {
 		if err2 := resp.Body.Close(); err2 != nil {
 			// 重要ではないためエラーをログに記録しますが返却しません
+			fmt.Printf("Warning: failed to close response body: %v\n", err2)
 		}
 	}()
 

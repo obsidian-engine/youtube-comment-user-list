@@ -1,5 +1,5 @@
-// Package service ドメインサービスとインターフェースを定義します
-package service
+// Package repository ドメインリポジトリインターフェースを定義します
+package repository
 
 import (
 	"context"

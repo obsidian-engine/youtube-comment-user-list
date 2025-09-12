@@ -6,6 +6,14 @@ type User struct {
 	DisplayName string
 }
 
+// NewUserFromChatMessage チャットメッセージからユーザーを作成します
+func NewUserFromChatMessage(message ChatMessage) User {
+	return User{
+		ChannelID:   message.AuthorDetails.ChannelID,
+		DisplayName: message.AuthorDetails.DisplayName,
+	}
+}
+
 // UserList は並行安全性を持つユーザーのコレクションを管理します
 type UserList struct {
 	Users    map[string]*User // channelID -> User

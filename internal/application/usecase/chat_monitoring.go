@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/application/service"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
 )
 
 // ChatMonitoringUseCase ライブチャット監視ワークフローを処理します
@@ -16,11 +17,13 @@ type ChatMonitoringUseCase struct {
 	pollingService *service.PollingService
 	userService    *service.UserService
 	videoService   *service.VideoService
-	logger         service.Logger
+	logger         repository.Logger
 
 	// 単一の監視セッション
 	currentSession *MonitoringSession
-	mu             sync.RWMutex
+	// 最後に監視されたVideoID（セッション停止後でも保持）
+	lastVideoID string
+	mu          sync.RWMutex
 }
 
 // MonitoringSession 動画のアクティブな監視セッションを表します
@@ -36,7 +39,7 @@ func NewChatMonitoringUseCase(
 	pollingService *service.PollingService,
 	userService *service.UserService,
 	videoService *service.VideoService,
-	logger service.Logger,
+	logger repository.Logger,
 ) *ChatMonitoringUseCase {
 	return &ChatMonitoringUseCase{
 		pollingService: pollingService,
@@ -60,10 +63,17 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 	}
 
 	// ライブ配信を検証
-	videoInfo, err := uc.videoService.ValidateLiveStream(ctx, videoID)
+	err = uc.videoService.ValidateLiveStream(ctx, videoID)
 	if err != nil {
 		uc.logger.LogError("ERROR", "Live stream validation failed", videoID, correlationID, err, nil)
 		return nil, fmt.Errorf("live stream validation failed: %w", err)
+	}
+
+	// 動画情報を取得してliveChatIDを取得
+	videoInfo, err := uc.videoService.GetVideoInfo(ctx, videoID)
+	if err != nil {
+		uc.logger.LogError("ERROR", "Failed to get video info", videoID, correlationID, err, nil)
+		return nil, fmt.Errorf("failed to get video info: %w", err)
 	}
 
 	uc.mu.Lock()
@@ -95,15 +105,15 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 	}
 
 	uc.currentSession = session
+	// 最後に監視したVideoIDを保存
+	uc.lastVideoID = videoID
 
 	uc.logger.LogStructured("INFO", "monitoring", "session_started", "Started new monitoring session", videoID, correlationID, map[string]interface{}{
-		"title":        videoInfo.Title,
-		"channelTitle": videoInfo.ChannelTitle,
-		"maxUsers":     maxUsers,
+		"maxUsers": maxUsers,
 	})
 
 	// バックグラウンドでポーリングを開始
-	go uc.runPolling(sessionCtx, videoID, messagesChan, correlationID)
+	go uc.runPolling(sessionCtx, videoInfo.LiveStreamingDetails.ActiveLiveChatID, videoID, messagesChan, correlationID)
 
 	// メッセージ処理を開始
 	go uc.processMessages(sessionCtx, videoID, messagesChan, correlationID)
@@ -146,14 +156,22 @@ func (uc *ChatMonitoringUseCase) GetMonitoringSession(videoID string) (*Monitori
 }
 
 // GetActiveVideoID 現在監視中のvideoIDを取得します
-func (uc *ChatMonitoringUseCase) GetActiveVideoID() (string, bool) {
+func (uc *ChatMonitoringUseCase) GetActiveVideoID() (string, bool, bool) {
 	uc.mu.RLock()
 	defer uc.mu.RUnlock()
 
 	if uc.currentSession != nil {
-		return uc.currentSession.VideoID, true
+		// アクティブなセッションが存在
+		return uc.currentSession.VideoID, true, true
 	}
-	return "", false
+
+	if uc.lastVideoID != "" {
+		// セッションは停止しているが最後のvideoIDが存在
+		return uc.lastVideoID, false, true
+	}
+
+	// どちらも存在しない
+	return "", false, false
 }
 
 // GetUserList 指定された動画のユーザーリストを返します
@@ -162,8 +180,8 @@ func (uc *ChatMonitoringUseCase) GetUserList(ctx context.Context, videoID string
 }
 
 // runPolling 動画のポーリングループを処理します
-func (uc *ChatMonitoringUseCase) runPolling(ctx context.Context, videoID string, messagesChan chan<- entity.ChatMessage, correlationID string) {
-	if err := uc.pollingService.StartPolling(ctx, videoID, messagesChan); err != nil {
+func (uc *ChatMonitoringUseCase) runPolling(ctx context.Context, liveChatID, videoID string, messagesChan chan<- entity.ChatMessage, correlationID string) {
+	if err := uc.pollingService.StartPolling(ctx, liveChatID, videoID, messagesChan); err != nil {
 		uc.logger.LogError("ERROR", "Polling ended with error", videoID, correlationID, err, nil)
 	}
 }
@@ -195,10 +213,14 @@ func (uc *ChatMonitoringUseCase) processMessages(ctx context.Context, videoID st
 // GetVideoStatus 動画のステータス情報を返します
 func (uc *ChatMonitoringUseCase) GetVideoStatus(ctx context.Context, videoID string) (map[string]interface{}, error) {
 	// 基本的な動画ステータスを取得
-	videoStatus, err := uc.videoService.GetLiveStreamStatus(ctx, videoID)
+	streamStatus, err := uc.videoService.GetLiveStreamStatus(ctx, videoID)
 	if err != nil {
 		return nil, err
 	}
+
+	// ステータスマップを作成
+	videoStatus := make(map[string]interface{})
+	videoStatus["broadcastContent"] = streamStatus
 
 	// 監視セッション情報を追加
 	uc.mu.RLock()

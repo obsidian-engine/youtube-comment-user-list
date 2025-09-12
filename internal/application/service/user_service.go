@@ -1,3 +1,4 @@
+// Package service アプリケーション層のサービスを定義します
 package service
 
 import (
@@ -5,20 +6,21 @@ import (
 	"fmt"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
 )
 
-// UserService ユーザー管理のビジネスロジックを処理します
+// UserService チャットユーザーを管理するサービスです
 type UserService struct {
-	userRepo UserRepository
-	logger   Logger
-	eventPub EventPublisher
+	userRepo repository.UserRepository
+	logger   repository.Logger
+	eventPub repository.EventPublisher
 }
 
 // NewUserService 新しいUserServiceを作成します
 func NewUserService(
-	userRepo UserRepository,
-	logger Logger,
-	eventPub EventPublisher,
+	userRepo repository.UserRepository,
+	logger repository.Logger,
+	eventPub repository.EventPublisher,
 ) *UserService {
 	return &UserService{
 		userRepo: userRepo,
@@ -27,7 +29,7 @@ func NewUserService(
 	}
 }
 
-// ProcessChatMessage チャットメッセージを処理し、必要に応じてユーザーリストを更新します
+// ProcessChatMessage チャットメッセージを処理してユーザーを管理します
 func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.ChatMessage) error {
 	correlationID := fmt.Sprintf("user-%s-%s", message.VideoID, message.ID)
 
@@ -39,10 +41,7 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 	}
 
 	// チャットメッセージからユーザーを作成
-	user := entity.User{
-		ChannelID:   message.AuthorDetails.ChannelID,
-		DisplayName: message.AuthorDetails.DisplayName,
-	}
+	user := entity.NewUserFromChatMessage(message)
 
 	// ユーザーをリストに追加を試行
 	wasAdded := userList.AddUser(user.ChannelID, user.DisplayName)
@@ -80,56 +79,38 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 
 // GetUserList 動画のユーザーリストを取得します
 func (us *UserService) GetUserList(ctx context.Context, videoID string) (*entity.UserList, error) {
-	correlationID := fmt.Sprintf("get-users-%s", videoID)
-
-	userList, err := us.userRepo.GetUserList(ctx, videoID)
-	if err != nil {
-		us.logger.LogError("ERROR", "Failed to get user list", videoID, correlationID, err, nil)
-		return nil, fmt.Errorf("failed to get user list: %w", err)
-	}
-
-	us.logger.LogUser("DEBUG", "User list retrieved", videoID, correlationID, map[string]interface{}{
-		"userCount": userList.Count(),
-		"isFull":    userList.IsFull(),
-	})
-
-	return userList, nil
+	return us.userRepo.GetUserList(ctx, videoID)
 }
 
-// CreateUserList 指定された最大ユーザー数で動画用の新しいユーザーリストを作成します
+// CreateUserList 動画用の新しいユーザーリストを作成します
 func (us *UserService) CreateUserList(ctx context.Context, videoID string, maxUsers int) (*entity.UserList, error) {
-	correlationID := fmt.Sprintf("create-users-%s", videoID)
+	correlationID := fmt.Sprintf("create-userlist-%s", videoID)
 
-	// 最大ユーザー数を検証
-	if maxUsers <= 0 {
-		err := fmt.Errorf("maxUsers must be positive, got: %d", maxUsers)
-		us.logger.LogError("ERROR", "Invalid maxUsers parameter", videoID, correlationID, err, map[string]interface{}{
-			"maxUsers": maxUsers,
-		})
-		return nil, err
-	}
+	us.logger.LogUser("INFO", "Creating new user list", videoID, correlationID, map[string]interface{}{
+		"operation": "create_user_list",
+		"maxUsers":  maxUsers,
+	})
 
 	userList := entity.NewUserList(maxUsers)
 
-	// リポジトリに保存
 	if err := us.userRepo.UpdateUserList(ctx, videoID, userList); err != nil {
 		us.logger.LogError("ERROR", "Failed to create user list", videoID, correlationID, err, nil)
 		return nil, fmt.Errorf("failed to create user list: %w", err)
 	}
 
-	us.logger.LogUser("INFO", "User list created", videoID, correlationID, map[string]interface{}{
-		"maxUsers": maxUsers,
+	us.logger.LogUser("INFO", "User list created successfully", videoID, correlationID, map[string]interface{}{
+		"operation": "create_user_list",
+		"maxUsers":  maxUsers,
 	})
 
 	return userList, nil
 }
 
-// GetUserListSnapshot 表示目的でユーザーのスナップショットを返します
+// GetUserListSnapshot ユーザーリストのスナップショットを取得します
 func (us *UserService) GetUserListSnapshot(ctx context.Context, videoID string) ([]*entity.User, error) {
 	userList, err := us.GetUserList(ctx, videoID)
 	if err != nil {
 		return nil, err
 	}
-
 	return userList.GetUsers(), nil
 }

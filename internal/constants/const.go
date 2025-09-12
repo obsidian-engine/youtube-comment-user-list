@@ -74,6 +74,9 @@ const (
 
 	// ExponentialBackoffMultiplier 指数バックオフの乗数
 	ExponentialBackoffMultiplier = 2
+
+	// DefaultPollingIntervalMs デフォルトポーリング間隔（ミリ秒）
+	DefaultPollingIntervalMs = 5000
 )
 
 // Server-Sent Events Configuration
