@@ -1,3 +1,10 @@
 .idea
 .env
 vendor
+.serena
+bin
+youtube-comment-user-list
+/.playwright-mcp/
+youtube-monitor
+server.log
+server
