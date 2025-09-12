@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -17,6 +18,14 @@ import (
 
 	"github.com/joho/godotenv"
 )
+
+// ユーティリティ関数
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
 
 type LiveStreamingDetails struct {
 	ActiveLiveChatID   string `json:"activeLiveChatId"`
@@ -63,6 +72,9 @@ type LiveChatResp struct {
 	Error                 *APIError     `json:"error,omitempty"`
 }
 
+// 無料枠でのメモリ制限対策
+const MaxUsers = 1000 // ユーザー数上限（メモリ使用量制御）
+
 type UserList struct {
 	mu     sync.RWMutex
 	users  map[string]string // channelID -> displayName（displayName重複対策）
@@ -86,10 +98,14 @@ type PollerRegistry struct {
 
 // LogBuffer - アプリケーションログのリングバッファ
 type LogEntry struct {
-	Timestamp string `json:"timestamp"`
-	Level     string `json:"level"`
-	Message   string `json:"message"`
-	VideoID   string `json:"video_id,omitempty"`
+	Timestamp     string                 `json:"timestamp"`
+	Level         string                 `json:"level"`
+	Component     string                 `json:"component"`
+	Event         string                 `json:"event"`
+	Message       string                 `json:"message"`
+	VideoID       string                 `json:"video_id,omitempty"`
+	CorrelationID string                 `json:"correlation_id,omitempty"`
+	Context       map[string]interface{} `json:"context,omitempty"`
 }
 
 type LogBuffer struct {
@@ -107,15 +123,19 @@ func NewLogBuffer(maxSize int) *LogBuffer {
 	}
 }
 
-func (lb *LogBuffer) Add(level, message, videoID string) {
+func (lb *LogBuffer) Add(level, component, event, message, videoID string, correlationID string, context map[string]interface{}) {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
 	entry := LogEntry{
-		Timestamp: time.Now().Format("2006-01-02 15:04:05"),
-		Level:     level,
-		Message:   message,
-		VideoID:   videoID,
+		Timestamp:     time.Now().Format("2006-01-02T15:04:05.000Z"),
+		Level:         level,
+		Component:     component,
+		Event:         event,
+		Message:       message,
+		VideoID:       videoID,
+		CorrelationID: correlationID,
+		Context:       context,
 	}
 
 	lb.entries = append(lb.entries, entry)
@@ -140,7 +160,36 @@ func logInfo(message string, videoID ...string) {
 	if len(videoID) > 0 {
 		vid = videoID[0]
 	}
-	globalLogBuffer.Add("INFO", message, vid)
+	globalLogBuffer.Add("INFO", "system", "info", message, vid, "", nil)
+}
+
+// 構造化ログ関数
+func logStructured(level, component, event, message string, videoID string, correlationID string, context map[string]interface{}) {
+	log.Printf("[%s] %s - %s: %s", level, component, event, message)
+	globalLogBuffer.Add(level, component, event, message, videoID, correlationID, context)
+}
+
+// 便利関数群
+func logAPI(level, message, videoID, correlationID string, context map[string]interface{}) {
+	logStructured(level, "api", "request", message, videoID, correlationID, context)
+}
+
+func logPoller(level, message, videoID, correlationID string, context map[string]interface{}) {
+	logStructured(level, "poller", "activity", message, videoID, correlationID, context)
+}
+
+func logUser(level, message, videoID, correlationID string, context map[string]interface{}) {
+	logStructured(level, "user", "activity", message, videoID, correlationID, context)
+}
+
+func logError(level, message, videoID, correlationID string, err error, context map[string]interface{}) {
+	if context == nil {
+		context = make(map[string]interface{})
+	}
+	if err != nil {
+		context["error"] = err.Error()
+	}
+	logStructured(level, "error", "exception", message, videoID, correlationID, context)
 }
 
 func NewPollerRegistry(apiKey string) *PollerRegistry {
@@ -233,9 +282,27 @@ func (pr *PollerRegistry) GetUserList(videoID string) []string {
 func (ul *UserList) Add(channelID, displayName string) {
 	ul.mu.Lock()
 	defer ul.mu.Unlock()
+
+	// 無料枠対策: ユーザー数制限
 	if _, ok := ul.users[channelID]; !ok {
+		if len(ul.users) >= MaxUsers {
+			logUser("WARN", "User limit reached", "", "", map[string]interface{}{
+				"currentCount": len(ul.users),
+				"maxUsers":     MaxUsers,
+				"skippedUser":  displayName,
+				"channelId":    channelID,
+			})
+			return
+		}
 		ul.users[channelID] = displayName
 		ul.rebuild()
+
+		// 新規ユーザー追加ログ
+		logUser("INFO", "New user added", "", "", map[string]interface{}{
+			"displayName": displayName,
+			"channelId":   channelID,
+			"totalUsers":  len(ul.users),
+		})
 	}
 }
 
@@ -265,23 +332,63 @@ func getEnv(k, def string) string {
 
 func fetchActiveLiveChatID(apiKey, videoID string) (string, error) {
 	u := fmt.Sprintf("https://www.googleapis.com/youtube/v3/videos?part=snippet,liveStreamingDetails&id=%s&key=%s", videoID, apiKey)
-	// セキュリティ: APIキーを含むURLは完全にログに出力しない
-	log.Printf("Videos API リクエスト: videoID=%s", videoID)
 
-	resp, err := http.Get(u)
+	// URLホストバリデーション追加
+	parsed, err := url.Parse(u)
+	if err != nil || parsed.Host != "www.googleapis.com" {
+		return "", fmt.Errorf("不正なAPIリクエスト先: %s", u)
+	}
+
+	// APIリクエスト開始ログ
+	startTime := time.Now()
+	correlationID := fmt.Sprintf("api-%d", time.Now().UnixNano())
+	logAPI("INFO", "Videos API request started", videoID, correlationID, map[string]interface{}{
+		"endpoint": "videos.list",
+		"params":   map[string]string{"videoId": videoID, "part": "snippet,liveStreamingDetails"},
+	})
+
+	// 安全なHTTPリクエスト: 事前にパース・検証したURLを使い、タイムアウト付きのクライアントでリクエストを送る
+	req, err := http.NewRequest("GET", parsed.String(), nil)
 	if err != nil {
+		return "", fmt.Errorf("request 作成失敗: %v", err)
+	}
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	latency := time.Since(startTime)
+
+	if err != nil {
+		logError("ERROR", "Videos API request failed", videoID, correlationID, err, map[string]interface{}{
+			"latencyMs": latency.Milliseconds(),
+		})
 		return "", fmt.Errorf("HTTP リクエスト失敗: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Printf("Failed to close response body: %v", err)
+		}
+	}(resp.Body)
 
 	// レスポンスボディを読み取って詳細ログ出力
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logError("ERROR", "Failed to read API response", videoID, correlationID, err, nil)
 		return "", fmt.Errorf("レスポンス読み取り失敗: %v", err)
 	}
-	log.Printf("APIレスポンス (ステータス: %d): %s", resp.StatusCode, string(body))
+
+	// API成功ログ
+	logAPI("INFO", "Videos API response received", videoID, correlationID, map[string]interface{}{
+		"statusCode":    resp.StatusCode,
+		"latencyMs":     latency.Milliseconds(),
+		"responseSize":  len(body),
+		"contentLength": resp.Header.Get("Content-Length"),
+	})
 
 	if resp.StatusCode != 200 {
+		logError("ERROR", "Videos API returned error status", videoID, correlationID, nil, map[string]interface{}{
+			"statusCode": resp.StatusCode,
+			"response":   string(body)[:minInt(500, len(body))], // 最初の500文字のみ
+		})
 		return "", fmt.Errorf("videos.list API エラー: status=%d, body=%s", resp.StatusCode, string(body))
 	}
 
@@ -344,15 +451,32 @@ func fetchLiveChatOnce(apiKey, liveChatID, pageToken string) (LiveChatResp, erro
 	if pageToken != "" {
 		params = append(params, "pageToken="+pageToken)
 	}
-	url := base + "?" + strings.Join(params, "&")
+	urlStr := base + "?" + strings.Join(params, "&")
 	// セキュリティ: APIキーを含むURLは完全にログに出力しない
 	log.Printf("LiveChat API リクエスト: liveChatId=%s, pageToken=%s", liveChatID, pageToken)
 
-	resp, err := http.Get(url)
+	// URLホストバリデーション追加
+	parsed, err := url.Parse(urlStr)
+	if err != nil || parsed.Host != "www.googleapis.com" {
+		return LiveChatResp{}, fmt.Errorf("不正なAPIリクエスト先: %s", urlStr)
+	}
+
+	// 安全なHTTPリクエスト: 事前にパース・検証したURLを使い、タイムアウト付きのクライアントでリクエストを送る
+	req, err := http.NewRequest("GET", parsed.String(), nil)
+	if err != nil {
+		return LiveChatResp{}, fmt.Errorf("request 作成失敗: %v", err)
+	}
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return LiveChatResp{}, fmt.Errorf("LiveChat HTTP リクエスト失敗: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Printf("Failed to close response body: %v", err)
+		}
+	}(resp.Body)
 
 	// レスポンスボディを読み取り
 	body, err := io.ReadAll(resp.Body)
@@ -393,14 +517,24 @@ func (pr *PollerRegistry) startPolling(ctx context.Context, videoID string, poll
 
 	// ポーリング・ループ
 	go func() {
+		pollerCorrelationID := fmt.Sprintf("poll-%s-%d", videoID, time.Now().UnixNano())
+		logPoller("INFO", "Poller started", videoID, pollerCorrelationID, map[string]interface{}{
+			"liveChatId": liveChatID,
+		})
+
 		var pageToken string
 		var lastWait = 8000 // ms フォールバック
 		var consecutiveErrors int
 		for {
+			pollStart := time.Now()
 			resp, err := fetchLiveChatOnce(pr.apiKey, liveChatID, pageToken)
 			if err != nil {
 				consecutiveErrors++
-				log.Printf("LiveChat fetch error (%d回目): %v", consecutiveErrors, err)
+				logPoller("ERROR", "LiveChat fetch failed", videoID, pollerCorrelationID, map[string]interface{}{
+					"consecutiveErrors": consecutiveErrors,
+					"pageToken":         pageToken,
+					"latencyMs":         time.Since(pollStart).Milliseconds(),
+				})
 
 				// エラー回数に応じた待機時間の調整
 				errorWait := lastWait
@@ -419,6 +553,15 @@ func (pr *PollerRegistry) startPolling(ctx context.Context, videoID string, poll
 			// 成功した場合はエラーカウントをリセット
 			consecutiveErrors = 0
 
+			// ポーリング成功ログ
+			logPoller("INFO", "LiveChat poll successful", videoID, pollerCorrelationID, map[string]interface{}{
+				"messagesCount":          len(resp.Items),
+				"nextPageToken":          resp.NextPageToken,
+				"pollingIntervalMs":      resp.PollingIntervalMillis,
+				"latencyMs":              time.Since(pollStart).Milliseconds(),
+				"consecutiveErrorsReset": consecutiveErrors == 0,
+			})
+
 			for _, item := range resp.Items {
 				// ユーザーリストに追加
 				poller.userList.Add(item.AuthorDetails.ChannelID, item.AuthorDetails.DisplayName)
@@ -428,6 +571,9 @@ func (pr *PollerRegistry) startPolling(ctx context.Context, videoID string, poll
 				case poller.msgsChan <- item:
 				default:
 					// チャンネルがフルの場合はスキップ
+					logPoller("WARN", "Message channel full, skipping", videoID, pollerCorrelationID, map[string]interface{}{
+						"authorName": item.AuthorDetails.DisplayName,
+					})
 				}
 			}
 
@@ -976,6 +1122,64 @@ const logsPageHTML = `<!doctype html>
     background: rgba(79, 195, 247, 0.1);
     border-radius: 3px;
   }
+  .component {
+    color: #ff9800;
+    font-size: 11px;
+    background: rgba(255, 152, 0, 0.1);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+  }
+  .event {
+    color: #9c27b0;
+    font-size: 10px;
+    background: rgba(156, 39, 176, 0.1);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-style: italic;
+  }
+  .correlation-id {
+    color: #f44336;
+    font-size: 9px;
+    background: rgba(244, 67, 54, 0.1);
+    padding: 2px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    border: 1px solid rgba(244, 67, 54, 0.2);
+  }
+  .correlation-id:hover {
+    background: rgba(244, 67, 54, 0.2);
+  }
+  .context {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 3px solid var(--info);
+    border-radius: 0 4px 4px 0;
+  }
+  .context pre {
+    margin: 0;
+    color: #4fc3f7;
+    font-size: 10px;
+    line-height: 1.3;
+    white-space: pre-wrap;
+  }
+  .log-entry.expanded {
+    background: rgba(79, 195, 247, 0.05);
+  }
+  .log-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .log-entry {
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .log-entry:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
 </style>
 </head>
 <body>
@@ -1024,15 +1228,34 @@ function renderLogs() {
   container.innerHTML = filteredLogs.map(log => {
     const levelClass = log.level.toLowerCase();
     const videoId = log.video_id ? '<span class="video-id">' + log.video_id + '</span>' : '';
-    return '<div class="log-entry ' + levelClass + '">' +
+    const component = log.component ? '<span class="component">[' + log.component + ']</span>' : '';
+    const event = log.event ? '<span class="event">(' + log.event + ')</span>' : '';
+    const correlationId = log.correlation_id ? '<span class="correlation-id" title="' + log.correlation_id + '">' + log.correlation_id.substring(0, 8) + '...</span>' : '';
+    const context = log.context ? '<div class="context" style="display:none;"><pre>' + JSON.stringify(log.context, null, 2) + '</pre></div>' : '';
+    
+    return '<div class="log-entry ' + levelClass + '" onclick="toggleContext(this)">' +
+      '<div class="log-header">' +
       '<span class="timestamp">' + log.timestamp + '</span>' +
       '<span class="level ' + levelClass + '">' + log.level + '</span>' +
+      component +
+      event +
       '<span class="message">' + log.message + '</span>' +
       videoId +
+      correlationId +
+      '</div>' +
+      context +
     '</div>';
   }).join('');
 
   container.scrollTop = container.scrollHeight;
+}
+
+function toggleContext(element) {
+  const context = element.querySelector('.context');
+  if (context) {
+    context.style.display = context.style.display === 'none' ? 'block' : 'none';
+    element.classList.toggle('expanded');
+  }
 }
 
 fetchLogs();

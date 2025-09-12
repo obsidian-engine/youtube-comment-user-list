@@ -58,7 +58,7 @@ jobs:
           --min-instances 1 \
           --max-instances 2 \
           --cpu 1 \
-          --memory 256Mi \
+          --memory 128Mi \
           --concurrency 10 \
           --timeout 3600 \
           --set-env-vars "YT_API_KEY=${{ secrets.YT_API_KEY }}" \
