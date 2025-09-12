@@ -18,58 +18,77 @@ jobs:
     permissions:
       contents: read
       id-token: write
-      
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
 
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
+      - name: Go build & test
+        run: |
+          go mod download
+          go build ./...
+          go test ./... -run . -count=1
 
-    - name: Configure Docker for Artifact Registry
-      run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Build and push Docker image
-      run: |
-        # イメージ名を設定
-        IMAGE_NAME="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}"
-        
-        # Docker イメージをビルド
-        docker build -t $IMAGE_NAME .
-        
-        # Artifact Registry にプッシュ
-        docker push $IMAGE_NAME
-        
-        # 次のステップで使用するためにイメージ名を出力
-        echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
 
-    - name: Deploy to Cloud Run
-      run: |
-        gcloud run deploy ${{ env.SERVICE }} \
-          --image ${{ env.IMAGE_NAME }} \
-          --region ${{ env.REGION }} \
-          --platform managed \
-          --allow-unauthenticated \
-          --min-instances 1 \
-          --max-instances 2 \
-          --cpu 1 \
-          --memory 256Mi \
-          --concurrency 10 \
-          --timeout 3600 \
-          --set-env-vars "YT_API_KEY=${{ secrets.YT_API_KEY }}" \
-          --port 8080
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
-    - name: Get Cloud Run URL
-      run: |
-        URL=$(gcloud run services describe ${{ env.SERVICE }} \
-          --region ${{ env.REGION }} \
-          --format 'value(status.url)')
-        echo "### 🚀 デプロイ完了！" >> $GITHUB_STEP_SUMMARY
-        echo "- **アプリURL**: $URL" >> $GITHUB_STEP_SUMMARY
-        echo "- **オーバーレイURL**: $URL/overlay" >> $GITHUB_STEP_SUMMARY
-        echo "- **JSON API**: $URL/users.json" >> $GITHUB_STEP_SUMMARY
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          install: true
+
+      - name: Build and push Docker image (buildx cache)
+        env:
+          IMAGE_NAME: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
+        run: |
+          echo "Building image with buildx: $IMAGE_NAME"
+          docker buildx build \
+            --platform linux/amd64 \
+            --cache-from=type=gha \
+            --cache-to=type=gha,mode=max \
+            -t "$IMAGE_NAME" \
+            --push .
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+
+      - name: Deploy to Cloud Run
+        run: |
+          if [ -z "$IMAGE_NAME" ]; then
+            # 環境ファイルから取得
+            IMAGE_NAME="$IMAGE_NAME"
+          fi
+          echo "Deploying image: $IMAGE_NAME"
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image "$IMAGE_NAME" \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --min-instances 1 \
+            --max-instances 2 \
+            --cpu 1 \
+            --memory 256Mi \
+            --concurrency 10 \
+            --timeout 3600 \
+            --set-env-vars YT_API_KEY=${{ secrets.YT_API_KEY }} \
+            --port 8080
+
+      - name: Get Cloud Run URL
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE }} --region ${{ env.REGION }} --format 'value(status.url)')
+          echo "### 🚀 デプロイ完了！" >> $GITHUB_STEP_SUMMARY
+          echo "- **アプリURL**: $URL" >> $GITHUB_STEP_SUMMARY
+          echo "- **ユーザーリスト**: $URL/users" >> $GITHUB_STEP_SUMMARY
+          echo "- **ログ**: $URL/logs" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Active**: $URL/api/monitoring/active" >> $GITHUB_STEP_SUMMARY
