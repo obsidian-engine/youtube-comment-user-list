@@ -18,11 +18,9 @@ COPY . .
 
 # バイナリをビルド（静的リンク & buildxキャッシュ対応）
 RUN --mount=type=cache,target=/go/pkg/mod \
-    set -e; \
-    if [ -d cmd/server ]; then TARGET=./cmd/server; else TARGET=./; fi; \
-    echo "Building target: $TARGET"; \
+    cd cmd/server && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-      go build -ldflags="-w -s -extldflags '-static'" -a -installsuffix cgo -o /app/server "$TARGET"
+      go build -ldflags="-w -s -extldflags '-static'" -a -installsuffix cgo -o /app/server .
 
 # 本番用の最小イメージ
 FROM scratch
