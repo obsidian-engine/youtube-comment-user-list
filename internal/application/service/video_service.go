@@ -37,32 +37,6 @@ func NewVideoService(youtubeClient repository.YouTubeClient, logger repository.L
 	}
 }
 
-// GetVideoInfo 動画情報を取得します（常に最新取得 / キャッシュ無視）
-func (vs *VideoService) GetVideoInfo(ctx context.Context, videoID string) (*entity.VideoInfo, error) {
-	correlationID := fmt.Sprintf("video-%s", videoID)
-
-	vs.logger.LogAPI("INFO", "Fetching video info", videoID, correlationID, map[string]interface{}{
-		"operation": "get_video_info",
-	})
-
-	videoInfo, err := vs.youtubeClient.FetchVideoInfo(ctx, videoID)
-	if err != nil {
-		vs.logger.LogError("ERROR", "Failed to fetch video info", videoID, correlationID, err, map[string]interface{}{
-			"operation": "get_video_info",
-		})
-		return nil, fmt.Errorf("failed to fetch video info: %w", err)
-	}
-
-	vs.logger.LogAPI("INFO", "Successfully fetched video info", videoID, correlationID, map[string]interface{}{
-		"operation":     "get_video_info",
-		"title":         videoInfo.Title,
-		"channelTitle":  videoInfo.ChannelTitle,
-		"broadcastType": videoInfo.LiveBroadcastContent,
-	})
-
-	return videoInfo, nil
-}
-
 // getVideoInfoCached キャッシュ＋TTL＋quotaExceeded バックオフを用いて���画情報を取得
 // ttl: 再フェッチしない最小期間
 // backoffOnQuota: クォータ超過時に設定するバックオフ期間
@@ -117,12 +91,6 @@ func (vs *VideoService) ExtractVideoIDFromURL(inputURL string) (string, error) {
 	return entity.ExtractVideoIDFromURL(inputURL)
 }
 
-// ValidateLiveStream ライブ配信が有効かどうかを検証します（常に最新取得）
-func (vs *VideoService) ValidateLiveStream(ctx context.Context, videoID string) error {
-	_, err := vs.ValidateLiveStreamAndGetInfo(ctx, videoID)
-	return err
-}
-
 // ValidateLiveStreamAndGetInfo ライブ配信を検証し、同時に VideoInfo を返します（1回の取得で完了）
 func (vs *VideoService) ValidateLiveStreamAndGetInfo(ctx context.Context, videoID string) (*entity.VideoInfo, error) {
 	correlationID := fmt.Sprintf("validate-%s", videoID)
@@ -139,7 +107,7 @@ func (vs *VideoService) ValidateLiveStreamAndGetInfo(ctx context.Context, videoI
 		if strings.Contains(low, "quotaexceeded") || strings.Contains(low, "quota exceeded") {
 			msg := "YouTube API のクォータを超過しています。しばらく（15分程度）待ってから再試行してください。"
 			vs.logger.LogError("ERROR", "Quota exceeded when validating live stream", videoID, correlationID, err, map[string]interface{}{
-				"operation": "validate_live_stream",
+				"operation":    "validate_live_stream",
 				"user_message": msg,
 			})
 			return nil, fmt.Errorf(msg+": %w", err)

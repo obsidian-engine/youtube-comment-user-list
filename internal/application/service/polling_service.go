@@ -209,12 +209,3 @@ func (ps *PollingService) calculateBackoffTime(consecutiveErrors int) time.Durat
 	}
 	return time.Duration(backoffSeconds) * time.Second
 }
-
-// GetPollingStatus ポーリングの現在の状態を取得します
-func (ps *PollingService) GetPollingStatus(ctx context.Context, videoID string) (bool, error) {
-	// 未使用パラメータの警告回避のため一度参照
-	_ = ctx
-	_ = videoID
-	// 将来的にはポーリング管理の状態を返す実装に置き換えてください。
-	return false, nil
-}

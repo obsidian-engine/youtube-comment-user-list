@@ -161,8 +161,6 @@ func (h *SSEHandler) sendChatMessage(w http.ResponseWriter, message *entity.Chat
 	h.sendSSEMessage(w, "message", messageData, message.VideoID)
 }
 
-// 古いsendSSEMessage関数は削除 - sendSSEMessageToGinを使用
-
 // sendSSEMessage SSEメッセージ送信
 func (h *SSEHandler) sendSSEMessage(w http.ResponseWriter, eventType string, data interface{}, videoID string) {
 	jsonData, err := json.Marshal(data)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/application/usecase"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/interfaces/http/response"
 )
@@ -35,22 +34,6 @@ func NewMonitoringHandler(
 type StartMonitoringRequest struct {
 	VideoInput string `json:"video_input"`
 	MaxUsers   int    `json:"max_users"`
-}
-
-// StartMonitoringResponse 監視開始のレスポンスを表します
-type StartMonitoringResponse struct {
-	Success bool   `json:"success"`
-	VideoID string `json:"video_id"`
-	Message string `json:"message"`
-	Error   string `json:"error,omitempty"`
-}
-
-// UserListResponse ユーザーリストのレスポンスを表します
-type UserListResponse struct {
-	Success bool           `json:"success"`
-	Users   []*entity.User `json:"users"`
-	Count   int            `json:"count"`
-	Error   string         `json:"error,omitempty"`
 }
 
 // StartMonitoring POST /api/monitoring/start を処理します

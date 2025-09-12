@@ -208,29 +208,3 @@ func (uc *LogManagementUseCase) matchesFilters(entry LogEntry, filters LogFilter
 
 	return true
 }
-
-// LogAPI 構造化データでAPI関連のイベントをログに記録します
-func (uc *LogManagementUseCase) LogAPI(level, message, videoID, correlationID string, context map[string]interface{}) {
-	uc.AddLogEntry(level, "api", "api_call", message, videoID, correlationID, context)
-}
-
-// LogPoller ポーリング関連のイベントをログに記録します
-func (uc *LogManagementUseCase) LogPoller(level, message, videoID, correlationID string, context map[string]interface{}) {
-	uc.AddLogEntry(level, "poller", "polling_event", message, videoID, correlationID, context)
-}
-
-// LogUser ユーザー関連のイベントをログに記録します
-func (uc *LogManagementUseCase) LogUser(level, message, videoID, correlationID string, context map[string]interface{}) {
-	uc.AddLogEntry(level, "user", "user_event", message, videoID, correlationID, context)
-}
-
-// LogError エラーの詳細と共にエラーイベントをログに記録します
-func (uc *LogManagementUseCase) LogError(level, message, videoID, correlationID string, err error, context map[string]interface{}) {
-	if context == nil {
-		context = make(map[string]interface{})
-	}
-	if err != nil {
-		context["error"] = err.Error()
-	}
-	uc.AddLogEntry(level, "error", "error_occurred", message, videoID, correlationID, context)
-}
