@@ -11,6 +11,7 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/interfaces/http/response"
 )
 
 // MonitoringHandler チャット監視のHTTPリクエストを処理します
@@ -67,13 +68,13 @@ func (h *MonitoringHandler) StartMonitoring(w http.ResponseWriter, r *http.Reque
 	var req StartMonitoringRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.LogError("ERROR", "Invalid request body", "", correlationID, err, nil)
-		h.writeJSONError(w, http.StatusBadRequest, "Invalid request body", correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusBadRequest, "Invalid request body", correlationID)
 		return
 	}
 
 	// リクエストを検証
 	if req.VideoInput == "" {
-		h.writeJSONError(w, http.StatusBadRequest, "video_input is required", correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusBadRequest, "video_input is required", correlationID)
 		return
 	}
 
@@ -85,22 +86,16 @@ func (h *MonitoringHandler) StartMonitoring(w http.ResponseWriter, r *http.Reque
 	session, err := h.chatMonitoringUC.StartMonitoring(r.Context(), req.VideoInput, req.MaxUsers)
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to start monitoring", req.VideoInput, correlationID, err, nil)
-		h.writeJSONError(w, http.StatusInternalServerError, err.Error(), correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
 		return
 	}
 
-	response := StartMonitoringResponse{
-		Success: true,
-		VideoID: session.VideoID,
-		Message: "Monitoring started successfully",
-	}
-
 	h.logger.LogAPI("INFO", "Start monitoring response", session.VideoID, correlationID, map[string]interface{}{
-		"success": response.Success,
-		"videoID": response.VideoID,
+		"success": true,
+		"videoID": session.VideoID,
 	})
 
-	h.writeJSON(w, http.StatusOK, response)
+	response.RenderStartMonitoring(w, r, session.VideoID, "Monitoring started successfully")
 }
 
 // StopMonitoring POST /api/monitoring/stop を処理します
@@ -117,25 +112,21 @@ func (h *MonitoringHandler) StopMonitoring(w http.ResponseWriter, r *http.Reques
 		// 既に停止済みの場合は正常レスポンスを返す
 		if err.Error() == "no active monitoring session" {
 			h.logger.LogAPI("INFO", "Monitoring already stopped", "", correlationID, nil)
-			h.writeJSON(w, http.StatusOK, map[string]interface{}{
-				"success":       true,
-				"message":       "Monitoring already stopped",
-				"correlationID": correlationID,
-			})
+			response.RenderSuccessWithCorrelation(w, r, map[string]string{
+				"message": "Monitoring already stopped",
+			}, correlationID)
 			return
 		}
 
 		// その他のエラーの場合はエラーレスポンス
 		h.logger.LogError("ERROR", "Failed to stop monitoring", "", correlationID, err, nil)
-		h.writeJSONError(w, http.StatusInternalServerError, err.Error(), correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
 		return
 	}
 
-	h.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"success":       true,
-		"message":       "Monitoring stopped successfully",
-		"correlationID": correlationID,
-	})
+	response.RenderSuccessWithCorrelation(w, r, map[string]string{
+		"message": "Monitoring stopped successfully",
+	}, correlationID)
 }
 
 // GetUserList GET /api/monitoring/{videoId}/users を処理します
@@ -144,7 +135,7 @@ func (h *MonitoringHandler) GetUserList(w http.ResponseWriter, r *http.Request) 
 	videoID := chi.URLParam(r, "videoId")
 
 	if videoID == "" {
-		h.writeJSONError(w, http.StatusBadRequest, "video ID is required", correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusBadRequest, "video ID is required", correlationID)
 		return
 	}
 
@@ -157,14 +148,8 @@ func (h *MonitoringHandler) GetUserList(w http.ResponseWriter, r *http.Request) 
 			"statusCode": http.StatusInternalServerError,
 			"error":      err.Error(),
 		})
-		h.writeJSONError(w, http.StatusInternalServerError, err.Error(), correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
 		return
-	}
-
-	response := UserListResponse{
-		Success: true,
-		Users:   users,
-		Count:   len(users),
 	}
 
 	// デバッグ用：レスポンスをログ出力
@@ -173,7 +158,7 @@ func (h *MonitoringHandler) GetUserList(w http.ResponseWriter, r *http.Request) 
 		"success":   true,
 	})
 
-	h.writeJSON(w, http.StatusOK, response)
+	response.RenderUserList(w, r, users, len(users))
 }
 
 // GetActiveVideoID 現在監視中のvideoIDを取得します
@@ -183,23 +168,18 @@ func (h *MonitoringHandler) GetActiveVideoID(w http.ResponseWriter, r *http.Requ
 	videoID, isActive, exists := h.chatMonitoringUC.GetActiveVideoID()
 	if !exists {
 		h.logger.LogAPI("INFO", "No monitoring session found", "", correlationID, nil)
-		h.writeJSON(w, http.StatusNotFound, map[string]interface{}{
-			"error":         "No monitoring session found",
-			"message":       "no active or previous video",
-			"correlationID": correlationID,
-		})
+		response.RenderErrorWithCorrelation(w, r, http.StatusNotFound, "No monitoring session found", correlationID)
 		return
 	}
 
 	h.logger.LogAPI("INFO", "Video ID retrieved", videoID, correlationID, map[string]interface{}{
 		"isActive": isActive,
 	})
-	h.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"success":       true,
-		"videoId":       videoID,
-		"isActive":      isActive,
-		"correlationID": correlationID,
-	})
+
+	response.RenderSuccessWithCorrelation(w, r, map[string]interface{}{
+		"videoId":  videoID,
+		"isActive": isActive,
+	}, correlationID)
 }
 
 // GetVideoStatus GET /api/monitoring/{videoId}/status を処理します
@@ -208,7 +188,7 @@ func (h *MonitoringHandler) GetVideoStatus(w http.ResponseWriter, r *http.Reques
 	videoID := chi.URLParam(r, "videoId")
 
 	if videoID == "" {
-		h.writeJSONError(w, http.StatusBadRequest, "video ID is required", correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusBadRequest, "video ID is required", correlationID)
 		return
 	}
 
@@ -217,34 +197,12 @@ func (h *MonitoringHandler) GetVideoStatus(w http.ResponseWriter, r *http.Reques
 	status, err := h.chatMonitoringUC.GetVideoStatus(r.Context(), videoID)
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to get video status", videoID, correlationID, err, nil)
-		h.writeJSONError(w, http.StatusInternalServerError, err.Error(), correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
 		return
 	}
 
-	h.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"success": true,
+	response.RenderSuccess(w, r, map[string]interface{}{
 		"videoID": videoID,
 		"status":  status,
 	})
-}
-
-// writeJSON はJSONレスポンスを書き込みます
-func (h *MonitoringHandler) writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		h.logger.LogError("ERROR", "Failed to encode JSON response", "", "", err, nil)
-	}
-}
-
-// writeJSONError はJSONエラーレスポンスを書き込みます
-func (h *MonitoringHandler) writeJSONError(w http.ResponseWriter, statusCode int, message, correlationID string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"error":         message,
-		"correlationID": correlationID,
-	}); err != nil {
-		h.logger.LogError("ERROR", "Failed to encode JSON error response", "", correlationID, err, nil)
-	}
 }

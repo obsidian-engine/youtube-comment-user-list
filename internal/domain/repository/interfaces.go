@@ -47,6 +47,12 @@ type Logger interface {
 
 	// LogError エラーイベントをログ出力します
 	LogError(level, message, videoID, correlationID string, err error, context map[string]interface{})
+
+	// WithRequestID リクエストIDを含むロガーを返します（slog対応）
+	WithRequestID(requestID string) Logger
+
+	// WithContext コンテキストを含むロガーを返します（slog対応）
+	WithContext(ctx context.Context) Logger
 }
 
 // EventPublisher イベント発行のインターフェースを表します
