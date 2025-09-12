@@ -294,7 +294,7 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
         .md-btn{--elev:0 2px 4px rgba(0,0,0,.35);--elevH:0 6px 16px rgba(0,0,0,.45);display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,#2196f3,#1976d2);color:#e8f2ff;font-weight:600;letter-spacing:.3px;cursor:pointer;box-shadow:var(--elev);transition:box-shadow .25s,transform .1s,filter .2s}
         .md-btn:hover{box-shadow:var(--elevH);filter:saturate(1.05)}
         .md-btn:active{transform:translateY(1px)}
-        .md-btn.outlined{background:transparent;border:1px solid var(--md-sys-color-outline);color:var(--md-sys-color-primary)}
+        .md-btn.outlined{background:transparent;border:1px solid var(--md-sys-color-outline);color:var(--md-sys-color-primary}
         @media (max-width:720px){
             thead{display:none}
             table, tbody, tr, td{display:block;width:100%}
@@ -336,7 +336,7 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
             <div class="content">
                 <div class="meta" style="margin-bottom:8px">
                     <span id="count">0</span> 名 <span id="updated"></span>
-                    <span style="margin-left:12px;font-size:11px;opacity:.75">自動更新: 10秒間隔</span>
+                    <span style="margin-left:12px;font-size:11px;opacity:.75">自動更新: 60秒間隔</span>
                 </div>
                 <div id="userList">
                     <div class="empty">データを読み込んでいます…</div>
@@ -351,7 +351,7 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
 
     <script>
         // --- 設定 ---
-        const REFRESH_INTERVAL_MS = 10000; // 10秒固定
+        const REFRESH_INTERVAL_MS = 60000; // 60秒(1分)固定
         
         // --- 状態 ---
         let cachedUsers = [];
@@ -430,7 +430,7 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
                 const cls = isActive ? 'status online' : 'status offline';
                 const txt = isActive ? 'オンライン' : '停止済み';
                 statusDiv.className = 'status ' + cls.split(' ').pop();
-                statusDiv.textContent = txt + ' - ユーザー数: ' + (listData.count ?? cachedUsers.length);
+                statusDiv.textContent = txt + ' - コメントユーザー数: ' + (listData.count ?? cachedUsers.length);
                 updated.textContent = '（更新: ' + new Date().toLocaleTimeString() + '）';
 
                 // LIVEステータス vs 監視状態
@@ -507,30 +507,27 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
             }
 
             let html = '';
-            html += '<table><thead><tr>'+
-                '<th class="idx">#</th>'+
-                '<th>ユーザー名</th>'+
-                '<th>Channel ID</th>'+
-                '<th>初回参加</th>'+
-                '<th>最終発言</th>'+
-                '<th>発言数</th>'+
-                '<th></th>'+
+            html += '<table><thead><tr>'+ 
+                '<th class="idx">#</th>'+ 
+                '<th>ユーザー名</th>'+ 
+                '<th>Channel ID</th>'+ 
+                '<th>初回参加</th>'+ 
+                '<th>発言数</th>'+ 
+                '<th></th>'+ 
                 '</tr></thead><tbody>';
             users.forEach((u,i)=>{
                 const name = (u.display_name || u.displayName || '');
                 const cid = (u.channel_id || u.channelID || '');
                 const first = fmtDate(u.first_seen || u.firstSeen);
-                const last = fmtDate(u.last_seen || u.lastSeen);
                 const msgCount = (u.message_count != null) ? u.message_count : (u.messageCount || 0);
                 const url = cid ? 'https://www.youtube.com/channel/' + encodeURIComponent(cid) : '#';
-                html += '<tr>'+
-                    '<td class="idx">'+(i+1)+'</td>'+
-                    '<td class="name">'+escapeHtml(name)+'</td>'+
-                    '<td><a href="'+url+'" target="_blank" rel="noopener">'+escapeHtml(cid)+'</a></td>'+
-                    '<td><span class="pill">'+first+'</span></td>'+
-                    '<td><span class="pill">'+last+'</span></td>'+
-                    '<td>'+msgCount+'</td>'+
-                    '<td class="actions"><button onclick="copy(\''+cid+'\')">Copy</button></td>'+
+                html += '<tr>'+ 
+                    '<td class="idx">'+(i+1)+'</td>'+ 
+                    '<td class="name">'+escapeHtml(name)+'</td>'+ 
+                    '<td><a href="'+url+'" target="_blank" rel="noopener">'+escapeHtml(cid)+'</a></td>'+ 
+                    '<td><span class="pill">'+first+'</span></td>'+ 
+                    '<td>'+msgCount+'</td>'+ 
+                    '<td class="actions"><button onclick="copy(\''+cid+'\')">Copy</button></td>'+ 
                     '</tr>';
             });
             html += '</tbody></table>';
