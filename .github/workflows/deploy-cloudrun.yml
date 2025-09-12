@@ -1,0 +1,75 @@
+name: Deploy to Google Cloud Run
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1  # Always Free リージョン
+  SERVICE: yt-livechat
+  REPOSITORY: yt-livechat
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Configure Docker for Artifact Registry
+      run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+    - name: Build and push Docker image
+      run: |
+        # イメージ名を設定
+        IMAGE_NAME="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}"
+        
+        # Docker イメージをビルド
+        docker build -t $IMAGE_NAME .
+        
+        # Artifact Registry にプッシュ
+        docker push $IMAGE_NAME
+        
+        # 次のステップで使用するためにイメージ名を出力
+        echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy ${{ env.SERVICE }} \
+          --image ${{ env.IMAGE_NAME }} \
+          --region ${{ env.REGION }} \
+          --platform managed \
+          --allow-unauthenticated \
+          --min-instances 1 \
+          --max-instances 2 \
+          --cpu 1 \
+          --memory 256Mi \
+          --concurrency 10 \
+          --timeout 3600 \
+          --set-env-vars "YT_API_KEY=${{ secrets.YT_API_KEY }}" \
+          --port 8080
+
+    - name: Get Cloud Run URL
+      run: |
+        URL=$(gcloud run services describe ${{ env.SERVICE }} \
+          --region ${{ env.REGION }} \
+          --format 'value(status.url)')
+        echo "### 🚀 デプロイ完了！" >> $GITHUB_STEP_SUMMARY
+        echo "- **アプリURL**: $URL" >> $GITHUB_STEP_SUMMARY
+        echo "- **オーバーレイURL**: $URL/overlay" >> $GITHUB_STEP_SUMMARY
+        echo "- **JSON API**: $URL/users.json" >> $GITHUB_STEP_SUMMARY

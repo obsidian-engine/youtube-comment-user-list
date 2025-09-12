@@ -1,0 +1,50 @@
+version: "2"
+
+# 無視するファイル
+exclude:
+  - ".*_test.go"
+  - "vendor/.*"
+  - ".*\\.gen\\.go"
+  - ".*\\.pb\\.go"
+  - ".*\\.pb\\.gw\\.go"
+  - ".*mock.*\\.go"
+  - ".*mock_.*\\.go"
+  - "third_party/.*"
+  - "examples/.*"
+  - "scripts/.*"
+  - "tools/.*"
+  - ".env"
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - ineffassign
+    - gosec
+    - misspell
+    - gocyclo
+    - dupl
+    - goconst
+    - revive
+    - unconvert
+    - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+run:
+  timeout: 5m
+  go: "1.21"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-use-default: false
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
