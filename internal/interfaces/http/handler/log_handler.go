@@ -13,13 +13,13 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
 )
 
-// LogHandler HTTP requests for log managementを処理します
+// LogHandler ログ管理のHTTPリクエストを処理します
 type LogHandler struct {
 	logManagementUC *usecase.LogManagementUseCase
 	logger          service.Logger
 }
 
-// NewLogHandler 新しいlogを作成します handler
+// NewLogHandler 新しいログハンドラーを作成します
 func NewLogHandler(
 	logManagementUC *usecase.LogManagementUseCase,
 	logger service.Logger,
@@ -30,13 +30,13 @@ func NewLogHandler(
 	}
 }
 
-// GetLogs handles GET /api/logs
+// GetLogs GET /api/logs を処理します
 func (h *LogHandler) GetLogs(c *gin.Context) {
 	correlationID := fmt.Sprintf("logs-%s", c.GetString("requestId"))
 
 	h.logger.LogAPI("INFO", "Get logs request received", "", correlationID, nil)
 
-	// Parse query parameters for filtering
+	// フィルタリング用のクエリパラメータを解析
 	filters := h.parseLogFiltersFromGin(c)
 
 	logs, err := h.logManagementUC.GetRecentLogs(c.Request.Context(), filters)
@@ -54,7 +54,7 @@ func (h *LogHandler) GetLogs(c *gin.Context) {
 	})
 }
 
-// GetLogStats handles GET /api/logs/stats
+// GetLogStats GET /api/logs/stats を処理します
 func (h *LogHandler) GetLogStats(c *gin.Context) {
 	correlationID := fmt.Sprintf("logs-stats-%s", c.GetString("requestId"))
 
@@ -67,7 +67,7 @@ func (h *LogHandler) GetLogStats(c *gin.Context) {
 		return
 	}
 
-	// Extract values from map
+	// マップから値を抽出
 	totalEntries, _ := stats["totalEntries"].(int)
 	levelCounts, _ := stats["levelCounts"].(map[string]int)
 
@@ -85,7 +85,7 @@ func (h *LogHandler) GetLogStats(c *gin.Context) {
 	})
 }
 
-// ClearLogs handles DELETE /api/logs
+// ClearLogs DELETE /api/logs を処理します
 func (h *LogHandler) ClearLogs(c *gin.Context) {
 	correlationID := fmt.Sprintf("logs-clear-%s", c.GetString("requestId"))
 
@@ -104,13 +104,13 @@ func (h *LogHandler) ClearLogs(c *gin.Context) {
 	})
 }
 
-// ExportLogs handles GET /api/logs/export
+// ExportLogs GET /api/logs/export を処理します
 func (h *LogHandler) ExportLogs(c *gin.Context) {
 	correlationID := fmt.Sprintf("logs-export-%s", c.GetString("requestId"))
 
 	h.logger.LogAPI("INFO", "Export logs request received", "", correlationID, nil)
 
-	// Parse query parameters for filtering
+	// フィルタリング用のクエリパラメータを解析
 	filters := h.parseLogFiltersFromGin(c)
 
 	exportData, err := h.logManagementUC.ExportLogs(c.Request.Context(), filters)
@@ -120,7 +120,7 @@ func (h *LogHandler) ExportLogs(c *gin.Context) {
 		return
 	}
 
-	// Set headers for file download
+	// ファイルダウンロード用のヘッダーを設定
 	c.Header("Content-Type", "application/json")
 	c.Header("Content-Disposition", "attachment; filename=\"logs_export.json\"")
 
@@ -153,7 +153,7 @@ func (h *LogHandler) parseLogFiltersFromGin(c *gin.Context) usecase.LogFilters {
 		}
 	}
 
-	// Default limit if not specified
+	// 指定されていない場合のデフォルト制限
 	if filters.Limit == constants.MinValidLimit {
 		filters.Limit = constants.DefaultLogDisplayLimit
 	}
@@ -161,4 +161,4 @@ func (h *LogHandler) parseLogFiltersFromGin(c *gin.Context) usecase.LogFilters {
 	return filters
 }
 
-// Helper methods
+// ヘルパーメソッド

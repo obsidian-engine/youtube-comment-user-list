@@ -15,13 +15,13 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
 )
 
-// SSEHandler Server-Sent Events for real-time updatesを処理します
+// SSEHandler リアルタイム更新用のServer-Sent Eventsを処理します
 type SSEHandler struct {
 	chatMonitoringUC *usecase.ChatMonitoringUseCase
 	logger           service.Logger
 }
 
-// NewSSEHandler 新しいSSEを作成します handler
+// NewSSEHandler 新しいSSEハンドラーを作成します
 func NewSSEHandler(
 	chatMonitoringUC *usecase.ChatMonitoringUseCase,
 	logger service.Logger,
@@ -32,7 +32,7 @@ func NewSSEHandler(
 	}
 }
 
-// SSEMessage a Server-Sent Event messageを表します
+// SSEMessage Server-Sent Eventメッセージを表します
 type SSEMessage struct {
 	Type        string `json:"type"`
 	VideoID     string `json:"video_id"`
@@ -42,7 +42,7 @@ type SSEMessage struct {
 	Timestamp   string `json:"timestamp"`
 }
 
-// StreamMessages handles GET /api/sse/{videoId}
+// StreamMessages GET /api/sse/{videoId} を処理します
 func (h *SSEHandler) StreamMessages(c *gin.Context) {
 	correlationID := fmt.Sprintf("sse-%d", time.Now().Unix())
 	videoID := c.Param("videoId")
@@ -57,14 +57,14 @@ func (h *SSEHandler) StreamMessages(c *gin.Context) {
 		"remoteAddr": c.ClientIP(),
 	})
 
-	// Set SSE headers
+	// SSEヘッダーを設定
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("Access-Control-Allow-Origin", "*")
 	c.Header("Access-Control-Allow-Headers", "Cache-Control")
 
-	// Get the monitoring session
+	// 監視セッションを取得
 	_, exists := h.chatMonitoringUC.GetMonitoringSession(videoID)
 	if !exists {
 		h.logger.LogError("ERROR", "No active monitoring session found", videoID, correlationID, nil, nil)
@@ -74,27 +74,27 @@ func (h *SSEHandler) StreamMessages(c *gin.Context) {
 		return
 	}
 
-	// Send initial connection message
+	// 初期接続メッセージを送信
 	h.sendSSEMessageToGin(c.Writer, "connected", map[string]interface{}{
 		"message":     "Connected to live chat stream",
 		"videoId":     videoID,
 		"subscribers": 1,
 	}, videoID)
 
-	// Flush initial response
+	// 初期レスポンスをフラッシュ
 	c.Writer.Flush()
 
 	h.logger.LogAPI("INFO", "SSE stream established", videoID, correlationID, nil)
 
-	// Create a context that will be cancelled when the client disconnects
+	// クライアント切断時にキャンセルされるコンテキストを作成
 	ctx, cancel := context.WithCancel(c.Request.Context())
 	defer cancel()
 
-	// Send periodic heartbeat and listen for messages
+	// 定期的なハートビートを送信し、メッセージを監視
 	heartbeatTicker := time.NewTicker(constants.SSEHeartbeatInterval)
 	defer heartbeatTicker.Stop()
 
-	// Channel to receive messages from the monitoring session
+	// 監視セッションからメッセージを受信するチャネル
 	session, _ := h.chatMonitoringUC.GetMonitoringSession(videoID)
 	messagesChan := session.MessagesChan
 
@@ -105,7 +105,7 @@ func (h *SSEHandler) StreamMessages(c *gin.Context) {
 			return
 
 		case <-heartbeatTicker.C:
-			// Send heartbeat
+			// ハートビートを送信
 			h.sendSSEMessageToGin(c.Writer, "heartbeat", map[string]interface{}{
 				"timestamp": time.Now().Format(constants.TimeFormatISO8601),
 			}, videoID)
@@ -113,7 +113,7 @@ func (h *SSEHandler) StreamMessages(c *gin.Context) {
 
 		case message, ok := <-messagesChan:
 			if !ok {
-				// Channel closed, monitoring stopped
+				// チャネルが閉じられ、監視が停止されました
 				h.sendSSEMessageToGin(c.Writer, "monitoring_stopped", map[string]string{
 					"message": "Monitoring session ended",
 				}, videoID)
@@ -122,12 +122,12 @@ func (h *SSEHandler) StreamMessages(c *gin.Context) {
 				return
 			}
 
-			// Send chat message to client
+			// チャットメッセージをクライアントに送信
 			h.sendChatMessageToGin(c.Writer, &message, correlationID)
 			c.Writer.Flush()
 
 		case <-time.After(constants.SSEConnectionTimeout):
-			// Timeout - close connection to prevent resource leaks
+			// タイムアウト - リソースリークを防ぐため接続を閉じる
 			h.logger.LogAPI("INFO", "SSE connection timeout", videoID, correlationID, nil)
 			h.sendSSEMessageToGin(c.Writer, "timeout", map[string]string{
 				"message": "Connection timeout",
@@ -137,7 +137,7 @@ func (h *SSEHandler) StreamMessages(c *gin.Context) {
 	}
 }
 
-// Old sendChatMessage function removed - using sendChatMessageToGin instead
+// 古いsendChatMessage関数は削除 - sendChatMessageToGinを使用
 
 // sendChatMessageToGin Gin用のチャットメッセージ送信
 func (h *SSEHandler) sendChatMessageToGin(w gin.ResponseWriter, message *entity.ChatMessage, _ string) {
@@ -153,7 +153,7 @@ func (h *SSEHandler) sendChatMessageToGin(w gin.ResponseWriter, message *entity.
 	h.sendSSEMessageToGin(w, "message", messageData, message.VideoID)
 }
 
-// Old sendSSEMessage function removed - using sendSSEMessageToGin instead
+// 古いsendSSEMessage関数は削除 - sendSSEMessageToGinを使用
 
 // sendSSEMessageToGin Gin用のSSEメッセージ送信
 func (h *SSEHandler) sendSSEMessageToGin(w gin.ResponseWriter, eventType string, data interface{}, videoID string) {
@@ -169,7 +169,7 @@ func (h *SSEHandler) sendSSEMessageToGin(w gin.ResponseWriter, eventType string,
 	}
 }
 
-// StreamUserList handles GET /api/sse/{videoId}/users
+// StreamUserList GET /api/sse/{videoId}/users を処理します
 func (h *SSEHandler) StreamUserList(c *gin.Context) {
 	correlationID := fmt.Sprintf("sse-users-%d", time.Now().Unix())
 	videoID := c.Param("videoId")
@@ -184,14 +184,14 @@ func (h *SSEHandler) StreamUserList(c *gin.Context) {
 		"remoteAddr": c.ClientIP(),
 	})
 
-	// Set SSE headers
+	// SSEヘッダーを設定
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("Access-Control-Allow-Origin", "*")
 	c.Header("Access-Control-Allow-Headers", "Cache-Control")
 
-	// Get the monitoring session
+	// 監視セッションを取得
 	_, exists := h.chatMonitoringUC.GetMonitoringSession(videoID)
 	if !exists {
 		h.logger.LogError("ERROR", "No active monitoring session found", videoID, correlationID, nil, nil)
@@ -201,25 +201,25 @@ func (h *SSEHandler) StreamUserList(c *gin.Context) {
 		return
 	}
 
-	// Send initial connection message
+	// 初期接続メッセージを送信
 	h.sendSSEMessageToGin(c.Writer, "connected", map[string]interface{}{
 		"message": "Connected to user list stream",
 		"videoId": videoID,
 	}, videoID)
 
-	// Send current user list
+	// 現在のユーザーリストを送信
 	h.sendCurrentUserListToGin(c.Writer, videoID, correlationID)
 
-	// Flush initial response
+	// 初期レスポンスをフラッシュ
 	c.Writer.Flush()
 
 	h.logger.LogAPI("INFO", "SSE user list stream established", videoID, correlationID, nil)
 
-	// Create a context that will be cancelled when the client disconnects
+	// クライアント切断時にキャンセルされるコンテキストを作成
 	ctx, cancel := context.WithCancel(c.Request.Context())
 	defer cancel()
 
-	// Send periodic user list updates
+	// 定期的なユーザーリスト更新を送信
 	updateTicker := time.NewTicker(constants.SSEUserListUpdateInterval)
 	defer updateTicker.Stop()
 
@@ -230,12 +230,12 @@ func (h *SSEHandler) StreamUserList(c *gin.Context) {
 			return
 
 		case <-updateTicker.C:
-			// Send updated user list
+			// 更新されたユーザーリストを送信
 			h.sendCurrentUserListToGin(c.Writer, videoID, correlationID)
 			c.Writer.Flush()
 
 		case <-time.After(constants.SSEConnectionTimeout):
-			// Timeout - close connection to prevent resource leaks
+			// タイムアウト - リソースリークを防ぐため接続を閉じる
 			h.logger.LogAPI("INFO", "SSE user list connection timeout", videoID, correlationID, nil)
 			h.sendSSEMessageToGin(c.Writer, "timeout", map[string]string{
 				"message": "Connection timeout",
@@ -245,7 +245,7 @@ func (h *SSEHandler) StreamUserList(c *gin.Context) {
 	}
 }
 
-// Old sendCurrentUserList function removed - using sendCurrentUserListToGin instead
+// 古いsendCurrentUserList関数は削除 - sendCurrentUserListToGinを使用
 
 // sendCurrentUserListToGin Gin用の現在のユーザーリスト送信
 func (h *SSEHandler) sendCurrentUserListToGin(w gin.ResponseWriter, videoID, correlationID string) {

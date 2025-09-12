@@ -17,7 +17,7 @@ type SimplePublisher struct {
 	}
 }
 
-// NewSimplePublisher 新しいsimpleを作成します event publisher
+// NewSimplePublisher 新しいイベントパブリッシャーを作成します
 func NewSimplePublisher(logger interface {
 	LogStructured(level, component, event, message, videoID, correlationID string, context map[string]interface{})
 }) *SimplePublisher {

@@ -35,7 +35,7 @@ type StartMonitoringRequest struct {
 	MaxUsers   int    `json:"max_users"`
 }
 
-// StartMonitoringResponse the response for starting monitoringを表します
+// StartMonitoringResponse 監視開始のレスポンスを表します
 type StartMonitoringResponse struct {
 	Success bool   `json:"success"`
 	VideoID string `json:"video_id"`
@@ -43,7 +43,7 @@ type StartMonitoringResponse struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// UserListResponse the user list responseを表します
+// UserListResponse ユーザーリストのレスポンスを表します
 type UserListResponse struct {
 	Success bool           `json:"success"`
 	Users   []*entity.User `json:"users"`
@@ -51,7 +51,7 @@ type UserListResponse struct {
 	Error   string         `json:"error,omitempty"`
 }
 
-// StartMonitoring handles POST /api/monitoring/start
+// StartMonitoring POST /api/monitoring/start を処理します
 func (h *MonitoringHandler) StartMonitoring(c *gin.Context) {
 	correlationID := fmt.Sprintf("http-%s", c.GetHeader("X-Request-ID"))
 	if correlationID == "http-" {
@@ -70,7 +70,7 @@ func (h *MonitoringHandler) StartMonitoring(c *gin.Context) {
 		return
 	}
 
-	// Validate request
+	// リクエストを検証
 	if req.VideoInput == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "video_input is required", "correlationID": correlationID})
 		return
@@ -80,7 +80,7 @@ func (h *MonitoringHandler) StartMonitoring(c *gin.Context) {
 		req.MaxUsers = constants.DefaultMaxUsers
 	}
 
-	// Start monitoring
+	// 監視を開始
 	session, err := h.chatMonitoringUC.StartMonitoring(c.Request.Context(), req.VideoInput, req.MaxUsers)
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to start monitoring", req.VideoInput, correlationID, err, nil)
@@ -102,7 +102,7 @@ func (h *MonitoringHandler) StartMonitoring(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// StopMonitoring handles POST /api/monitoring/stop/{videoId}
+// StopMonitoring POST /api/monitoring/stop/{videoId} を処理します
 func (h *MonitoringHandler) StopMonitoring(c *gin.Context) {
 	correlationID := fmt.Sprintf("http-%s", c.GetString("requestId"))
 	videoID := c.Param("videoId")
@@ -131,7 +131,7 @@ func (h *MonitoringHandler) StopMonitoring(c *gin.Context) {
 	})
 }
 
-// GetUserList handles GET /api/monitoring/{videoId}/users
+// GetUserList GET /api/monitoring/{videoId}/users を処理します
 func (h *MonitoringHandler) GetUserList(c *gin.Context) {
 	correlationID := fmt.Sprintf("http-%s", c.GetString("requestId"))
 	videoID := c.Param("videoId")
@@ -159,7 +159,7 @@ func (h *MonitoringHandler) GetUserList(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// GetVideoStatus handles GET /api/monitoring/{videoId}/status
+// GetVideoStatus GET /api/monitoring/{videoId}/status を処理します
 func (h *MonitoringHandler) GetVideoStatus(c *gin.Context) {
 	correlationID := fmt.Sprintf("http-%s", c.GetString("requestId"))
 	videoID := c.Param("videoId")
@@ -185,14 +185,14 @@ func (h *MonitoringHandler) GetVideoStatus(c *gin.Context) {
 	})
 }
 
-// GetActiveVideos handles GET /api/monitoring/active
+// GetActiveVideos GET /api/monitoring/active を処理します
 func (h *MonitoringHandler) GetActiveVideos(c *gin.Context) {
 	correlationID := fmt.Sprintf("http-%s", c.GetString("requestId"))
 
 	h.logger.LogAPI("INFO", "Get active videos request received", "", correlationID, nil)
 
 	activeVideos := h.chatMonitoringUC.GetActiveVideos()
-	// No error handling needed for GetActiveVideos as it doesn't return an error
+	// GetActiveVideosはエラーを返さないため、エラーハンドリングは不要
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -201,4 +201,4 @@ func (h *MonitoringHandler) GetActiveVideos(c *gin.Context) {
 	})
 }
 
-// Helper methods
+// ヘルパーメソッド

@@ -163,9 +163,3 @@ func (l *StructuredLogger) isConsoleOutput() bool {
 	// 本番環境ではJSON形式を使用したい場合があります
 	return true
 }
-
-// SetJSONOutput ログをJSON形式で出力するように設定します
-func (l *StructuredLogger) SetJSONOutput(jsonOutput bool) {
-	// コンソールとJSON出力を切り替える実装が可能
-	// 現在は常にコンソール出力を使用
-}

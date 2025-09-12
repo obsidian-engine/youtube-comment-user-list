@@ -20,9 +20,6 @@ type YouTubeClient interface {
 type ChatRepository interface {
 	// SaveChatMessages チャットメッセージをストレージに永続化します
 	SaveChatMessages(ctx context.Context, messages []entity.ChatMessage) error
-
-	// GetChatHistory 動画のチャットメッセージ履歴を取得します
-	GetChatHistory(ctx context.Context, videoID string, limit int) ([]entity.ChatMessage, error)
 }
 
 // UserRepository ユーザーデータ操作のインターフェースを表します

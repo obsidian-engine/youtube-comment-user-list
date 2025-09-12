@@ -25,10 +25,8 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/interfaces/http/handler"
 )
 
-// ApplicationContainer holds all dependencies
 // ApplicationContainer はすべての依存関係を保持する
 type ApplicationContainer struct {
-	// Infrastructure
 	// インフラストラクチャ層
 	Logger         service.Logger
 	YouTubeClient  service.YouTubeClient
@@ -36,18 +34,15 @@ type ApplicationContainer struct {
 	ChatRepository service.ChatRepository
 	EventPublisher service.EventPublisher
 
-	// Domain Services
 	// ドメインサービス層
 	PollingService *service.PollingService
 	UserService    *service.UserService
 	VideoService   *service.VideoService
 
-	// Use Cases
 	// ユースケース層
 	ChatMonitoringUC *usecase.ChatMonitoringUseCase
 	LogManagementUC  *usecase.LogManagementUseCase
 
-	// HTTP Handlers
 	// HTTPハンドラー層
 	MonitoringHandler *handler.MonitoringHandler
 	SSEHandler        *handler.SSEHandler
@@ -58,20 +53,17 @@ type ApplicationContainer struct {
 func main() {
 	fmt.Println("Starting YouTube Live Chat Monitor...")
 
-	// Load environment variables
 	// 環境変数を読み込む
 	if err := godotenv.Load(".env"); err != nil {
 		log.Printf("Warning: Could not load .env file: %v", err)
 	}
 
-	// Get API key from environment
 	// 環境変数からAPIキーを取得
 	apiKey := os.Getenv("YT_API_KEY")
 	if apiKey == "" {
 		log.Fatal("YT_API_KEY environment variable is required")
 	}
 
-	// Build application container with dependency injection
 	// 依存性注入でアプリケーションコンテナを構築
 	container := buildContainer(apiKey)
 
@@ -79,11 +71,9 @@ func main() {
 		"version": "onion-architecture-refactored",
 	})
 
-	// Setup HTTP server
 	// HTTPサーバーをセットアップ
 	server := setupHTTPServer(container)
 
-	// Start server in background
 	// サーバーをバックグラウンドで開始
 	go func() {
 		container.Logger.LogStructured("INFO", "main", "server_start", fmt.Sprintf("HTTP server starting on %s", server.Addr), "", "", nil)
@@ -93,12 +83,10 @@ func main() {
 		}
 	}()
 
-	// Wait for shutdown signal
 	// シャットダウンシグナルを待機
 	waitForShutdown(container, server)
 }
 
-// buildContainer builds the application container with all dependencies
 // buildContainer は全ての依存関係を持つアプリケーションコンテナを構築する
 func buildContainer(apiKey string) *ApplicationContainer {
 	container := &ApplicationContainer{}
@@ -106,7 +94,6 @@ func buildContainer(apiKey string) *ApplicationContainer {
 	// Infrastructure layer
 	// インフラストラクチャ層
 
-	// Infrastructure
 	// インフラストラクチャ層 layer
 	container.Logger = logging.NewStructuredLogger()
 	container.YouTubeClient = youtube.NewClient(apiKey)
@@ -115,7 +102,6 @@ func buildContainer(apiKey string) *ApplicationContainer {
 	// 最大10,000メッセージ/動画
 	container.EventPublisher = events.NewSimplePublisher(container.Logger)
 
-	// Domain services
 	// ドメインサービス
 	container.PollingService = service.NewPollingService(
 		container.YouTubeClient,
@@ -135,7 +121,6 @@ func buildContainer(apiKey string) *ApplicationContainer {
 		container.Logger,
 	)
 
-	// Use cases
 	// ユースケース
 	container.ChatMonitoringUC = usecase.NewChatMonitoringUseCase(
 		container.PollingService,
@@ -150,7 +135,6 @@ func buildContainer(apiKey string) *ApplicationContainer {
 		// 最大1,000ログエントリ
 	)
 
-	// HTTP handlers
 	// HTTPハンドラー
 	container.MonitoringHandler = handler.NewMonitoringHandler(
 		container.ChatMonitoringUC,
@@ -174,29 +158,23 @@ func buildContainer(apiKey string) *ApplicationContainer {
 	return container
 }
 
-// setupHTTPServer configures and returns the HTTP server
 // setupHTTPServer はHTTPサーバーを設定して返す
 func setupHTTPServer(container *ApplicationContainer) *http.Server {
-	// Initialize Gin router
 	// Ginルーターを初期化
 	r := gin.New()
 
-	// Add middleware
 	// ミドルウェアを追加
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
-	// Static pages
 	// 静的ページ
 	r.GET("/", container.StaticHandler.ServeHome)
 	r.GET("/users", container.StaticHandler.ServeUserListPage)
 	r.GET("/logs", container.StaticHandler.ServeLogsPage)
 
-	// API endpoints
 	// APIエンドポイント
 	api := r.Group("/api")
 	{
-		// Monitoring endpoints
 		// 監視エンドポイント
 		monitoring := api.Group("/monitoring")
 		{
@@ -207,7 +185,6 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 			monitoring.GET("/:videoId/status", container.MonitoringHandler.GetVideoStatus)
 		}
 
-		// SSE endpoints
 		// SSEエンドポイント
 		sse := api.Group("/sse")
 		{
@@ -215,7 +192,6 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 			sse.GET("/:videoId/users", container.SSEHandler.StreamUserList)
 		}
 
-		// Log endpoints
 		// ログエンドポイント
 		logs := api.Group("/logs")
 		{
@@ -226,7 +202,6 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 		}
 	}
 
-	// Create server with proper timeouts
 	// 適切なタイムアウト設定でサーバーを作成
 	server := &http.Server{
 		Addr:         getEnv("PORT", ":8080"),
@@ -239,7 +214,6 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 	return server
 }
 
-// waitForShutdown waits for a shutdown signal and gracefully shuts down the server
 // waitForShutdown はシャットダウンシグナルを待機し、サーバーを優雅にシャットダウンする
 func waitForShutdown(container *ApplicationContainer, server *http.Server) {
 	quit := make(chan os.Signal, 1)
@@ -258,7 +232,6 @@ func waitForShutdown(container *ApplicationContainer, server *http.Server) {
 	container.Logger.LogStructured("INFO", "main", "shutdown_complete", "Application shutdown complete", "", "", nil)
 }
 
-// getEnv gets an environment variable with a default value
 // getEnv はデフォルト値付きで環境変数を取得する
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {

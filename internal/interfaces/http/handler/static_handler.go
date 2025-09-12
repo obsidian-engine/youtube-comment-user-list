@@ -8,19 +8,19 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
 )
 
-// StaticHandler static file serving and HTML pagesを処理します
+// StaticHandler 静的ファイル配信とHTMLページを処理します
 type StaticHandler struct {
 	logger service.Logger
 }
 
-// NewStaticHandler 新しいstaticを作成します handler
+// NewStaticHandler 新しい静的ハンドラーを作成します
 func NewStaticHandler(logger service.Logger) *StaticHandler {
 	return &StaticHandler{
 		logger: logger,
 	}
 }
 
-// ServeHome handles GET /
+// ServeHome GET / を処理します
 func (h *StaticHandler) ServeHome(c *gin.Context) {
 	h.logger.LogAPI("INFO", "Home page request", "", "", map[string]interface{}{
 		"userAgent":  c.GetHeader("User-Agent"),
@@ -222,7 +222,7 @@ func (h *StaticHandler) ServeHome(c *gin.Context) {
                 
                 if (data.success) {
                     alert('監視を停止しました');
-                    showActiveVideos(); // Refresh the list
+                    showActiveVideos(); // リストを更新
                 } else {
                     alert('エラー: ' + data.error);
                 }
@@ -238,7 +238,7 @@ func (h *StaticHandler) ServeHome(c *gin.Context) {
 	c.String(http.StatusOK, html)
 }
 
-// ServeUserListPage handles GET /users
+// ServeUserListPage GET /users を処理します
 func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
 	h.logger.LogAPI("INFO", "User list page request", "", "", map[string]interface{}{
 		"userAgent":  c.GetHeader("User-Agent"),
@@ -303,7 +303,7 @@ func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
     </div>
 
     <script>
-        // Get video_id from URL parameter
+        // URLパラメータからvideo_idを取得
         const urlParams = new URLSearchParams(window.location.search);
         const videoId = urlParams.get('video_id');
         if (videoId) {
@@ -353,7 +353,7 @@ func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
             }
         }
 
-        // Auto-refresh every 10 seconds
+        // 10秒ごとに自動更新
         setInterval(() => {
             if (document.getElementById('videoId').value.trim()) {
                 loadUsers();
@@ -367,7 +367,7 @@ func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
 	c.String(http.StatusOK, html)
 }
 
-// ServeLogsPage handles GET /logs
+// ServeLogsPage GET /logs を処理します
 func (h *StaticHandler) ServeLogsPage(c *gin.Context) {
 	h.logger.LogAPI("INFO", "Logs page request", "", "", map[string]interface{}{
 		"userAgent":  c.GetHeader("User-Agent"),
@@ -499,7 +499,7 @@ func (h *StaticHandler) ServeLogsPage(c *gin.Context) {
                     logContainer.innerHTML = '<p>ログがありません。</p>';
                 }
                 
-                // Load stats
+                // 統計情報を読み込み
                 loadLogStats();
             } catch (error) {
                 document.getElementById('logContainer').innerHTML = 
@@ -562,7 +562,7 @@ func (h *StaticHandler) ServeLogsPage(c *gin.Context) {
             }
         }
 
-        // Initialize
+        // 初期化
         loadLogs();
         startAutoRefresh();
     </script>

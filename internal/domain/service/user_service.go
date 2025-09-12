@@ -133,17 +133,3 @@ func (us *UserService) GetUserListSnapshot(ctx context.Context, videoID string) 
 
 	return userList.GetUsers(), nil
 }
-
-// ValidateUser ビジネスルールに対するユーザーデータを検証します
-func (us *UserService) ValidateUser(user *entity.User) error {
-	if user.ChannelID == "" {
-		return fmt.Errorf("channelID cannot be empty")
-	}
-
-	if user.DisplayName == "" {
-		return fmt.Errorf("displayName cannot be empty")
-	}
-
-	// ここに追加のビジネス検証ルールを追加してください
-	return nil
-}

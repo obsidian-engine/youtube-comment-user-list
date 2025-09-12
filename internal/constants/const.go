@@ -1,5 +1,4 @@
-// Package constants defines all application constants and magic numbers
-// パッケージconstantsは、すべてのアプリケーション定数とマジックナンバーを定義します
+// Package constants すべてのアプリケーション定数とマジックナンバーを定義します
 package constants
 
 import "time"
