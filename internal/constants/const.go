@@ -63,18 +63,6 @@ const (
 // Polling Service Configuration
 // ポーリングサービス設定
 const (
-	// MaxConsecutiveErrors 最大連続エラー数
-	MaxConsecutiveErrors = 5
-
-	// PollingBaseWaitTime ポーリングのベース待機時間
-	PollingBaseWaitTime = 5 * time.Second
-
-	// PollingMaxWaitTime ポーリングの最大待機時間
-	PollingMaxWaitTime = 60 * time.Second
-
-	// ExponentialBackoffMultiplier 指数バックオフの乗数
-	ExponentialBackoffMultiplier = 2
-
 	// DefaultPollingIntervalMs デフォルトポーリング間隔（ミリ秒）
 	DefaultPollingIntervalMs = 10000
 )
@@ -107,10 +95,4 @@ const (
 const (
 	// MinValidLimit 制限値の最小有効値
 	MinValidLimit = 0
-
-	// InitialCounterValue 初期カウンター値
-	InitialCounterValue = 0
-
-	// BackoffInitialStep バックオフの初期ステップ
-	BackoffInitialStep = 1
 )
