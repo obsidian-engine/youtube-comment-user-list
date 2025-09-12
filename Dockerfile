@@ -14,6 +14,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # ソースコードをコピー
+COPY cmd/server ./cmd/server
 COPY . .
 
 # バイナリをビルド（静的リンク & buildxキャッシュ対応）
