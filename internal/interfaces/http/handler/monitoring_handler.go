@@ -207,7 +207,6 @@ func (h *MonitoringHandler) GetVideoStatus(w http.ResponseWriter, r *http.Reques
 	})
 }
 
-
 // GetActiveUserList GET /api/monitoring/users を処理します（アクティブセッションのユーザー一覧を直接返す）
 func (h *MonitoringHandler) GetActiveUserList(w http.ResponseWriter, r *http.Request) {
 	correlationID := fmt.Sprintf("http-%s", r.Header.Get("requestId"))

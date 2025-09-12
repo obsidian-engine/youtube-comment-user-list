@@ -124,30 +124,29 @@ func (c *Client) doRequestWithRetry(ctx context.Context, url string) (*http.Resp
 		}
 
 		resp, err := c.httpClient.Do(req)
-		cancel() // すぐにキャンセル
-		
-		// 異常ケース防御: err が nil なのに resp が nil の場合はリトライ
-		if err == nil && resp == nil {
+		// 早期 cancel を避ける（レスポンス/ボディ読み取り後に cancel）
+		// cancel() は読み取り後に必ず呼ぶ
+		if err == nil && resp == nil { // 異常ケース: エラー無しでnilレスポンス
 			lastErr = fmt.Errorf("nil http response returned from http client")
+			cancel()
 			continue
 		}
-		
 		if err != nil {
 			lastErr = err
-			// コンテキストキャンセルは即座に終了
+			cancel()
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
-			// 一時的なネットワークエラーやタイムアウトかチェック
 			if c.isRetryableError(err) {
-				continue // リトライ
+				continue
 			}
 			return nil, fmt.Errorf("HTTP request failed: %w", err)
 		}
-		
-		// レスポンスボディを読み取り（ステータス判定に必要）
+
+		// レスポンスボディ読み取り
 		body, readErr := io.ReadAll(resp.Body)
-		_ = resp.Body.Close() // エラーは無視（レスポンス処理済み）
+		_ = resp.Body.Close()
+		cancel() // ここでキャンセル（ボディ読み取り完了後）
 
 		if readErr != nil {
 			// コンテキストキャンセル/タイムアウトは即座に終了
@@ -238,17 +237,19 @@ func (c *Client) isRetryableError(err error) bool {
 	}
 
 	// コンテキストエラーはリトライしない
-	if err == context.Canceled || err == context.DeadlineExceeded {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false
 	}
 
 	// ネットワークエラー
-	if netErr, ok := err.(net.Error); ok {
+	var netErr net.Error
+	if errors.As(err, &netErr) {
 		return netErr.Timeout()
 	}
 
 	// DNS解決エラー
-	if dnsErr, ok := err.(*net.DNSError); ok {
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
 		return dnsErr.Temporary()
 	}
 
@@ -338,7 +339,7 @@ func (c *Client) FetchVideoInfo(ctx context.Context, videoID string) (*entity.Vi
 	if err != nil {
 		return nil, err
 	}
-	// 念のための防御: まれに nil 応答が返るケースに対応
+	// 念のための防御: まれに nil 応��が返るケースに対応
 	if resp == nil {
 		return nil, fmt.Errorf("nil http response returned for videoID=%s", videoID)
 	}
@@ -410,7 +411,7 @@ func (c *Client) FetchLiveChat(ctx context.Context, liveChatID string, pageToken
 	}
 	base := "https://www.googleapis.com/youtube/v3/liveChat/messages"
 	params := []string{
-		"part=authorDetails",
+		"part=id,snippet,authorDetails", // snippet 追加でメッセージ本文やタイムスタンプ利用余地
 		fmt.Sprintf("maxResults=%d", constants.YouTubeChatMaxResults),
 		"liveChatId=" + liveChatID,
 		"key=" + c.apiKey,
@@ -478,13 +479,15 @@ func (c *Client) FetchLiveChat(ctx context.Context, liveChatID string, pageToken
 		}
 	}
 
-	pollResult := &entity.PollResult{
-		Messages:          messages,
-		NextPageToken:     response.NextPageToken,
-		PollingIntervalMs: response.PollingIntervalMillis,
-		Success:           true,
-		Error:             nil,
+	interval := response.PollingIntervalMillis
+	if interval <= 0 || interval > 120000 { // 異常値ガード
+		interval = constants.DefaultPollingIntervalMs
 	}
 
-	return pollResult, nil
+	return &entity.PollResult{
+		Messages:          messages,
+		NextPageToken:     response.NextPageToken,
+		PollingIntervalMs: interval,
+		Success:           true,
+	}, nil
 }
