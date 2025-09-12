@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -345,7 +344,7 @@ func fetchLiveChatOnce(apiKey, liveChatID, pageToken string) (LiveChatResp, erro
 	if pageToken != "" {
 		params = append(params, "pageToken="+pageToken)
 	}
-	apiURL := base + "?" + strings.Join(params, "&")
+	url := base + "?" + strings.Join(params, "&")
 	// セキュリティ: APIキーを含むURLは完全にログに出力しない
 	log.Printf("LiveChat API リクエスト: liveChatId=%s, pageToken=%s", liveChatID, pageToken)
 
@@ -392,17 +391,13 @@ func (pr *PollerRegistry) startPolling(ctx context.Context, videoID string, poll
 		return
 	}
 
-	var pageToken string
-	var lastWait = 2000 // ms
-	var consecutiveErrors int
-
 	// ポーリング・ループ
 	go func() {
 		var pageToken string
 		var lastWait = 8000 // ms フォールバック
 		var consecutiveErrors int
 		for {
-			resp, err := fetchLiveChatOnce(apiKey, liveChatID, pageToken)
+			resp, err := fetchLiveChatOnce(pr.apiKey, liveChatID, pageToken)
 			if err != nil {
 				consecutiveErrors++
 				log.Printf("LiveChat fetch error (%d回目): %v", consecutiveErrors, err)
@@ -419,9 +414,6 @@ func (pr *PollerRegistry) startPolling(ctx context.Context, videoID string, poll
 				case <-time.After(time.Duration(errorWait) * time.Millisecond):
 					continue
 				}
-
-				time.Sleep(time.Duration(errorWait) * time.Millisecond)
-				continue
 			}
 
 			// 成功した場合はエラーカウントをリセット
@@ -454,7 +446,7 @@ func (pr *PollerRegistry) startPolling(ctx context.Context, videoID string, poll
 				continue
 			}
 		}
-	}
+	}()
 }
 
 func main() {
