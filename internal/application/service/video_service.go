@@ -131,8 +131,19 @@ func (vs *VideoService) ValidateLiveStreamAndGetInfo(ctx context.Context, videoI
 		"operation": "validate_live_stream",
 	})
 
-	videoInfo, err := vs.GetVideoInfo(ctx, videoID)
+	// クォータ超過時には一定時間バックオフし、直近の成功結果があればそれを利用
+	videoInfo, err := vs.getVideoInfoCached(ctx, videoID, 15*time.Second, 15*time.Minute)
 	if err != nil {
+		// quotaExceeded の場合はユーザ向けに分かりやすいメッセージを返す
+		low := strings.ToLower(err.Error())
+		if strings.Contains(low, "quotaexceeded") || strings.Contains(low, "quota exceeded") {
+			msg := "YouTube API のクォータを超過しています。しばらく（15分程度）待ってから再試行してください。"
+			vs.logger.LogError("ERROR", "Quota exceeded when validating live stream", videoID, correlationID, err, map[string]interface{}{
+				"operation": "validate_live_stream",
+				"user_message": msg,
+			})
+			return nil, fmt.Errorf(msg+": %w", err)
+		}
 		vs.logger.LogError("ERROR", "Failed to get video info for validation", videoID, correlationID, err, map[string]interface{}{
 			"operation": "validate_live_stream",
 		})
