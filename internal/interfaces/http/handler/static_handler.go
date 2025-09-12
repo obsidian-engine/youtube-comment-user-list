@@ -56,26 +56,40 @@ func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
 	</head>
 	<body>
 	    <div class="wrap">
-	        <header>
-	            <div class="title">YouTube Live Chat Monitor</div>
-	            <div class="sub">チャット参加者をリアルタイム収集</div>
-	            <div style="margin-left:auto"><a href="/users">ユーザー一覧 →</a></div>
-	        </header>
-	        <div class="card">
+         <header>
+             <div class="title">YouTube Live Chat Monitor</div>
+             <div class="sub">チャット参加者をリアルタイム収集</div>
+             <div style="margin-left:auto"><a href="/users">ユーザー一覧 →</a></div>
+         </header>
+         <div id="runBanner" class="card" style="margin-bottom:14px; display:none">
+             <div class="content" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                 <span style="background:rgba(34,211,238,.12);color:#67e8f9;border:1px solid rgba(103,232,249,.3);padding:6px 10px;border-radius:999px;font-weight:600">監視中</span>
+                 <span id="runInfo" class="sub"></span>
+                 <a class="btn" style="margin-left:auto" href="/users">ユーザー一覧を見る</a>
+             </div>
+         </div>
+         <div id="warnBanner" class="card" style="margin-bottom:14px; display:none;border-color:#7f1d1d">
+             <div class="content" style="color:#fecaca">
+                 <strong>警告:</strong> LIVEステータスが inactive ですが、監視は起動中です。配信の状態を確認してください。
+                 <div id="warnDetail" class="sub" style="margin-top:6px;color:#fca5a5"></div>
+             </div>
+         </div>
+         <div class="card">
 	            <div class="content">
-	                <form id="monitoringForm" class="row">
-	                    <div>
-	                        <label for="videoInput">YouTube Video URL または Video ID</label>
-	                        <input type="text" id="videoInput" name="videoInput" placeholder="https://www.youtube.com/watch?v=... または VIDEO_ID" required>
+	                <form id="monitoringForm">
+	                    <div class="form-group">
+	                        <label for="videoInput">YouTube Video ID:</label>
+	                        <input type="text" id="videoInput" name="videoInput" 
+	                               placeholder="例: VIDEO_ID" required>
 	                    </div>
-	                    <div>
-	                        <label for="maxUsers">最大ユーザー数 (1-10000 / 既定: 1000)</label>
-	                        <input type="number" id="maxUsers" name="maxUsers" value="1000" min="1" max="10000">
+	                    
+	                    <div class="form-group">
+	                        <label for="maxUsers">最大ユーザー数 (デフォルト: 1000):</label>
+	                        <input type="number" id="maxUsers" name="maxUsers" 
+	                               value="1000" min="1" max="10000">
 	                    </div>
-	                    <div>
-	                        <button class="btn" type="submit">監視開始</button>
-	                        <span style="margin-left:10px;color:var(--muted)">開始後はユーザーリストに自動遷移します</span>
-	                    </div>
+	                    
+	                    <button type="submit">監視開始</button>
 	                </form>
 	                <div id="message" class="message"></div>
 	                <div class="links"><a href="/logs">システムログ →</a></div>
@@ -83,33 +97,82 @@ func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
 	        </div>
 	    </div>
 	
-	    <script>
-	        document.getElementById('monitoringForm').addEventListener('submit', async (e) => {
-	            e.preventDefault();
-	            const formData = new FormData(e.target);
-	            const videoInput = formData.get('videoInput');
-	            const maxUsers = parseInt(formData.get('maxUsers')) || 1000;
-	            const messageDiv = document.getElementById('message');
-	            messageDiv.textContent = '監視を開始しています...';
-	            try {
-	                const response = await fetch('/api/monitoring/start', {
-	                    method: 'POST',
-	                    headers: { 'Content-Type': 'application/json' },
-	                    body: JSON.stringify({ video_input: videoInput, max_users: maxUsers })
-	                });
-	                const data = await response.json();
-	                if (data.success) {
-	                    messageDiv.innerHTML = '<span class="success">監視を開始しました。ユーザーリストへ遷移します…</span>';
-	                    setTimeout(()=>{ window.location.href = '/users'; }, 800);
-	                } else {
-	                    messageDiv.innerHTML = '<span class="error">エラー: ' + (data.error||'unknown') + '</span>';
-	                }
-	            } catch (error) {
-	                messageDiv.innerHTML = '<span class="error">通信エラー: ' + error.message + '</span>';
-	            }
-	        });
-	        // 自動停止は行いません（手動で停止してください）
-	    </script>
+     <script>
+         document.getElementById('monitoringForm').addEventListener('submit', async (e) => {
+             e.preventDefault();
+             const formData = new FormData(e.target);
+             const videoInput = formData.get('videoInput');
+             const maxUsers = parseInt(formData.get('maxUsers')) || 1000;
+             const messageDiv = document.getElementById('message');
+             messageDiv.textContent = '監視を開始しています...';
+             try {
+                 const response = await fetch('/api/monitoring/start', {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ video_input: videoInput, max_users: maxUsers })
+                 });
+                 const data = await response.json();
+                 if (data.success) {
+                     messageDiv.innerHTML = '<span class="success">監視を開始しました。ユーザーリストへ遷移します…</span>';
+                     setTimeout(()=>{ window.location.href = '/users'; }, 800);
+                 } else {
+                     messageDiv.innerHTML = '<span class="error">エラー: ' + (data.error||'unknown') + '</span>';
+                 }
+             } catch (error) {
+                 messageDiv.innerHTML = '<span class="error">通��エラー: ' + error.message + '</span>';
+             }
+         });
+        
+         // サーバー（監視）ステータスの可視化
+         async function refreshStatus(){
+             const runBanner = document.getElementById('runBanner');
+             const runInfo = document.getElementById('runInfo');
+             const warnBanner = document.getElementById('warnBanner');
+             const warnDetail = document.getElementById('warnDetail');
+             try{
+                 const res = await fetch('/api/monitoring/active');
+                 if(!res.ok){
+                     // 404など: 監視セッションなし
+                     runBanner.style.display='none';
+                     warnBanner.style.display='none';
+                     return;
+                 }
+                 const data = await res.json();
+                 const videoId = (data.data && data.data.videoId) || data.videoId;
+                 const isActive = (data.data && typeof data.data.isActive !== 'undefined') ? data.data.isActive : data.isActive;
+                 if(!videoId){
+                     runBanner.style.display='none';
+                     warnBanner.style.display='none';
+                     return;
+                 }
+                 runBanner.style.display='block';
+                 runInfo.textContent = 'videoId: '+videoId+' / 状態: ' + (isActive? '起動中' : '停止');
+                 // LIVEステータス取得
+                 try{
+                     const sres = await fetch('/api/monitoring/'+encodeURIComponent(videoId)+'/status');
+                     if(sres.ok){
+                         const sdata = await sres.json();
+                         const status = (sdata.data && sdata.data.status) || sdata.status || sdata.data?.Status || '';
+                         const st = String(status||'').toLowerCase();
+                         if(isActive && st && st !== 'live'){
+                             warnBanner.style.display='block';
+                             warnDetail.textContent = 'videoId='+videoId+' / LIVEステータス: '+status;
+                         }else{
+                             warnBanner.style.display='none';
+                         }
+                     }else{
+                         // ステータスが取得できない場合は警告は出さない
+                         warnBanner.style.display='none';
+                     }
+                 }catch(_){ warnBanner.style.display='none'; }
+             }catch(_){
+                 runBanner.style.display='none';
+                 warnBanner.style.display='none';
+             }
+         }
+         document.addEventListener('DOMContentLoaded', ()=>{ refreshStatus(); setInterval(refreshStatus, 10000); });
+         // 自動停止は行いません（手動で停止してください）
+     </script>
 	</body>
 	</html>`
 
@@ -174,7 +237,6 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
         td{padding:12px 10px;vertical-align:middle}
         .idx{color:var(--muted);width:56px}
         .name{display:flex;align-items:center;gap:10px}
-        .avatar{width:28px;height:28px;border-radius:50%;background:#1f2937;display:inline-flex;align-items:center;justify-content:center;color:#cbd5e1;font-weight:700}
         .badge{font-size:11px;color:#a5b4fc;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);padding:2px 8px;border-radius:999px}
         .pill{font-size:12px;color:#bae6fd;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);padding:4px 10px;border-radius:999px}
         .actions button{background:#0b1222;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 10px;cursor:pointer}
@@ -215,20 +277,21 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
                     <div id="status" class="status">読み込み中...</div>
                 </div>
             </div>
+            <div id="warn" style="display:none;padding:10px 16px;color:#fecaca;border-top:1px solid var(--border);background:rgba(244,63,94,.08)">警告: LIVEが inactive の可能性。監視は起動中です。</div>
             <div class="content">
                 <div class="meta" style="margin-bottom:8px">
                     <span id="count">0</span> 名 <span id="updated"></span>
                     <span style="margin-left:12px">自動更新: 
                         <label class="toggle"><input id="auto" type="checkbox" checked onchange="toggleAuto()"> ON</label>
                         <select id="interval" onchange="resetAuto()">
-                            <option value="5000">5秒</option>
+                            <!-- 5秒オプション削除し最小10秒 -->
                             <option value="10000" selected>10秒</option>
                             <option value="30000">30秒</option>
                         </select>
                     </span>
                 </div>
                 <div id="userList">
-                    <div class="empty">データを読み込んでいます…</div>
+                    <div class="empty">データを読��込んでいます…</div>
                 </div>
             </div>
             <div class="footer">
@@ -252,10 +315,6 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
 
         function fmtDate(s){
             try{ return new Date(s).toLocaleString(); }catch(e){ return '-'; }
-        }
-        function initials(name){
-            if(!name) return '?';
-            return name.trim().split(/\s+/).map(p=>p[0]).join('').substring(0,2).toUpperCase();
         }
 
         async function loadUsers() {
@@ -297,6 +356,29 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
                     const txt = isActive ? 'オンライン' : '停止済み';
                     statusDiv.className = cls; statusDiv.textContent = txt + ' - ユーザー数: ' + (data.count ?? cachedUsers.length);
                     updated.textContent = '（更新: ' + new Date().toLocaleTimeString() + '）';
+                    // LIVEステータスと監視状態の矛盾をチェック
+                    try {
+                        const sres = await fetch('/api/monitoring/' + encodeURIComponent(videoId) + '/status');
+                        if (sres.ok) {
+                            const sdata = await sres.json();
+                            const status = (sdata.data && sdata.data.status) || sdata.status || '';
+                            const st = String(status || '').toLowerCase();
+                            const warn = document.getElementById('warn');
+                            if (isActive && st && st !== 'live') {
+                                warn.style.display = 'block';
+                                warn.textContent = '警告: LIVEステータスが ' + status + ' の可能性。監視は起動中です。';
+                            } else {
+                                warn.style.display = 'none';
+                            }
+                        } else {
+                            // ステータス取得失敗時は警告非表示
+                            const warn = document.getElementById('warn');
+                            warn.style.display = 'none';
+                        }
+                    } catch (e) {
+                        const warn = document.getElementById('warn');
+                        warn.style.display = 'none';
+                    }
                     renderUsers();
                 } else {
                     statusDiv.className = 'status offline';
@@ -311,7 +393,7 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
         function renderUsers(){
             const list = document.getElementById('userList');
             const q = (document.getElementById('search').value || '').toLowerCase();
-            const sort = document.getElementById('sort').value;
+            // 並び替えは行わず、初回確定順を維持
             let users = cachedUsers.slice();
             if(q){
                 users = users.filter(u => {
@@ -320,44 +402,21 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
                     return name.includes(q) || cid.includes(q);
                 });
             }
-            users.sort((a,b)=>{
-                const nameA = (a.display_name || a.displayName || '').toLowerCase();
-                const nameB = (b.display_name || b.displayName || '').toLowerCase();
-                const tA = new Date(a.first_seen || a.firstSeen || 0).getTime();
-                const tB = new Date(b.first_seen || b.firstSeen || 0).getTime();
-                switch(sort){
-                    case 'first_seen_asc': return tA - tB;
-                    case 'name_asc': return nameA.localeCompare(nameB);
-                    case 'name_desc': return nameB.localeCompare(nameA);
-                    default: return tB - tA; // first_seen_desc
-                }
-            });
             document.getElementById('count').textContent = users.length;
             if(users.length === 0){
                 list.innerHTML = '<div class="empty">該当するユーザーがいません</div>';
                 return;
             }
             let html = '';
-            html += '<table><thead><tr>'+
-                    '<th class="idx">#</th>'+
-                    '<th>ユーザー名</th>'+
-                    '<th>Channel ID</th>'+
-                    '<th>初回参加</th>'+
-                    '<th></th>'+
-                '</tr></thead><tbody>';
+            html += '<table><thead><tr>'+\n                    '<th class="idx">#</th>'+\n                    '<th>ユーザー名</th>'+\n                    '<th>Channel ID</th>'+\n                    '<th>初回参加</th>'+\n                    '<th>最終発言</th>'+\n                    '<th>発言数</th>'+\n                    '<th></th>'+\n                '</tr></thead><tbody>';
             users.forEach((u,i)=>{
                 const name = (u.display_name || u.displayName || '');
                 const cid = (u.channel_id || u.channelID || '');
                 const first = fmtDate(u.first_seen || u.firstSeen);
-                const init = initials(name);
+                const last = fmtDate(u.last_seen || u.lastSeen);
+                const msgCount = (u.message_count != null) ? u.message_count : (u.messageCount || 0);
                 const url = cid ? 'https://www.youtube.com/channel/' + encodeURIComponent(cid) : '#';
-                html += '<tr>'+
-                    '<td class="idx">'+(i+1)+'</td>'+
-                    '<td class="name"><span class="avatar">'+init+'</span><div><div>'+escapeHtml(name)+'</div></div></td>'+ 
-                    '<td><a href="'+url+'" target="_blank" rel="noopener">'+escapeHtml(cid)+'</a></td>'+
-                    '<td><span class="pill">'+first+'</span></td>'+
-                    '<td class="actions"><button onclick="copy(\''+cid+'\')">Copy</button></td>'+
-                '</tr>';
+                html += '<tr>'+\n                    '<td class="idx">'+(i+1)+'</td>'+\n                    '<td class="name">'+escapeHtml(name)+'</td>'+ \n                    '<td><a href="'+url+'" target="_blank" rel="noopener">'+escapeHtml(cid)+'</a></td>'+\n                    '<td><span class="pill">'+first+'</span></td>'+\n                    '<td><span class="pill">'+last+'</span></td>'+\n                    '<td>'+msgCount+'</td>'+\n                    '<td class="actions"><button onclick="copy(\''+cid+'\')">Copy</button></td>'+\n                '</tr>';
             });
             html += '</tbody></table>';
             list.innerHTML = html;
@@ -502,7 +561,7 @@ func (h *StaticHandler) ServeLogsPage(w http.ResponseWriter, r *http.Request) {
 	                        <input id="auto" type="checkbox" checked onchange="toggleAuto()"> 自動更新
 	                    </label>
 	                    <select id="interval" onchange="resetAuto()">
-	                        <option value="5000">5秒</option>
+	                        <!-- 5秒オプション削除し最小10秒 -->
 	                        <option value="10000" selected>10秒</option>
 	                        <option value="30000">30秒</option>
 	                    </select>

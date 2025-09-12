@@ -4,6 +4,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+	"unicode"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
@@ -33,58 +36,61 @@ func NewUserService(
 func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.ChatMessage) error {
 	correlationID := fmt.Sprintf("user-%s-%s", message.VideoID, message.ID)
 
-	// 動画の現在のユーザーリストを取得
 	userList, err := us.userRepo.GetUserList(ctx, message.VideoID)
 	if err != nil {
 		us.logger.LogError("ERROR", "Failed to get user list", message.VideoID, correlationID, err, nil)
 		return fmt.Errorf("failed to get user list: %w", err)
 	}
 
-	// チャットメッセージからユーザーを作成
-	user := entity.NewUserFromChatMessage(message)
+	existedBefore := userList.HasUser(message.AuthorDetails.ChannelID)
+	added := userList.UpsertFromMessage(message)
 
-	// ユーザーをリストに追加を試行
-	wasAdded := userList.AddUser(user.ChannelID, user.DisplayName)
-
-	if wasAdded {
+	// 追加 or 更新 の判定
+	if added {
+		u := userList.Users[message.AuthorDetails.ChannelID]
 		us.logger.LogUser("INFO", "New user added", message.VideoID, correlationID, map[string]interface{}{
-			"channelId":   user.ChannelID,
-			"displayName": user.DisplayName,
-			"userCount":   userList.Count(),
-			"isFull":      userList.IsFull(),
+			"channelId":    u.ChannelID,
+			"displayName":  u.DisplayName,
+			"userCount":    userList.Count(),
+			"messageCount": u.MessageCount,
+			"isFull":       userList.IsFull(),
 		})
 
-		// リポジトリでユーザーリストを更新
 		if err := us.userRepo.UpdateUserList(ctx, message.VideoID, userList); err != nil {
-			us.logger.LogError("ERROR", "Failed to update user list", message.VideoID, correlationID, err, nil)
+			us.logger.LogError("ERROR", "Failed to update user list (add)", message.VideoID, correlationID, err, nil)
 			return fmt.Errorf("failed to update user list: %w", err)
 		}
 
-		// ユーザー追加イベントを発行
-		if err := us.eventPub.PublishUserAdded(ctx, user, message.VideoID); err != nil {
+		if err := us.eventPub.PublishUserAdded(ctx, *u, message.VideoID); err != nil {
 			us.logger.LogError("ERROR", "Failed to publish user added event", message.VideoID, correlationID, err, nil)
-			// コア機能にとって重要ではないため、ここではエラーを返しません
 		}
-	} else {
-		exists := userList.HasUser(user.ChannelID)
-		msg := "User was not added"
-		reason := "unknown"
-		if exists {
-			msg = "User already exists"
-			reason = "already_exists"
-		} else if userList.IsFull() {
-			msg = "User list is full"
-			reason = "list_full"
-		}
-		us.logger.LogUser("DEBUG", msg, message.VideoID, correlationID, map[string]interface{}{
-			"channelId":   user.ChannelID,
-			"displayName": user.DisplayName,
-			"userCount":   userList.Count(),
-			"isFull":      userList.IsFull(),
-			"reason":      reason,
-		})
+		return nil
 	}
 
+	// 既存更新 or リスト満杯
+	if existedBefore {
+		u := userList.Users[message.AuthorDetails.ChannelID]
+		// 更新ログ（DEBUG）
+		us.logger.LogUser("DEBUG", "User updated", message.VideoID, correlationID, map[string]interface{}{
+			"channelId":    u.ChannelID,
+			"displayName":  u.DisplayName,
+			"messageCount": u.MessageCount,
+			"lastSeen":     u.LastSeen,
+		})
+		// 保存（メモリなので参照更新だが一貫性のため）
+		if err := us.userRepo.UpdateUserList(ctx, message.VideoID, userList); err != nil {
+			us.logger.LogError("ERROR", "Failed to persist updated user list", message.VideoID, correlationID, err, nil)
+			return fmt.Errorf("failed to update user list: %w", err)
+		}
+	} else {
+		// 追加できず（満杯）
+		us.logger.LogUser("WARN", "User list full - user skipped", message.VideoID, correlationID, map[string]interface{}{
+			"channelId":   message.AuthorDetails.ChannelID,
+			"displayName": message.AuthorDetails.DisplayName,
+			"userCount":   userList.Count(),
+			"maxUsers":    userList.MaxUsers,
+		})
+	}
 	return nil
 }
 
@@ -123,5 +129,45 @@ func (us *UserService) GetUserListSnapshot(ctx context.Context, videoID string) 
 	if err != nil {
 		return nil, err
 	}
-	return userList.GetUsers(), nil
+	users := userList.GetUsers()
+	// 並び順: first_seen 昇順。同一タイムスタンプの場合は表示名の「あいうえお」相当の順で安定ソート。
+	sort.SliceStable(users, func(i, j int) bool {
+		if users[i].FirstSeen.Equal(users[j].FirstSeen) {
+			return lessJapanese(users[i].DisplayName, users[j].DisplayName)
+		}
+		return users[i].FirstSeen.Before(users[j].FirstSeen)
+	})
+	return users, nil
+}
+
+// lessJapanese は日本語の簡易的な「あいうえお」順になるよう正規化して比較します
+// 仕様:
+// - カタカナをひらがなに変換
+// - 英数字は小文字化
+// - 前後の空白を削除
+// この簡易実装は一般的なケースで「あ→い→う…」の順序感を満たすことを目的とし、
+// 厳密な辞書順や漢字の読みには対応しません。
+func lessJapanese(a, b string) bool {
+	na := normalizeJapanese(a)
+	nb := normalizeJapanese(b)
+	if na == nb {
+		return a < b
+	}
+	return na < nb
+}
+
+func normalizeJapanese(s string) string {
+	s = strings.TrimSpace(s)
+	var buf []rune
+	for _, r := range s {
+		// アルファベットは小文字化
+		r = unicode.ToLower(r)
+		// カタカナ → ひらがな (U+30A1–U+30F3 → U+3041–U+3093)
+		if r >= 0x30A1 && r <= 0x30F3 {
+			r = r - 0x60
+		}
+		// 全角カタカナの長音記号(ー)などはそのまま
+		buf = append(buf, r)
+	}
+	return string(buf)
 }
