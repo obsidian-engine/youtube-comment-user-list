@@ -24,15 +24,20 @@ func NewUserRepository() *UserRepository {
 
 // GetUserList 動画のユーザーリストを取得します
 func (r *UserRepository) GetUserList(ctx context.Context, videoID string) (*entity.UserList, error) {
+	_ = ctx
 	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	userList, exists := r.userLists[videoID]
+	r.mu.RUnlock()
+
 	if !exists {
-		// 存在しない場合はデフォルトの最大ユーザー数で新しいユーザーリストを作成
-		defaultMaxUsers := constants.DefaultMaxUsers
-		userList = entity.NewUserList(defaultMaxUsers)
-		r.userLists[videoID] = userList
+		// 書き込みロックで再確認（ダブルチェック）
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if userList, exists = r.userLists[videoID]; !exists {
+			defaultMaxUsers := constants.DefaultMaxUsers
+			userList = entity.NewUserList(defaultMaxUsers)
+			r.userLists[videoID] = userList
+		}
 	}
 
 	return userList, nil
@@ -40,6 +45,7 @@ func (r *UserRepository) GetUserList(ctx context.Context, videoID string) (*enti
 
 // UpdateUserList 動画のユーザーリストを更新します
 func (r *UserRepository) UpdateUserList(ctx context.Context, videoID string, userList *entity.UserList) error {
+	_ = ctx
 	if userList == nil {
 		return fmt.Errorf("userList cannot be nil")
 	}

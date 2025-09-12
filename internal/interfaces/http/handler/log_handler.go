@@ -18,6 +18,34 @@ type LogHandler struct {
 	logger          repository.Logger
 }
 
+// Handle 統合ログエンドポイント
+// - GET /api/logs?stats=1 で統計
+// - GET /api/logs?export=1 でエクスポート
+// - GET /api/logs でログ一覧
+// - DELETE /api/logs で全クリア
+func (h *LogHandler) Handle(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		q := r.URL.Query()
+		if q.Get("stats") == "1" {
+			h.GetLogStats(w, r)
+			return
+		}
+		if q.Get("export") == "1" {
+			h.ExportLogs(w, r)
+			return
+		}
+		h.GetLogs(w, r)
+		return
+	case http.MethodDelete:
+		h.ClearLogs(w, r)
+		return
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = w.Write([]byte("method not allowed"))
+	}
+}
+
 // NewLogHandler 新しいログハンドラーを作成します
 func NewLogHandler(
 	logManagementUC *usecase.LogManagementUseCase,

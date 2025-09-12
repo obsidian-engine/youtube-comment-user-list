@@ -312,6 +312,15 @@ func (c *Client) isRetryableHTTPStatus(statusCode int, body []byte) bool {
 
 // FetchVideoInfo ライブ配信詳細を含む動画情報を取得します
 func (c *Client) FetchVideoInfo(ctx context.Context, videoID string) (*entity.VideoInfo, error) {
+	if c == nil {
+		return nil, fmt.Errorf("youtube client is nil")
+	}
+	if c.httpClient == nil {
+		return nil, fmt.Errorf("youtube client httpClient is nil")
+	}
+	if videoID == "" {
+		return nil, fmt.Errorf("videoID is empty")
+	}
 	apiURL := fmt.Sprintf("https://www.googleapis.com/youtube/v3/videos?part=snippet,liveStreamingDetails&id=%s&key=%s", videoID, c.apiKey)
 
 	// URL検証
@@ -375,6 +384,15 @@ func (c *Client) FetchVideoInfo(ctx context.Context, videoID string) (*entity.Vi
 
 // FetchLiveChat ライブチャットメッセージを取得します
 func (c *Client) FetchLiveChat(ctx context.Context, liveChatID string, pageToken string) (*entity.PollResult, error) {
+	if c == nil {
+		return nil, fmt.Errorf("youtube client is nil")
+	}
+	if c.httpClient == nil {
+		return nil, fmt.Errorf("youtube client httpClient is nil")
+	}
+	if liveChatID == "" {
+		return nil, fmt.Errorf("liveChatID is empty")
+	}
 	base := "https://www.googleapis.com/youtube/v3/liveChat/messages"
 	params := []string{
 		"part=authorDetails",
@@ -396,10 +414,17 @@ func (c *Client) FetchLiveChat(ctx context.Context, liveChatID string, pageToken
 	if err != nil {
 		return nil, err
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("nil http response returned for liveChatID=%s", liveChatID)
+	}
+	if resp.Body == nil {
+		return nil, fmt.Errorf("nil response body returned for liveChatID=%s", liveChatID)
+	}
 	defer func() {
-		if err2 := resp.Body.Close(); err2 != nil {
-			// 重要ではないためエラーをログに記録しますが返却しません
-			fmt.Printf("Warning: failed to close response body: %v\n", err2)
+		if resp != nil && resp.Body != nil {
+			if err2 := resp.Body.Close(); err2 != nil {
+				fmt.Printf("Warning: failed to close response body: %v\n", err2)
+			}
 		}
 	}()
 

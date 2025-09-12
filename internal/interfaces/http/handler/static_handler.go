@@ -262,54 +262,49 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
         };
 
         async function loadUsers() {
-            
             const statusDiv = document.getElementById('status');
             const userListDiv = document.getElementById('userList');
-            
             statusDiv.innerHTML = '<div class="status">読み込み中...</div>';
             userListDiv.innerHTML = '';
-            
             try {
-                // 現在アクティブまたは最後に監視されたvideoIDを取得
                 const activeResponse = await fetch('/api/monitoring/active');
-                
                 if (!activeResponse.ok) {
                     if (activeResponse.status === 404) {
                         consecutiveErrors++;
                         statusDiv.innerHTML = '<div class="status offline">監視セッションがありません</div>';
                         userListDiv.innerHTML = '<p>監視を開始するには<a href="/">ホームページ</a>に戻ってください。</p>';
-                        
-                        // 連続エラーが上限に達したら自動更新を停止
                         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
                             stopAutoUpdate();
                             statusDiv.innerHTML += '<br><small>自動更新を停止しました。</small>';
                         }
                         return;
                     }
-                    throw new Error('Failed to get video ID');
+                    throw new Error('Failed to get active video info (status ' + activeResponse.status + ')');
                 }
-                
                 const activeData = await activeResponse.json();
-                const videoId = activeData.videoId;
-                const isActive = activeData.isActive;
-                
-                // videoIDを使ってユーザーリストを取得
-                const response = await fetch('/api/monitoring/' + videoId + '/users');
+                // 新API形式: { success, data: { videoId, isActive } } 旧形式フォールバック
+                const videoId = (activeData.data && activeData.data.videoId) || activeData.videoId;
+                const isActive = (activeData.data && typeof activeData.data.isActive !== 'undefined') ? activeData.data.isActive : activeData.isActive;
+                if (!videoId) {
+                    throw new Error('Active videoId not found in response');
+                }
+                const response = await fetch('/api/monitoring/' + encodeURIComponent(videoId) + '/users');
+                if (!response.ok) {
+                    throw new Error('Failed to get user list (status ' + response.status + ')');
+                }
                 const data = await response.json();
-                
                 if (data.success) {
-                    consecutiveErrors = 0; // 成功時はエラーカウンターをリセット
+                    consecutiveErrors = 0;
                     const statusClass = isActive ? 'status online' : 'status offline';
                     const statusText = isActive ? 'オンライン' : '停止済み';
                     statusDiv.innerHTML = '<div class="' + statusClass + '">' + statusText + ' - ユーザー数: ' + data.count + '</div>';
-                    
                     if (data.users && data.users.length > 0) {
                         let html = '<div class="user-list">';
                         data.users.forEach(user => {
                             html += '<div class="user">' +
-                                '<strong>' + user.display_name + '</strong><br>' +
-                                'Channel: ' + user.channel_id + '<br>' +
-                                '初回参加: ' + new Date(user.first_seen).toLocaleString() +
+                                '<strong>' + (user.display_name || user.displayName || '') + '</strong><br>' +
+                                'Channel: ' + (user.channel_id || user.channelID || '') + '<br>' +
+                                '初回参加: ' + (user.first_seen ? new Date(user.first_seen).toLocaleString() : '-') +
                                 '</div>';
                         });
                         html += '</div>';
@@ -318,7 +313,7 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
                         userListDiv.innerHTML = '<p>まだユーザーが参加していません。</p>';
                     }
                 } else {
-                    statusDiv.innerHTML = '<div class="status offline">エラー: ' + data.error + '</div>';
+                    statusDiv.innerHTML = '<div class="status offline">エラー: ' + (data.error || 'unknown') + '</div>';
                 }
             } catch (error) {
                 statusDiv.innerHTML = '<div class="status offline">通信エラー: ' + error.message + '</div>';
