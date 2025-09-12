@@ -102,24 +102,18 @@ func (h *MonitoringHandler) StartMonitoring(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// StopMonitoring POST /api/monitoring/stop/{videoId} を処理します
+// StopMonitoring POST /api/monitoring/stop を処理します
 func (h *MonitoringHandler) StopMonitoring(c *gin.Context) {
 	correlationID := fmt.Sprintf("http-%s", c.GetString("requestId"))
-	videoID := c.Param("videoId")
 
-	h.logger.LogAPI("INFO", "Stop monitoring request received", videoID, correlationID, map[string]interface{}{
+	h.logger.LogAPI("INFO", "Stop monitoring request received", "", correlationID, map[string]interface{}{
 		"method": c.Request.Method,
 		"path":   c.Request.URL.Path,
 	})
 
-	if videoID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "video ID is required", "correlationID": correlationID})
-		return
-	}
-
-	err := h.chatMonitoringUC.StopMonitoring(videoID)
+	err := h.chatMonitoringUC.StopMonitoring()
 	if err != nil {
-		h.logger.LogError("ERROR", "Failed to stop monitoring", videoID, correlationID, err, nil)
+		h.logger.LogError("ERROR", "Failed to stop monitoring", "", correlationID, err, nil)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "correlationID": correlationID})
 		return
 	}
@@ -127,25 +121,18 @@ func (h *MonitoringHandler) StopMonitoring(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Monitoring stopped successfully",
-		"videoID": videoID,
 	})
 }
 
-// GetUserList GET /api/monitoring/{videoId}/users を処理します
+// GetUserList GET /api/monitoring/users を処理します
 func (h *MonitoringHandler) GetUserList(c *gin.Context) {
 	correlationID := fmt.Sprintf("http-%s", c.GetString("requestId"))
-	videoID := c.Param("videoId")
 
-	if videoID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "video ID is required", "correlationID": correlationID})
-		return
-	}
+	h.logger.LogAPI("INFO", "Get user list request received", "", correlationID, nil)
 
-	h.logger.LogAPI("INFO", "Get user list request received", videoID, correlationID, nil)
-
-	users, err := h.chatMonitoringUC.GetUserList(c.Request.Context(), videoID)
+	users, err := h.chatMonitoringUC.GetUserList(c.Request.Context())
 	if err != nil {
-		h.logger.LogError("ERROR", "Failed to get user list", videoID, correlationID, err, nil)
+		h.logger.LogError("ERROR", "Failed to get user list", "", correlationID, err, nil)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "correlationID": correlationID})
 		return
 	}
@@ -182,22 +169,6 @@ func (h *MonitoringHandler) GetVideoStatus(c *gin.Context) {
 		"success": true,
 		"videoID": videoID,
 		"status":  status,
-	})
-}
-
-// GetActiveVideos GET /api/monitoring/active を処理します
-func (h *MonitoringHandler) GetActiveVideos(c *gin.Context) {
-	correlationID := fmt.Sprintf("http-%s", c.GetString("requestId"))
-
-	h.logger.LogAPI("INFO", "Get active videos request received", "", correlationID, nil)
-
-	activeVideos := h.chatMonitoringUC.GetActiveVideos()
-	// GetActiveVideosはエラーを返さないため、エラーハンドリングは不要
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"videos":  activeVideos,
-		"count":   len(activeVideos),
 	})
 }
 

@@ -41,9 +41,22 @@ func (ps *PollingService) StartPolling(ctx context.Context, videoID string, mess
 	})
 
 	// 動画情報を取得してライブ配信を検証
+	ps.logger.LogPoller("INFO", "Fetching video info", videoID, correlationID, map[string]interface{}{
+		"attempt": "video_info_fetch",
+	})
+
 	videoInfo, err := ps.youtubeClient.FetchVideoInfo(ctx, videoID)
 	if err != nil {
-		ps.logger.LogError("ERROR", "Failed to fetch video info", videoID, correlationID, err, nil)
+		// エラーの詳細な分類
+		errorType := "unknown"
+		if ctx.Err() != nil {
+			errorType = "context_cancelled"
+		}
+
+		ps.logger.LogError("ERROR", "Failed to fetch video info", videoID, correlationID, err, map[string]interface{}{
+			"errorType":  errorType,
+			"contextErr": ctx.Err(),
+		})
 		return fmt.Errorf("failed to fetch video info: %w", err)
 	}
 
@@ -102,14 +115,26 @@ func (ps *PollingService) pollMessages(ctx context.Context, videoID, liveChatID 
 				consecutiveErrors++
 				waitTime := ps.calculateBackoffTime(consecutiveErrors, baseWaitTime, maxWaitTime)
 
+				// エラーの詳細な分類
+				errorType := "unknown"
+				if ctx.Err() != nil {
+					errorType = "context_cancelled"
+				}
+
 				ps.logger.LogError("ERROR", "Failed to fetch live chat", videoID, correlationID, err, map[string]interface{}{
 					"consecutiveErrors": consecutiveErrors,
 					"waitTime":          waitTime.String(),
+					"liveChatID":        liveChatID,
+					"pageToken":         pageToken,
+					"errorType":         errorType,
+					"contextErr":        ctx.Err(),
 				})
 
 				if consecutiveErrors >= maxConsecutiveErrors {
 					ps.logger.LogError("FATAL", "Max consecutive errors reached", videoID, correlationID, err, map[string]interface{}{
-						"maxErrors": maxConsecutiveErrors,
+						"maxErrors":  maxConsecutiveErrors,
+						"finalError": err.Error(),
+						"contextErr": ctx.Err(),
 					})
 					return fmt.Errorf("max consecutive errors reached: %w", err)
 				}

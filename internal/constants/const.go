@@ -39,7 +39,19 @@ const (
 	YouTubeChatMaxResults = 2000
 
 	// YouTubeHTTPClientTimeout YouTubeクライアントのHTTPタイムアウト
-	YouTubeHTTPClientTimeout = 30 * time.Second
+	YouTubeHTTPClientTimeout = 45 * time.Second
+
+	// YouTubeAPIMaxRetries YouTube API リトライの最大回数
+	YouTubeAPIMaxRetries = 3
+
+	// YouTubeAPIInitialRetryDelay YouTube API リトライの初期遅延
+	YouTubeAPIInitialRetryDelay = 1 * time.Second
+
+	// YouTubeAPIMaxRetryDelay YouTube API リトライの最大遅延
+	YouTubeAPIMaxRetryDelay = 30 * time.Second
+
+	// YouTubeAPIRetryMultiplier YouTube API リトライの指数バックオフ乗数
+	YouTubeAPIRetryMultiplier = 2
 
 	// HTTPStatusOK 成功ステータスコード
 	HTTPStatusOK = 200

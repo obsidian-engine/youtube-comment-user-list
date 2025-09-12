@@ -249,7 +249,7 @@ func (h *SSEHandler) StreamUserList(c *gin.Context) {
 
 // sendCurrentUserListToGin Gin用の現在のユーザーリスト送信
 func (h *SSEHandler) sendCurrentUserListToGin(w gin.ResponseWriter, videoID, correlationID string) {
-	users, err := h.chatMonitoringUC.GetUserList(context.Background(), videoID)
+	users, err := h.chatMonitoringUC.GetUserList(context.Background())
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to get user list for SSE", videoID, correlationID, err, nil)
 		h.sendSSEMessageToGin(w, "error", map[string]string{

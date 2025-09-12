@@ -129,12 +129,6 @@ func (h *StaticHandler) ServeHome(c *gin.Context) {
         <div class="links">
             <h3>メニュー</h3>
             <a href="/logs">ログ表示</a>
-            <a href="javascript:void(0)" onclick="showActiveVideos()">アクティブ動画一覧</a>
-        </div>
-        
-        <div id="activeVideos" style="margin-top: 20px; display: none;">
-            <h3>現在監視中の動画</h3>
-            <div id="videoList"></div>
         </div>
     </div>
 
@@ -164,8 +158,11 @@ func (h *StaticHandler) ServeHome(c *gin.Context) {
                 const data = await response.json();
                 
                 if (data.success) {
-                    messageDiv.innerHTML = '<div class="success">監視を開始しました！<br>' +
-                        '<a href="/users?video_id=' + data.video_id + '" target="_blank">ユーザーリストを表示</a></div>';
+                    messageDiv.innerHTML = '<div class="success">監視を開始しました！ユーザーリストページに移動します...</div>';
+                    // 1秒後にユーザーリストページに自動遷移
+                    setTimeout(() => {
+                        window.location.href = '/users';
+                    }, 1000);
                 } else {
                     messageDiv.innerHTML = '<div class="error">エラー: ' + data.error + '</div>';
                 }
@@ -174,62 +171,12 @@ func (h *StaticHandler) ServeHome(c *gin.Context) {
             }
         });
         
-        async function showActiveVideos() {
-            const activeDiv = document.getElementById('activeVideos');
-            const videoListDiv = document.getElementById('videoList');
-            
-            try {
-                const response = await fetch('/api/monitoring/active');
-                const data = await response.json();
-                
-                if (data.success) {
-                    if (data.videos.length === 0) {
-                        videoListDiv.innerHTML = '<p>現在監視中の動画はありません。</p>';
-                    } else {
-                        let html = '<ul>';
-                        data.videos.forEach(videoId => {
-                            html += '<li>' +
-                                '<strong>' + videoId + '</strong> - ' +
-                                '<a href="/users?video_id=' + videoId + '" target="_blank">ユーザーリスト</a> | ' +
-                                '<button onclick="stopMonitoring(\'' + videoId + '\')">監視停止</button>' +
-                                '</li>';
-                        });
-                        html += '</ul>';
-                        videoListDiv.innerHTML = html;
-                    }
-                    activeDiv.style.display = 'block';
-                } else {
-                    videoListDiv.innerHTML = '<div class="error">エラー: ' + data.error + '</div>';
-                    activeDiv.style.display = 'block';
-                }
-            } catch (error) {
-                videoListDiv.innerHTML = '<div class="error">通信エラー: ' + error.message + '</div>';
-                activeDiv.style.display = 'block';
-            }
-        }
-        
-        async function stopMonitoring(videoId) {
-            if (!confirm('動画 ' + videoId + ' の監視を停止しますか？')) {
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/monitoring/stop/' + videoId, {
-                    method: 'DELETE'
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    alert('監視を停止しました');
-                    showActiveVideos(); // リストを更新
-                } else {
-                    alert('エラー: ' + data.error);
-                }
-            } catch (error) {
-                alert('通信エラー: ' + error.message);
-            }
-        }
+        // ウィンドウクローズ時にサーバー停止処理
+        window.addEventListener('beforeunload', function(e) {
+            // 同期的にサーバー停止をリクエスト
+            navigator.sendBeacon('/api/monitoring/stop', new FormData());
+        });
+
     </script>
 </body>
 </html>`
@@ -293,9 +240,8 @@ func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
         <p><a href="/">← ホームに戻る</a></p>
         
         <div class="form-group">
-            <label for="videoId">Video ID:</label>
-            <input type="text" id="videoId" placeholder="Video IDを入力してください">
             <button onclick="loadUsers()">ユーザーリスト取得</button>
+            <button onclick="stopMonitoring()" style="margin-left: 10px;">監視停止</button>
         </div>
         
         <div id="status"></div>
@@ -303,20 +249,12 @@ func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
     </div>
 
     <script>
-        // URLパラメータからvideo_idを取得
-        const urlParams = new URLSearchParams(window.location.search);
-        const videoId = urlParams.get('video_id');
-        if (videoId) {
-            document.getElementById('videoId').value = videoId;
+        // ページ読み込み時に自動でユーザーリストを取得
+        window.onload = function() {
             loadUsers();
-        }
+        };
 
         async function loadUsers() {
-            const videoId = document.getElementById('videoId').value.trim();
-            if (!videoId) {
-                alert('Video IDを入力してください');
-                return;
-            }
             
             const statusDiv = document.getElementById('status');
             const userListDiv = document.getElementById('userList');
@@ -325,7 +263,7 @@ func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
             userListDiv.innerHTML = '';
             
             try {
-                const response = await fetch('/api/monitoring/' + videoId + '/users');
+                const response = await fetch('/api/monitoring/users');
                 const data = await response.json();
                 
                 if (data.success) {
@@ -353,11 +291,38 @@ func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
             }
         }
 
+        async function stopMonitoring() {
+            if (!confirm('監視を停止しますか？')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/monitoring/stop', {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('監視を停止しました。ホームページに戻ります。');
+                    window.location.href = '/';
+                } else {
+                    alert('エラー: ' + data.error);
+                }
+            } catch (error) {
+                alert('通信エラー: ' + error.message);
+            }
+        }
+
+        // ウィンドウクローズ時にサーバー停止処理
+        window.addEventListener('beforeunload', function(e) {
+            // 同期的にサーバー停止をリクエスト
+            navigator.sendBeacon('/api/monitoring/stop', new FormData());
+        });
+
         // 10秒ごとに自動更新
         setInterval(() => {
-            if (document.getElementById('videoId').value.trim()) {
-                loadUsers();
-            }
+            loadUsers();
         }, 10000);
     </script>
 </body>

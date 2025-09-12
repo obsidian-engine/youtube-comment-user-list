@@ -179,9 +179,8 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 		monitoring := api.Group("/monitoring")
 		{
 			monitoring.POST("/start", container.MonitoringHandler.StartMonitoring)
-			monitoring.DELETE("/stop/:videoId", container.MonitoringHandler.StopMonitoring)
-			monitoring.GET("/active", container.MonitoringHandler.GetActiveVideos)
-			monitoring.GET("/:videoId/users", container.MonitoringHandler.GetUserList)
+			monitoring.DELETE("/stop", container.MonitoringHandler.StopMonitoring)
+			monitoring.GET("/users", container.MonitoringHandler.GetUserList)
 			monitoring.GET("/:videoId/status", container.MonitoringHandler.GetVideoStatus)
 		}
 

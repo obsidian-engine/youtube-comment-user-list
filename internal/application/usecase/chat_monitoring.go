@@ -18,9 +18,9 @@ type ChatMonitoringUseCase struct {
 	videoService   *service.VideoService
 	logger         service.Logger
 
-	// アクティブなポーリングセッション
-	sessions map[string]*MonitoringSession
-	mu       sync.RWMutex
+	// 単一の監視セッション
+	currentSession *MonitoringSession
+	mu             sync.RWMutex
 }
 
 // MonitoringSession 動画のアクティブな監視セッションを表します
@@ -28,7 +28,6 @@ type MonitoringSession struct {
 	VideoID      string
 	Cancel       context.CancelFunc
 	MessagesChan chan entity.ChatMessage
-	Subscribers  int
 	UserList     *entity.UserList
 }
 
@@ -44,7 +43,6 @@ func NewChatMonitoringUseCase(
 		userService:    userService,
 		videoService:   videoService,
 		logger:         logger,
-		sessions:       make(map[string]*MonitoringSession),
 	}
 }
 
@@ -71,14 +69,11 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 	uc.mu.Lock()
 	defer uc.mu.Unlock()
 
-	// この動画を既に監視しているかチェック
-	if session, exists := uc.sessions[videoID]; exists {
-		// 購読者数を増加
-		session.Subscribers++
-		uc.logger.LogStructured("INFO", "monitoring", "subscriber_added", "Added subscriber to existing session", videoID, correlationID, map[string]interface{}{
-			"subscribers": session.Subscribers,
-		})
-		return session, nil
+	// 既に監視中の場合は停止
+	if uc.currentSession != nil {
+		uc.logger.LogStructured("INFO", "monitoring", "stopping_previous", "Stopping previous monitoring session", uc.currentSession.VideoID, correlationID, nil)
+		uc.currentSession.Cancel()
+		uc.currentSession = nil
 	}
 
 	// 新しい監視セッションを作成
@@ -96,11 +91,10 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 		VideoID:      videoID,
 		Cancel:       cancel,
 		MessagesChan: messagesChan,
-		Subscribers:  1,
 		UserList:     userList,
 	}
 
-	uc.sessions[videoID] = session
+	uc.currentSession = session
 
 	uc.logger.LogStructured("INFO", "monitoring", "session_started", "Started new monitoring session", videoID, correlationID, map[string]interface{}{
 		"title":        videoInfo.Title,
@@ -118,32 +112,22 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 }
 
 // StopMonitoring 動画の監視を停止します
-func (uc *ChatMonitoringUseCase) StopMonitoring(videoID string) error {
-	correlationID := fmt.Sprintf("stop-monitoring-%s", videoID)
+func (uc *ChatMonitoringUseCase) StopMonitoring() error {
+	correlationID := "stop-monitoring"
 
 	uc.mu.Lock()
 	defer uc.mu.Unlock()
 
-	session, exists := uc.sessions[videoID]
-	if !exists {
-		return fmt.Errorf("no active monitoring session for video: %s", videoID)
+	if uc.currentSession == nil {
+		return fmt.Errorf("no active monitoring session")
 	}
 
-	session.Subscribers--
+	videoID := uc.currentSession.VideoID
+	uc.currentSession.Cancel()
+	close(uc.currentSession.MessagesChan)
+	uc.currentSession = nil
 
-	if session.Subscribers <= 0 {
-		// セッションを停止
-		session.Cancel()
-		close(session.MessagesChan)
-		delete(uc.sessions, videoID)
-
-		uc.logger.LogStructured("INFO", "monitoring", "session_stopped", "Stopped monitoring session", videoID, correlationID, nil)
-	} else {
-		uc.logger.LogStructured("INFO", "monitoring", "subscriber_removed", "Removed subscriber from session", videoID, correlationID, map[string]interface{}{
-			"remainingSubscribers": session.Subscribers,
-		})
-	}
-
+	uc.logger.LogStructured("INFO", "monitoring", "session_stopped", "Stopped monitoring session", videoID, correlationID, nil)
 	return nil
 }
 
@@ -152,25 +136,25 @@ func (uc *ChatMonitoringUseCase) GetMonitoringSession(videoID string) (*Monitori
 	uc.mu.RLock()
 	defer uc.mu.RUnlock()
 
-	session, exists := uc.sessions[videoID]
-	return session, exists
-}
-
-// GetUserList 監視中の動画のユーザーリストを返します
-func (uc *ChatMonitoringUseCase) GetUserList(ctx context.Context, videoID string) ([]*entity.User, error) {
-	return uc.userService.GetUserListSnapshot(ctx, videoID)
-}
-
-// GetActiveVideos 現在監視中の動画リストを返します
-func (uc *ChatMonitoringUseCase) GetActiveVideos() []string {
 	uc.mu.RLock()
 	defer uc.mu.RUnlock()
 
-	videos := make([]string, 0, len(uc.sessions))
-	for videoID := range uc.sessions {
-		videos = append(videos, videoID)
+	if uc.currentSession != nil && uc.currentSession.VideoID == videoID {
+		return uc.currentSession, true
 	}
-	return videos
+	return nil, false
+}
+
+// GetUserList 現在監視中の動画のユーザーリストを返します
+func (uc *ChatMonitoringUseCase) GetUserList(ctx context.Context) ([]*entity.User, error) {
+	uc.mu.RLock()
+	defer uc.mu.RUnlock()
+
+	if uc.currentSession == nil {
+		return nil, fmt.Errorf("no active monitoring session")
+	}
+
+	return uc.userService.GetUserListSnapshot(ctx, uc.currentSession.VideoID)
 }
 
 // runPolling 動画のポーリングループを処理します
@@ -214,12 +198,13 @@ func (uc *ChatMonitoringUseCase) GetVideoStatus(ctx context.Context, videoID str
 
 	// 監視セッション情報を追加
 	uc.mu.RLock()
-	session, isMonitoring := uc.sessions[videoID]
+	session := uc.currentSession
+	isMonitoring := session != nil && session.VideoID == videoID
 	uc.mu.RUnlock()
 
 	videoStatus["isMonitoring"] = isMonitoring
 	if isMonitoring {
-		videoStatus["subscribers"] = session.Subscribers
+		videoStatus["subscribers"] = 1 // 単一セッションのため固定値
 		videoStatus["userCount"] = session.UserList.Count()
 		videoStatus["userListFull"] = session.UserList.IsFull()
 	}
