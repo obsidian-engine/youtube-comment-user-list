@@ -124,16 +124,27 @@ func (h *MonitoringHandler) StopMonitoring(c *gin.Context) {
 	})
 }
 
-// GetUserList GET /api/monitoring/users を処理します
+// GetUserList GET /api/monitoring/{videoId}/users を処理します
 func (h *MonitoringHandler) GetUserList(c *gin.Context) {
 	correlationID := fmt.Sprintf("http-%s", c.GetString("requestId"))
+	videoID := c.Param("videoId")
 
-	h.logger.LogAPI("INFO", "Get user list request received", "", correlationID, nil)
+	if videoID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "video ID is required", "correlationID": correlationID})
+		return
+	}
 
-	users, err := h.chatMonitoringUC.GetUserList(c.Request.Context())
+	h.logger.LogAPI("INFO", "Get user list request received", videoID, correlationID, nil)
+
+	users, err := h.chatMonitoringUC.GetUserList(c.Request.Context(), videoID)
 	if err != nil {
-		h.logger.LogError("ERROR", "Failed to get user list", "", correlationID, err, nil)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "correlationID": correlationID})
+		h.logger.LogError("ERROR", "Failed to get user list", videoID, correlationID, err, nil)
+		errorResponse := gin.H{"error": err.Error(), "correlationID": correlationID}
+		h.logger.LogAPI("DEBUG", "Sending error response", videoID, correlationID, map[string]interface{}{
+			"statusCode": http.StatusInternalServerError,
+			"error":      err.Error(),
+		})
+		c.JSON(http.StatusInternalServerError, errorResponse)
 		return
 	}
 
@@ -143,7 +154,36 @@ func (h *MonitoringHandler) GetUserList(c *gin.Context) {
 		Count:   len(users),
 	}
 
+	// デバッグ用：レスポンスをログ出力
+	h.logger.LogAPI("DEBUG", "Sending user list response", videoID, correlationID, map[string]interface{}{
+		"userCount": len(users),
+		"success":   true,
+	})
+
 	c.JSON(http.StatusOK, response)
+}
+
+// GetActiveVideoID 現在監視中のvideoIDを取得します
+func (h *MonitoringHandler) GetActiveVideoID(c *gin.Context) {
+	correlationID := fmt.Sprintf("http-%s", c.GetString("requestId"))
+
+	videoID, exists := h.chatMonitoringUC.GetActiveVideoID()
+	if !exists {
+		h.logger.LogAPI("INFO", "No active monitoring session found", "", correlationID, nil)
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":         "No active monitoring session",
+			"message":       "no active video",
+			"correlationID": correlationID,
+		})
+		return
+	}
+
+	h.logger.LogAPI("INFO", "Active video ID retrieved", videoID, correlationID, nil)
+	c.JSON(http.StatusOK, gin.H{
+		"success":       true,
+		"videoId":       videoID,
+		"correlationID": correlationID,
+	})
 }
 
 // GetVideoStatus GET /api/monitoring/{videoId}/status を処理します

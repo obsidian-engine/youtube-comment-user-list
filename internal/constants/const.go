@@ -27,6 +27,9 @@ const (
 const (
 	// ShutdownTimeout アプリケーションシャットダウンのタイムアウト
 	ShutdownTimeout = 10 * time.Second
+
+	// IdleTimeout アイドル状態でのサーバー自動停止タイムアウト
+	IdleTimeout = 30 * time.Minute
 )
 
 // YouTube API Configuration

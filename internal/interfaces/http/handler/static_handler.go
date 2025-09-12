@@ -263,7 +263,22 @@ func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
             userListDiv.innerHTML = '';
             
             try {
-                const response = await fetch('/api/monitoring/users');
+                // 現在アクティブなvideoIDを取得
+                const activeResponse = await fetch('/api/monitoring/active');
+                
+                if (!activeResponse.ok) {
+                    if (activeResponse.status === 404) {
+                        statusDiv.innerHTML = '<div class="status offline">監視セッションが開始されていません</div>';
+                        return;
+                    }
+                    throw new Error('Failed to get active video ID');
+                }
+                
+                const activeData = await activeResponse.json();
+                const videoId = activeData.videoId;
+                
+                // videoIDを使ってユーザーリストを取得
+                const response = await fetch('/api/monitoring/' + videoId + '/users');
                 const data = await response.json();
                 
                 if (data.success) {

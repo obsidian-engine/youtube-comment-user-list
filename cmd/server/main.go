@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -25,9 +26,58 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/interfaces/http/handler"
 )
 
+// IdleTimeoutManager アイドルタイムアウト管理
+type IdleTimeoutManager struct {
+	lastRequest int64 // Unix timestamp of last request
+	stopChan    chan struct{}
+}
+
+// NewIdleTimeoutManager 新しいアイドルタイムアウトマネージャーを作成
+func NewIdleTimeoutManager() *IdleTimeoutManager {
+	return &IdleTimeoutManager{
+		lastRequest: time.Now().Unix(),
+		stopChan:    make(chan struct{}),
+	}
+}
+
+// UpdateLastRequest 最後のリクエスト時刻を更新
+func (itm *IdleTimeoutManager) UpdateLastRequest() {
+	atomic.StoreInt64(&itm.lastRequest, time.Now().Unix())
+}
+
+// StartIdleMonitor アイドル監視を開始
+func (itm *IdleTimeoutManager) StartIdleMonitor(logger service.Logger) {
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute) // 1分ごとにチェック
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				lastRequest := atomic.LoadInt64(&itm.lastRequest)
+				if time.Since(time.Unix(lastRequest, 0)) > constants.IdleTimeout {
+					logger.LogStructured("INFO", "main", "idle_timeout",
+						fmt.Sprintf("Server has been idle for %v, shutting down", constants.IdleTimeout),
+						"", "", nil)
+					close(itm.stopChan)
+					return
+				}
+			case <-itm.stopChan:
+				return
+			}
+		}
+	}()
+}
+
+// GetStopChannel 停止チャンネルを取得
+func (itm *IdleTimeoutManager) GetStopChannel() <-chan struct{} {
+	return itm.stopChan
+}
+
 // ApplicationContainer はすべての依存関係を保持する
 type ApplicationContainer struct {
-	// インフラストラクチャ層
+	// Infrastructure
+	IdleManager    *IdleTimeoutManager
 	Logger         service.Logger
 	YouTubeClient  service.YouTubeClient
 	UserRepository service.UserRepository
@@ -71,7 +121,9 @@ func main() {
 		"version": "onion-architecture-refactored",
 	})
 
-	// HTTPサーバーをセットアップ
+	// アイドルタイムアウト監視を開始
+	container.IdleManager.StartIdleMonitor(container.Logger)
+
 	server := setupHTTPServer(container)
 
 	// サーバーをバックグラウンドで開始
@@ -91,10 +143,7 @@ func main() {
 func buildContainer(apiKey string) *ApplicationContainer {
 	container := &ApplicationContainer{}
 
-	// Infrastructure layer
-	// インフラストラクチャ層
-
-	// インフラストラクチャ層 layer
+	container.IdleManager = NewIdleTimeoutManager()
 	container.Logger = logging.NewStructuredLogger()
 	container.YouTubeClient = youtube.NewClient(apiKey)
 	container.UserRepository = memory.NewUserRepository()
@@ -167,6 +216,26 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
+	// アイドルタイムアウト更新ミドルウェア
+	r.Use(func(c *gin.Context) {
+		container.IdleManager.UpdateLastRequest()
+		c.Next()
+	})
+
+	// CORS設定を追加
+	r.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
 	// 静的ページ
 	r.GET("/", container.StaticHandler.ServeHome)
 	r.GET("/users", container.StaticHandler.ServeUserListPage)
@@ -180,7 +249,9 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 		{
 			monitoring.POST("/start", container.MonitoringHandler.StartMonitoring)
 			monitoring.DELETE("/stop", container.MonitoringHandler.StopMonitoring)
-			monitoring.GET("/users", container.MonitoringHandler.GetUserList)
+			monitoring.POST("/stop", container.MonitoringHandler.StopMonitoring)
+			monitoring.GET("/active", container.MonitoringHandler.GetActiveVideoID)
+			monitoring.GET("/:videoId/users", container.MonitoringHandler.GetUserList)
 			monitoring.GET("/:videoId/status", container.MonitoringHandler.GetVideoStatus)
 		}
 
@@ -218,9 +289,13 @@ func waitForShutdown(container *ApplicationContainer, server *http.Server) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	<-quit
-	container.Logger.LogStructured("INFO", "main", "shutdown_start", "Shutdown signal received", "", "", nil)
-
+	// シグナルまたはアイドルタイムアウトを待機
+	select {
+	case <-quit:
+		container.Logger.LogStructured("INFO", "main", "shutdown_start", "Shutdown signal received", "", "", nil)
+	case <-container.IdleManager.GetStopChannel():
+		container.Logger.LogStructured("INFO", "main", "shutdown_start", "Idle timeout reached, shutting down", "", "", nil)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), constants.ShutdownTimeout)
 	defer cancel()
 

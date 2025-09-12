@@ -76,8 +76,8 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 		uc.currentSession = nil
 	}
 
-	// 新しい監視セッションを作成
-	sessionCtx, cancel := context.WithCancel(ctx)
+	// 新しい監視セッションを作成（バックグラウンドタスク用の独立したコンテキスト）
+	sessionCtx, cancel := context.WithCancel(context.Background())
 	messagesChan := make(chan entity.ChatMessage, constants.ChatMessageChannelBuffer)
 
 	// この動画用のユーザーリストを作成
@@ -145,16 +145,20 @@ func (uc *ChatMonitoringUseCase) GetMonitoringSession(videoID string) (*Monitori
 	return nil, false
 }
 
-// GetUserList 現在監視中の動画のユーザーリストを返します
-func (uc *ChatMonitoringUseCase) GetUserList(ctx context.Context) ([]*entity.User, error) {
+// GetActiveVideoID 現在監視中のvideoIDを取得します
+func (uc *ChatMonitoringUseCase) GetActiveVideoID() (string, bool) {
 	uc.mu.RLock()
 	defer uc.mu.RUnlock()
 
-	if uc.currentSession == nil {
-		return nil, fmt.Errorf("no active monitoring session")
+	if uc.currentSession != nil {
+		return uc.currentSession.VideoID, true
 	}
+	return "", false
+}
 
-	return uc.userService.GetUserListSnapshot(ctx, uc.currentSession.VideoID)
+// GetUserList 指定された動画のユーザーリストを返します
+func (uc *ChatMonitoringUseCase) GetUserList(ctx context.Context, videoID string) ([]*entity.User, error) {
+	return uc.userService.GetUserListSnapshot(ctx, videoID)
 }
 
 // runPolling 動画のポーリングループを処理します
