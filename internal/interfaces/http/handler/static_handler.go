@@ -1,8 +1,9 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
 )
@@ -20,15 +21,10 @@ func NewStaticHandler(logger service.Logger) *StaticHandler {
 }
 
 // ServeHome handles GET /
-func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
+func (h *StaticHandler) ServeHome(c *gin.Context) {
 	h.logger.LogAPI("INFO", "Home page request", "", "", map[string]interface{}{
-		"userAgent":  r.Header.Get("User-Agent"),
-		"remoteAddr": r.RemoteAddr,
+		"userAgent":  c.GetHeader("User-Agent"),
+		"remoteAddr": c.ClientIP(),
 	})
 
 	html := `<!DOCTYPE html>
@@ -219,7 +215,7 @@ func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
             
             try {
                 const response = await fetch('/api/monitoring/stop/' + videoId, {
-                    method: 'POST'
+                    method: 'DELETE'
                 });
                 
                 const data = await response.json();
@@ -238,234 +234,15 @@ func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
 </body>
 </html>`
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if _, err := w.Write([]byte(html)); err != nil {
-		h.logger.LogError("ERROR", "Failed to write home page", "", "", err, nil)
-	}
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.String(http.StatusOK, html)
 }
 
 // ServeUserListPage handles GET /users
-func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	videoID := r.URL.Query().Get("video_id")
-	if videoID == "" {
-		http.Error(w, "video_id parameter is required", http.StatusBadRequest)
-		return
-	}
-
-	h.logger.LogAPI("INFO", "User list page request", videoID, "", map[string]interface{}{
-		"userAgent": r.Header.Get("User-Agent"),
-	})
-
-	html := fmt.Sprintf(`<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ユーザーリスト - %s</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            max-width: 1200px; 
-            margin: 0 auto; 
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container { 
-            background: white; 
-            padding: 30px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #ddd;
-        }
-        .user-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .user-card {
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 6px;
-            border-left: 4px solid #4CAF50;
-        }
-        .user-name {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .user-id {
-            font-size: 0.9em;
-            color: #666;
-        }
-        .stats {
-            background: #e7f3ff;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-        .nav-links a {
-            color: #007cba;
-            text-decoration: none;
-            margin-right: 15px;
-        }
-        .nav-links a:hover {
-            text-decoration: underline;
-        }
-        .status {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.8em;
-            margin-left: 10px;
-        }
-        .status.connected { background: #d4edda; color: #155724; }
-        .status.disconnected { background: #f8d7da; color: #721c24; }
-        .status.loading { background: #fff3cd; color: #856404; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>ユーザーリスト</h1>
-            <div class="nav-links">
-                <a href="/">ホーム</a>
-                <a href="/logs">ログ</a>
-                <a href="javascript:void(0)" onclick="refreshUsers()">更新</a>
-            </div>
-        </div>
-        
-        <div class="stats">
-            <strong>Video ID:</strong> %s
-            <span id="connectionStatus" class="status loading">接続中...</span>
-            <br>
-            <strong>ユーザー数:</strong> <span id="userCount">読み込み中...</span>
-        </div>
-        
-        <div id="userGrid" class="user-grid">
-            読み込み中...
-        </div>
-    </div>
-
-    <script>
-        const videoId = '%s';
-        let eventSource;
-        let userCount = 0;
-        
-        function connectSSE() {
-            eventSource = new EventSource('/api/sse/' + videoId + '/users');
-            
-            eventSource.onopen = function() {
-                document.getElementById('connectionStatus').className = 'status connected';
-                document.getElementById('connectionStatus').textContent = '接続済み';
-            };
-            
-            eventSource.onmessage = function(event) {
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'user_list') {
-                        displayUsers(data.data.users, data.data.count);
-                    }
-                } catch (error) {
-                    console.error('SSE message parse error:', error);
-                }
-            };
-            
-            eventSource.onerror = function() {
-                document.getElementById('connectionStatus').className = 'status disconnected';
-                document.getElementById('connectionStatus').textContent = '接続エラー';
-                
-                // Retry connection after 5 seconds
-                setTimeout(() => {
-                    if (eventSource.readyState === EventSource.CLOSED) {
-                        connectSSE();
-                    }
-                }, 5000);
-            };
-        }
-        
-        function displayUsers(users, count) {
-            userCount = count;
-            document.getElementById('userCount').textContent = count;
-            
-            const userGrid = document.getElementById('userGrid');
-            
-            if (!users || users.length === 0) {
-                userGrid.innerHTML = '<p>まだユーザーが参加していません。</p>';
-                return;
-            }
-            
-            let html = '';
-            users.forEach(user => {
-                html += '<div class="user-card">' +
-                    '<div class="user-name">' + escapeHtml(user.DisplayName) + '</div>' +
-                    '<div class="user-id">' + escapeHtml(user.ChannelID) + '</div>' +
-                    '</div>';
-            });
-            
-            userGrid.innerHTML = html;
-        }
-        
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
-        async function refreshUsers() {
-            try {
-                const response = await fetch('/api/monitoring/' + videoId + '/users');
-                const data = await response.json();
-                
-                if (data.success) {
-                    displayUsers(data.users, data.count);
-                } else {
-                    alert('エラー: ' + data.error);
-                }
-            } catch (error) {
-                alert('通信エラー: ' + error.message);
-            }
-        }
-        
-        // Initialize SSE connection
-        connectSSE();
-        
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', function() {
-            if (eventSource) {
-                eventSource.close();
-            }
-        });
-    </script>
-</body>
-</html>`, videoID, videoID, videoID)
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if _, err := w.Write([]byte(html)); err != nil {
-		h.logger.LogError("ERROR", "Failed to write user list page", videoID, "", err, nil)
-	}
-}
-
-// ServeLogsPage handles GET /logs
-func (h *StaticHandler) ServeLogsPage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	h.logger.LogAPI("INFO", "Logs page request", "", "", map[string]interface{}{
-		"userAgent": r.Header.Get("User-Agent"),
+func (h *StaticHandler) ServeUserListPage(c *gin.Context) {
+	h.logger.LogAPI("INFO", "User list page request", "", "", map[string]interface{}{
+		"userAgent":  c.GetHeader("User-Agent"),
+		"remoteAddr": c.ClientIP(),
 	})
 
 	html := `<!DOCTYPE html>
@@ -473,232 +250,287 @@ func (h *StaticHandler) ServeLogsPage(w http.ResponseWriter, r *http.Request) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ログ表示</title>
+    <title>User List - YouTube Live Chat Monitor</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
-            max-width: 1400px; 
-            margin: 0 auto; 
-            padding: 20px;
+            margin: 20px;
             background-color: #f5f5f5;
         }
         .container { 
             background: white; 
-            padding: 30px; 
+            padding: 20px; 
             border-radius: 8px; 
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #ddd;
+        .user-list { 
+            margin-top: 20px; 
         }
-        .controls {
-            margin-bottom: 20px;
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 6px;
+        .user { 
+            border: 1px solid #ddd; 
+            margin: 5px 0; 
+            padding: 10px; 
+            border-radius: 4px;
         }
-        .controls label {
-            display: inline-block;
-            width: 120px;
-            margin-right: 10px;
+        .status { 
+            margin: 20px 0; 
+            padding: 10px; 
+            border-radius: 4px;
         }
-        .controls select, .controls input {
-            padding: 5px;
-            margin-right: 15px;
+        .online { 
+            background-color: #d4edda; 
+            color: #155724; 
         }
-        .controls button {
-            padding: 6px 12px;
-            margin-right: 10px;
-            border: 1px solid #ddd;
-            background: white;
-            cursor: pointer;
-        }
-        .controls button:hover {
-            background: #f0f0f0;
-        }
-        .log-entry {
-            margin-bottom: 10px;
-            padding: 10px;
-            border-left: 4px solid #ddd;
-            background: #fafafa;
-            font-family: monospace;
-            font-size: 0.9em;
-        }
-        .log-entry.INFO { border-left-color: #4CAF50; }
-        .log-entry.ERROR { border-left-color: #f44336; background: #fff5f5; }
-        .log-entry.DEBUG { border-left-color: #2196F3; }
-        .log-entry.WARN { border-left-color: #ff9800; background: #fffbf0; }
-        .log-meta {
-            color: #666;
-            font-size: 0.8em;
-            margin-bottom: 5px;
-        }
-        .log-context {
-            background: #eee;
-            padding: 5px;
-            margin-top: 5px;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        .nav-links a {
-            color: #007cba;
-            text-decoration: none;
-            margin-right: 15px;
-        }
-        .nav-links a:hover {
-            text-decoration: underline;
+        .offline { 
+            background-color: #f8d7da; 
+            color: #721c24; 
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>ログ表示</h1>
-            <div class="nav-links">
-                <a href="/">ホーム</a>
-                <button onclick="refreshLogs()">更新</button>
-                <button onclick="clearLogs()">ログクリア</button>
-                <button onclick="exportLogs()">エクスポート</button>
-            </div>
+        <h1>ユーザーリスト</h1>
+        <p><a href="/">← ホームに戻る</a></p>
+        
+        <div class="form-group">
+            <label for="videoId">Video ID:</label>
+            <input type="text" id="videoId" placeholder="Video IDを入力してください">
+            <button onclick="loadUsers()">ユーザーリスト取得</button>
         </div>
         
-        <div class="controls">
-            <label>レベル:</label>
-            <select id="levelFilter">
-                <option value="">全て</option>
-                <option value="ERROR">ERROR</option>
-                <option value="WARN">WARN</option>
-                <option value="INFO">INFO</option>
-                <option value="DEBUG">DEBUG</option>
-            </select>
-            
-            <label>コンポーネント:</label>
-            <select id="componentFilter">
-                <option value="">全て</option>
-                <option value="api">API</option>
-                <option value="poller">Poller</option>
-                <option value="user">User</option>
-                <option value="error">Error</option>
-            </select>
-            
-            <label>Video ID:</label>
-            <input type="text" id="videoIdFilter" placeholder="Video ID">
-            
-            <label>件数:</label>
-            <select id="limitFilter">
-                <option value="50">50件</option>
-                <option value="100" selected>100件</option>
-                <option value="200">200件</option>
-                <option value="500">500件</option>
-            </select>
-            
-            <button onclick="applyFilters()">フィルター適用</button>
-        </div>
-        
-        <div id="logEntries">
-            読み込み中...
-        </div>
+        <div id="status"></div>
+        <div id="userList"></div>
     </div>
 
     <script>
-        async function loadLogs() {
-            const level = document.getElementById('levelFilter').value;
-            const component = document.getElementById('componentFilter').value;
-            const videoId = document.getElementById('videoIdFilter').value;
-            const limit = document.getElementById('limitFilter').value;
+        // Get video_id from URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const videoId = urlParams.get('video_id');
+        if (videoId) {
+            document.getElementById('videoId').value = videoId;
+            loadUsers();
+        }
+
+        async function loadUsers() {
+            const videoId = document.getElementById('videoId').value.trim();
+            if (!videoId) {
+                alert('Video IDを入力してください');
+                return;
+            }
             
-            let url = '/api/logs?';
-            const params = new URLSearchParams();
-            if (level) params.append('level', level);
-            if (component) params.append('component', component);
-            if (videoId) params.append('video_id', videoId);
-            if (limit) params.append('limit', limit);
+            const statusDiv = document.getElementById('status');
+            const userListDiv = document.getElementById('userList');
+            
+            statusDiv.innerHTML = '<div class="status">読み込み中...</div>';
+            userListDiv.innerHTML = '';
             
             try {
-                const response = await fetch('/api/logs?' + params.toString());
+                const response = await fetch('/api/monitoring/' + videoId + '/users');
                 const data = await response.json();
                 
                 if (data.success) {
-                    displayLogs(data.logs);
+                    statusDiv.innerHTML = '<div class="status online">オンライン - ユーザー数: ' + data.count + '</div>';
+                    
+                    if (data.users && data.users.length > 0) {
+                        let html = '<div class="user-list">';
+                        data.users.forEach(user => {
+                            html += '<div class="user">' +
+                                '<strong>' + user.display_name + '</strong><br>' +
+                                'Channel: ' + user.channel_id + '<br>' +
+                                '初回参加: ' + new Date(user.first_seen).toLocaleString() +
+                                '</div>';
+                        });
+                        html += '</div>';
+                        userListDiv.innerHTML = html;
+                    } else {
+                        userListDiv.innerHTML = '<p>まだユーザーが参加していません。</p>';
+                    }
                 } else {
-                    document.getElementById('logEntries').innerHTML = 
-                        '<div class="log-entry ERROR">エラー: ' + data.error + '</div>';
+                    statusDiv.innerHTML = '<div class="status offline">エラー: ' + data.error + '</div>';
                 }
             } catch (error) {
-                document.getElementById('logEntries').innerHTML = 
-                    '<div class="log-entry ERROR">通信エラー: ' + error.message + '</div>';
+                statusDiv.innerHTML = '<div class="status offline">通信エラー: ' + error.message + '</div>';
             }
         }
-        
-        function displayLogs(logs) {
-            const container = document.getElementById('logEntries');
-            
-            if (!logs || logs.length === 0) {
-                container.innerHTML = '<p>ログがありません。</p>';
-                return;
+
+        // Auto-refresh every 10 seconds
+        setInterval(() => {
+            if (document.getElementById('videoId').value.trim()) {
+                loadUsers();
             }
-            
-            let html = '';
-            logs.forEach(log => {
-                html += '<div class="log-entry ' + log.level + '">' +
-                    '<div class="log-meta">' +
-                    '[' + log.timestamp + '] ' + log.level + 
-                    (log.component ? ' [' + log.component + ']' : '') +
-                    (log.event ? ' [' + log.event + ']' : '') +
-                    (log.video_id ? ' (Video: ' + log.video_id + ')' : '') +
-                    (log.correlation_id ? ' (ID: ' + log.correlation_id + ')' : '') +
-                    '</div>' +
-                    '<div>' + escapeHtml(log.message) + '</div>';
+        }, 10000);
+    </script>
+</body>
+</html>`
+
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.String(http.StatusOK, html)
+}
+
+// ServeLogsPage handles GET /logs
+func (h *StaticHandler) ServeLogsPage(c *gin.Context) {
+	h.logger.LogAPI("INFO", "Logs page request", "", "", map[string]interface{}{
+		"userAgent":  c.GetHeader("User-Agent"),
+		"remoteAddr": c.ClientIP(),
+	})
+
+	html := `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Logs - YouTube Live Chat Monitor</title>
+    <style>
+        body { 
+            font-family: 'Courier New', monospace; 
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .log-entry { 
+            margin: 5px 0; 
+            padding: 5px; 
+            border-left: 3px solid #ddd;
+            font-size: 12px;
+        }
+        .log-info { 
+            border-left-color: #007bff; 
+        }
+        .log-error { 
+            border-left-color: #dc3545; 
+            background-color: #f8d7da;
+        }
+        .log-warning { 
+            border-left-color: #ffc107; 
+            background-color: #fff3cd;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-primary { 
+            background-color: #007bff; 
+            color: white; 
+        }
+        .btn-danger { 
+            background-color: #dc3545; 
+            color: white; 
+        }
+        .btn-success { 
+            background-color: #28a745; 
+            color: white; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>システムログ</h1>
+        <p><a href="/">← ホームに戻る</a></p>
+        
+        <div class="controls">
+            <button class="btn-primary" onclick="loadLogs()">ログ更新</button>
+            <button class="btn-danger" onclick="clearLogs()">ログクリア</button>
+            <button class="btn-success" onclick="exportLogs()">ログエクスポート</button>
+            <label>
+                <input type="checkbox" id="autoRefresh" checked> 自動更新 (5秒間隔)
+            </label>
+        </div>
+        
+        <div id="logStats"></div>
+        <div id="logContainer"></div>
+    </div>
+
+    <script>
+        let autoRefreshInterval;
+
+        document.getElementById('autoRefresh').addEventListener('change', function(e) {
+            if (e.target.checked) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+        });
+
+        function startAutoRefresh() {
+            autoRefreshInterval = setInterval(loadLogs, 5000);
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        }
+
+        async function loadLogs() {
+            try {
+                const response = await fetch('/api/logs');
+                const data = await response.json();
                 
-                if (log.context && Object.keys(log.context).length > 0) {
-                    html += '<div class="log-context" onclick="toggleContext(this)">' +
-                        'Context (クリックで展開): ' + Object.keys(log.context).length + ' items' +
-                        '<pre style="display: none; margin: 5px 0 0 0;">' + 
-                        JSON.stringify(log.context, null, 2) + '</pre>' +
-                        '</div>';
+                const logContainer = document.getElementById('logContainer');
+                
+                if (data.success && data.logs) {
+                    let html = '';
+                    data.logs.forEach(log => {
+                        let logClass = 'log-info';
+                        if (log.level === 'ERROR') logClass = 'log-error';
+                        else if (log.level === 'WARNING') logClass = 'log-warning';
+                        
+                        html += '<div class="log-entry ' + logClass + '">' +
+                            '<strong>' + log.timestamp + '</strong> [' + log.level + '] ' +
+                            log.message + (log.video_id ? ' (Video: ' + log.video_id + ')' : '') +
+                            '</div>';
+                    });
+                    logContainer.innerHTML = html;
+                } else {
+                    logContainer.innerHTML = '<p>ログがありません。</p>';
                 }
                 
-                html += '</div>';
-            });
-            
-            container.innerHTML = html;
-        }
-        
-        function toggleContext(element) {
-            const pre = element.querySelector('pre');
-            if (pre.style.display === 'none') {
-                pre.style.display = 'block';
-            } else {
-                pre.style.display = 'none';
+                // Load stats
+                loadLogStats();
+            } catch (error) {
+                document.getElementById('logContainer').innerHTML = 
+                    '<div class="log-entry log-error">通信エラー: ' + error.message + '</div>';
             }
         }
-        
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+
+        async function loadLogStats() {
+            try {
+                const response = await fetch('/api/logs/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('logStats').innerHTML = 
+                        '<p><strong>ログ統計:</strong> 総数: ' + data.total + 
+                        ', エラー: ' + data.errors + ', 警告: ' + data.warnings + '</p>';
+                }
+            } catch (error) {
+                console.error('Stats loading error:', error);
+            }
         }
-        
-        function refreshLogs() {
-            loadLogs();
-        }
-        
-        function applyFilters() {
-            loadLogs();
-        }
-        
+
         async function clearLogs() {
-            if (!confirm('全てのログをクリアしますか？')) {
+            if (!confirm('すべてのログをクリアしますか？')) {
                 return;
             }
             
             try {
-                const response = await fetch('/api/logs', { method: 'DELETE' });
+                const response = await fetch('/api/logs', {
+                    method: 'DELETE'
+                });
                 const data = await response.json();
                 
                 if (data.success) {
@@ -711,33 +543,32 @@ func (h *StaticHandler) ServeLogsPage(w http.ResponseWriter, r *http.Request) {
                 alert('通信エラー: ' + error.message);
             }
         }
-        
+
         async function exportLogs() {
-            const level = document.getElementById('levelFilter').value;
-            const component = document.getElementById('componentFilter').value;
-            const videoId = document.getElementById('videoIdFilter').value;
-            const limit = document.getElementById('limitFilter').value;
-            
-            const params = new URLSearchParams();
-            if (level) params.append('level', level);
-            if (component) params.append('component', component);
-            if (videoId) params.append('video_id', videoId);
-            if (limit) params.append('limit', limit);
-            
-            window.open('/api/logs/export?' + params.toString());
+            try {
+                const response = await fetch('/api/logs/export');
+                const blob = await response.blob();
+                
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'system_logs_' + new Date().toISOString().split('T')[0] + '.json';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                alert('エクスポートエラー: ' + error.message);
+            }
         }
-        
-        // Initial load
+
+        // Initialize
         loadLogs();
-        
-        // Auto refresh every 30 seconds
-        setInterval(loadLogs, 30000);
+        startAutoRefresh();
     </script>
 </body>
 </html>`
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if _, err := w.Write([]byte(html)); err != nil {
-		h.logger.LogError("ERROR", "Failed to write logs page", "", "", err, nil)
-	}
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.String(http.StatusOK, html)
 }

@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
@@ -176,150 +177,66 @@ func buildContainer(apiKey string) *ApplicationContainer {
 // setupHTTPServer configures and returns the HTTP server
 // setupHTTPServer はHTTPサーバーを設定して返す
 func setupHTTPServer(container *ApplicationContainer) *http.Server {
-	mux := http.NewServeMux()
+	// Initialize Gin router
+	// Ginルーターを初期化
+	r := gin.New()
+
+	// Add middleware
+	// ミドルウェアを追加
+	r.Use(gin.Logger())
+	r.Use(gin.Recovery())
 
 	// Static pages
 	// 静的ページ
-	mux.HandleFunc("/", container.StaticHandler.ServeHome)
-	mux.HandleFunc("/users", container.StaticHandler.ServeUserListPage)
-	mux.HandleFunc("/logs", container.StaticHandler.ServeLogsPage)
+	r.GET("/", container.StaticHandler.ServeHome)
+	r.GET("/users", container.StaticHandler.ServeUserListPage)
+	r.GET("/logs", container.StaticHandler.ServeLogsPage)
 
 	// API endpoints
 	// APIエンドポイント
-	mux.HandleFunc("/api/monitoring/start", container.MonitoringHandler.StartMonitoring)
-	mux.HandleFunc("/api/monitoring/stop/", container.MonitoringHandler.StopMonitoring)
-	mux.HandleFunc("/api/monitoring/active", container.MonitoringHandler.GetActiveVideos)
-
-	// Dynamic video ID endpoints (simple pattern matching)
-	// 動的動画IDエンドポイント（シンプルパターンマッチング）
-	mux.HandleFunc("/api/monitoring/", func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-		if len(path) > len("/api/monitoring/") {
-			// Extract operation from path
-			// パスから操作を抽出
-			remaining := path[len("/api/monitoring/"):]
-			if len(remaining) >= constants.YouTubeVideoIDLength {
-				// 動画IDの最小長
-				switch remaining[constants.YouTubeVideoIDLength:] {
-				case "/users":
-					container.MonitoringHandler.GetUserList(w, r)
-				case "/status":
-					container.MonitoringHandler.GetVideoStatus(w, r)
-				default:
-					http.NotFound(w, r)
-				}
-			} else {
-				http.NotFound(w, r)
-			}
-		} else {
-			http.NotFound(w, r)
-		}
-	})
-
-	// SSE endpoints
-	// SSEエンドポイント
-	mux.HandleFunc("/api/sse/", func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-		if len(path) <= len("/api/sse/") {
-			http.NotFound(w, r)
-			return
+	api := r.Group("/api")
+	{
+		// Monitoring endpoints
+		// 監視エンドポイント
+		monitoring := api.Group("/monitoring")
+		{
+			monitoring.POST("/start", container.MonitoringHandler.StartMonitoring)
+			monitoring.DELETE("/stop/:videoId", container.MonitoringHandler.StopMonitoring)
+			monitoring.GET("/active", container.MonitoringHandler.GetActiveVideos)
+			monitoring.GET("/:videoId/users", container.MonitoringHandler.GetUserList)
+			monitoring.GET("/:videoId/status", container.MonitoringHandler.GetVideoStatus)
 		}
 
-		remaining := path[len("/api/sse/"):]
-		if len(remaining) < constants.YouTubeVideoIDLength {
-			http.NotFound(w, r)
-			return
+		// SSE endpoints
+		// SSEエンドポイント
+		sse := api.Group("/sse")
+		{
+			sse.GET("/:videoId", container.SSEHandler.StreamMessages)
+			sse.GET("/:videoId/users", container.SSEHandler.StreamUserList)
 		}
 
-		// 動画IDの最小長
-		if len(remaining) == constants.YouTubeVideoIDLength {
-			// /api/sse/{videoId}
-			// /api/sse/{動画ID}
-			container.SSEHandler.StreamMessages(w, r)
-			return
+		// Log endpoints
+		// ログエンドポイント
+		logs := api.Group("/logs")
+		{
+			logs.GET("", container.LogHandler.GetLogs)
+			logs.DELETE("", container.LogHandler.ClearLogs)
+			logs.GET("/stats", container.LogHandler.GetLogStats)
+			logs.GET("/export", container.LogHandler.ExportLogs)
 		}
-
-		if remaining[constants.YouTubeVideoIDLength:] == "/users" {
-			// /api/sse/{videoId}/users
-			// /api/sse/{動画ID}/users
-			container.SSEHandler.StreamUserList(w, r)
-			return
-		}
-
-		http.NotFound(w, r)
-	})
-
-	// Log endpoints
-	// ログエンドポイント
-	mux.HandleFunc("/api/logs", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			container.LogHandler.GetLogs(w, r)
-		case http.MethodDelete:
-			container.LogHandler.ClearLogs(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	mux.HandleFunc("/api/logs/stats", container.LogHandler.GetLogStats)
-	mux.HandleFunc("/api/logs/export", container.LogHandler.ExportLogs)
+	}
 
 	// Create server with proper timeouts
 	// 適切なタイムアウト設定でサーバーを作成
 	server := &http.Server{
 		Addr:         getEnv("PORT", ":8080"),
-		Handler:      loggingMiddleware(container.Logger, mux),
-		ReadTimeout:  constants.HTTPReadTimeout,
-		WriteTimeout: constants.HTTPWriteTimeout,
-		IdleTimeout:  constants.HTTPIdleTimeout,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	return server
-}
-
-// loggingMiddleware はリクエストログ機能を追加する
-func loggingMiddleware(logger service.Logger, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		correlationID := fmt.Sprintf("req-%d", start.Unix())
-
-		// Add correlation ID to context
-		// コンテキストに相関IDを追加
-		ctx := context.WithValue(r.Context(), "requestId", start.Unix())
-		r = r.WithContext(ctx)
-
-		logger.LogAPI("INFO", "Request received", "", correlationID, map[string]interface{}{
-			"method":     r.Method,
-			"path":       r.URL.Path,
-			"userAgent":  r.Header.Get("User-Agent"),
-			"remoteAddr": r.RemoteAddr,
-		})
-
-		// Wrap ResponseWriter to capture status code
-		// ステータスコードをキャプチャするためResponseWriterをラップ
-		wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-		next.ServeHTTP(wrapped, r)
-
-		duration := time.Since(start)
-		logger.LogAPI("INFO", "Request completed", "", correlationID, map[string]interface{}{
-			"method":     r.Method,
-			"path":       r.URL.Path,
-			"statusCode": wrapped.statusCode,
-			"duration":   duration.String(),
-		})
-	})
-}
-
-// responseWriter wraps http.ResponseWriter to capture status code
-// responseWriter はステータスコードをキャプチャするためにhttp.ResponseWriterをラップする
-type responseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func (rw *responseWriter) WriteHeader(code int) {
-	rw.statusCode = code
-	rw.ResponseWriter.WriteHeader(code)
 }
 
 // waitForShutdown waits for a shutdown signal and gracefully shuts down the server
