@@ -21,7 +21,7 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// NewClient 新しいYouTubeを作成します API client
+// NewClient 新しいYouTube APIクライアントを作成します
 func NewClient(apiKey string) *Client {
 	return &Client{
 		apiKey: apiKey,

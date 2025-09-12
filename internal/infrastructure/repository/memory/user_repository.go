@@ -9,27 +9,27 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
 )
 
-// UserRepository implements the UserRepository interface using in-memory storage
+// UserRepository インメモリストレージを使用してUserRepositoryインターフェースを実装します
 type UserRepository struct {
 	mu        sync.RWMutex
-	userLists map[string]*entity.UserList // videoID -> UserList
+	userLists map[string]*entity.UserList // 動画ID -> ユーザーリスト
 }
 
-// NewUserRepository creates a new in-memory user repository
+// NewUserRepository 新しいインメモリユーザーリポジトリを作成します
 func NewUserRepository() *UserRepository {
 	return &UserRepository{
 		userLists: make(map[string]*entity.UserList),
 	}
 }
 
-// GetUserList retrieves the user list for a video
+// GetUserList 動画のユーザーリストを取得します
 func (r *UserRepository) GetUserList(ctx context.Context, videoID string) (*entity.UserList, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	userList, exists := r.userLists[videoID]
 	if !exists {
-		// Create a new user list with default max users if it doesn't exist
+		// 存在しない場合はデフォルトの最大ユーザー数で新しいユーザーリストを作成
 		defaultMaxUsers := constants.DefaultMaxUsers
 		userList = entity.NewUserList(defaultMaxUsers)
 		r.userLists[videoID] = userList
@@ -38,7 +38,7 @@ func (r *UserRepository) GetUserList(ctx context.Context, videoID string) (*enti
 	return userList, nil
 }
 
-// UpdateUserList updates the user list for a video
+// UpdateUserList 動画のユーザーリストを更新します
 func (r *UserRepository) UpdateUserList(ctx context.Context, videoID string, userList *entity.UserList) error {
 	if userList == nil {
 		return fmt.Errorf("userList cannot be nil")

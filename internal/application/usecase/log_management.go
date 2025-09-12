@@ -108,7 +108,7 @@ type LogFilters struct {
 	Limit         int    // 返すエントリの最大数
 }
 
-// GetLogStats returns statistics about logged events
+// GetLogStats ログイベントの統計情報を返します
 func (uc *LogManagementUseCase) GetLogStats(ctx context.Context) (map[string]interface{}, error) {
 	uc.logBuffer.mu.RLock()
 	defer uc.logBuffer.mu.RUnlock()
@@ -149,22 +149,22 @@ func (uc *LogManagementUseCase) GetLogStats(ctx context.Context) (map[string]int
 	return stats, nil
 }
 
-// ClearLogs clears all log entries from the buffer
+// ClearLogs バッファからすべてのログエントリをクリアします
 func (uc *LogManagementUseCase) ClearLogs(ctx context.Context) error {
 	uc.logBuffer.mu.Lock()
 	defer uc.logBuffer.mu.Unlock()
 
-	// Reset the buffer
+	// バッファをリセット
 	uc.logBuffer.entries = make([]LogEntry, uc.logBuffer.maxSize)
 	uc.logBuffer.current = 0
 
-	// Log the clear action
+	// クリアアクションをログに記録
 	uc.AddLogEntry("INFO", "log_management", "logs_cleared", "Log buffer cleared by user request", "", "", nil)
 
 	return nil
 }
 
-// ExportLogs exports logs in JSON format
+// ExportLogs ログをJSON形式でエクスポートします
 func (uc *LogManagementUseCase) ExportLogs(ctx context.Context, filters LogFilters) (string, error) {
 	logs, err := uc.GetRecentLogs(ctx, filters)
 	if err != nil {
@@ -179,7 +179,7 @@ func (uc *LogManagementUseCase) ExportLogs(ctx context.Context, filters LogFilte
 	return string(jsonData), nil
 }
 
-// add adds an entry to the circular buffer
+// add 循環バッファにエントリを追加します
 func (lb *LogBuffer) add(entry LogEntry) {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
@@ -188,7 +188,7 @@ func (lb *LogBuffer) add(entry LogEntry) {
 	lb.current = (lb.current + 1) % lb.maxSize
 }
 
-// matchesFilters checks if a log entry matches the given filters
+// matchesFilters ログエントリが指定されたフィルタに一致するかチェックします
 func (uc *LogManagementUseCase) matchesFilters(entry LogEntry, filters LogFilters) bool {
 	if filters.Level != "" && entry.Level != filters.Level {
 		return false
@@ -209,22 +209,22 @@ func (uc *LogManagementUseCase) matchesFilters(entry LogEntry, filters LogFilter
 	return true
 }
 
-// LogAPI logs API-related events with structured data
+// LogAPI 構造化データでAPI関連のイベントをログに記録します
 func (uc *LogManagementUseCase) LogAPI(level, message, videoID, correlationID string, context map[string]interface{}) {
 	uc.AddLogEntry(level, "api", "api_call", message, videoID, correlationID, context)
 }
 
-// LogPoller logs polling-related events
+// LogPoller ポーリング関連のイベントをログに記録します
 func (uc *LogManagementUseCase) LogPoller(level, message, videoID, correlationID string, context map[string]interface{}) {
 	uc.AddLogEntry(level, "poller", "polling_event", message, videoID, correlationID, context)
 }
 
-// LogUser logs user-related events
+// LogUser ユーザー関連のイベントをログに記録します
 func (uc *LogManagementUseCase) LogUser(level, message, videoID, correlationID string, context map[string]interface{}) {
 	uc.AddLogEntry(level, "user", "user_event", message, videoID, correlationID, context)
 }
 
-// LogError logs error events with error details
+// LogError エラーの詳細と共にエラーイベントをログに記録します
 func (uc *LogManagementUseCase) LogError(level, message, videoID, correlationID string, err error, context map[string]interface{}) {
 	if context == nil {
 		context = make(map[string]interface{})

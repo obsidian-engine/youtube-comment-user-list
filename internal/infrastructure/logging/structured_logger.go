@@ -16,7 +16,7 @@ type StructuredLogger struct {
 	logger *log.Logger
 }
 
-// NewStructuredLogger 新しいstructuredを作成します logger
+// NewStructuredLogger 新しい構造化ロガーを作成します
 func NewStructuredLogger() *StructuredLogger {
 	return &StructuredLogger{
 		logger: log.New(os.Stdout, "", 0), // フォーマットを独自に処理するためプレフィックス/フラグなし
