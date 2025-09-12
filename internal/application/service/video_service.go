@@ -119,6 +119,12 @@ func (vs *VideoService) ExtractVideoIDFromURL(inputURL string) (string, error) {
 
 // ValidateLiveStream ライブ配信が有効かどうかを検証します（常に最新取得）
 func (vs *VideoService) ValidateLiveStream(ctx context.Context, videoID string) error {
+	_, err := vs.ValidateLiveStreamAndGetInfo(ctx, videoID)
+	return err
+}
+
+// ValidateLiveStreamAndGetInfo ライブ配信を検証し、同時に VideoInfo を返します（1回の取得で完了）
+func (vs *VideoService) ValidateLiveStreamAndGetInfo(ctx context.Context, videoID string) (*entity.VideoInfo, error) {
 	correlationID := fmt.Sprintf("validate-%s", videoID)
 
 	vs.logger.LogStructured("INFO", "video", "validate_live_stream", "Starting live stream validation", videoID, correlationID, map[string]interface{}{
@@ -130,7 +136,7 @@ func (vs *VideoService) ValidateLiveStream(ctx context.Context, videoID string) 
 		vs.logger.LogError("ERROR", "Failed to get video info for validation", videoID, correlationID, err, map[string]interface{}{
 			"operation": "validate_live_stream",
 		})
-		return fmt.Errorf("failed to get video info: %w", err)
+		return nil, fmt.Errorf("failed to get video info: %w", err)
 	}
 
 	if !vs.isLiveStreamSupported(videoInfo.LiveBroadcastContent) {
@@ -138,14 +144,14 @@ func (vs *VideoService) ValidateLiveStream(ctx context.Context, videoID string) 
 			"operation":     "validate_live_stream",
 			"broadcastType": videoInfo.LiveBroadcastContent,
 		})
-		return fmt.Errorf("video is not a live stream (type: %s)", videoInfo.LiveBroadcastContent)
+		return nil, fmt.Errorf("video is not a live stream (type: %s)", videoInfo.LiveBroadcastContent)
 	}
 
 	if videoInfo.LiveStreamingDetails.ActiveLiveChatID == "" {
 		vs.logger.LogStructured("ERROR", "video", "validate_live_stream", "No active live chat", videoID, correlationID, map[string]interface{}{
 			"operation": "validate_live_stream",
 		})
-		return fmt.Errorf("live chat is not available for this stream")
+		return nil, fmt.Errorf("live chat is not available for this stream")
 	}
 
 	vs.logger.LogStructured("INFO", "video", "validate_live_stream", "Live stream validation successful", videoID, correlationID, map[string]interface{}{
@@ -154,7 +160,7 @@ func (vs *VideoService) ValidateLiveStream(ctx context.Context, videoID string) 
 		"broadcastType": videoInfo.LiveBroadcastContent,
 	})
 
-	return nil
+	return videoInfo, nil
 }
 
 // isLiveStreamSupported サポートされているライブ配信タイプかどうかをチェックします

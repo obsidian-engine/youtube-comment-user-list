@@ -597,7 +597,7 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
             }catch(e){ alert('通信エラー: '+e.message); }
         }
         document.addEventListener('DOMContentLoaded',()=>{
-            updateAppbarMon(); setInterval(updateAppbarMon,10000);
+            updateAppbarMon(); setInterval(updateAppbarMon,30000);
             const btn=document.getElementById('appbarStop'); if(btn) btn.addEventListener('click', stopFromAppbar);
         });
     </script>

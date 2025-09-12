@@ -63,18 +63,11 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 		return nil, fmt.Errorf("failed to extract video ID: %w", err)
 	}
 
-	// ライブ配信を検証
-	err = uc.videoService.ValidateLiveStream(ctx, videoID)
+	// ライブ配信を検証し、同時に動画情報を取得（1回のAPI呼び出しで完了）
+	videoInfo, err := uc.videoService.ValidateLiveStreamAndGetInfo(ctx, videoID)
 	if err != nil {
 		uc.logger.LogError("ERROR", "Live stream validation failed", videoID, correlationID, err, nil)
 		return nil, fmt.Errorf("live stream validation failed: %w", err)
-	}
-
-	// 動画情報を取得してliveChatIDを取得
-	videoInfo, err := uc.videoService.GetVideoInfo(ctx, videoID)
-	if err != nil {
-		uc.logger.LogError("ERROR", "Failed to get video info", videoID, correlationID, err, nil)
-		return nil, fmt.Errorf("failed to get video info: %w", err)
 	}
 
 	uc.mu.Lock()
