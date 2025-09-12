@@ -1,3 +1,5 @@
+// Package main provides YouTube Live Chat polling functionality
+// with a web interface for monitoring live chat messages.
 package main
 
 import (
@@ -7,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -80,6 +83,65 @@ type PollerRegistry struct {
 	mu      sync.RWMutex
 	pollers map[string]*Poller
 	apiKey  string
+}
+
+// LogBuffer - アプリケーションログのリングバッファ
+type LogEntry struct {
+	Timestamp string `json:"timestamp"`
+	Level     string `json:"level"`
+	Message   string `json:"message"`
+	VideoID   string `json:"video_id,omitempty"`
+}
+
+type LogBuffer struct {
+	mu      sync.RWMutex
+	entries []LogEntry
+	maxSize int
+}
+
+var globalLogBuffer = NewLogBuffer(1000) // 最新1000件のログを保持
+
+func NewLogBuffer(maxSize int) *LogBuffer {
+	return &LogBuffer{
+		entries: make([]LogEntry, 0, maxSize),
+		maxSize: maxSize,
+	}
+}
+
+func (lb *LogBuffer) Add(level, message, videoID string) {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+
+	entry := LogEntry{
+		Timestamp: time.Now().Format("2006-01-02 15:04:05"),
+		Level:     level,
+		Message:   message,
+		VideoID:   videoID,
+	}
+
+	lb.entries = append(lb.entries, entry)
+	if len(lb.entries) > lb.maxSize {
+		lb.entries = lb.entries[1:] // 古いエントリを削除
+	}
+}
+
+func (lb *LogBuffer) GetAll() []LogEntry {
+	lb.mu.RLock()
+	defer lb.mu.RUnlock()
+
+	result := make([]LogEntry, len(lb.entries))
+	copy(result, lb.entries)
+	return result
+}
+
+// カスタムログ関数
+func logInfo(message string, videoID ...string) {
+	log.Printf("[INFO] %s", message)
+	vid := ""
+	if len(videoID) > 0 {
+		vid = videoID[0]
+	}
+	globalLogBuffer.Add("INFO", message, vid)
 }
 
 func NewPollerRegistry(apiKey string) *PollerRegistry {
@@ -207,11 +269,21 @@ func fetchActiveLiveChatID(apiKey, videoID string) (string, error) {
 	// セキュリティ: APIキーを含むURLは完全にログに出力しない
 	log.Printf("Videos API リクエスト: videoID=%s", videoID)
 
+	// URL検証
+	if _, err := url.ParseRequestURI(u); err != nil {
+		return "", fmt.Errorf("無効なURL: %v", err)
+	}
+
+	//nolint:gosec // URL validation performed above
 	resp, err := http.Get(u)
 	if err != nil {
 		return "", fmt.Errorf("HTTP リクエスト失敗: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			log.Printf("レスポンスボディクローズエラー: %v", cerr)
+		}
+	}()
 
 	// レスポンスボディを読み取って詳細ログ出力
 	body, err := io.ReadAll(resp.Body)
@@ -283,15 +355,25 @@ func fetchLiveChatOnce(apiKey, liveChatID, pageToken string) (LiveChatResp, erro
 	if pageToken != "" {
 		params = append(params, "pageToken="+pageToken)
 	}
-	url := base + "?" + strings.Join(params, "&")
+	apiURL := base + "?" + strings.Join(params, "&")
 	// セキュリティ: APIキーを含むURLは完全にログに出力しない
 	log.Printf("LiveChat API リクエスト: liveChatId=%s, pageToken=%s", liveChatID, pageToken)
 
-	resp, err := http.Get(url)
+	// URL検証
+	if _, err := url.ParseRequestURI(apiURL); err != nil {
+		return LiveChatResp{}, fmt.Errorf("無効なURL: %v", err)
+	}
+
+	//nolint:gosec // URL validation performed above
+	resp, err := http.Get(apiURL)
 	if err != nil {
 		return LiveChatResp{}, fmt.Errorf("LiveChat HTTP リクエスト失敗: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			log.Printf("レスポンスボディクローズエラー: %v", cerr)
+		}
+	}()
 
 	// レスポンスボディを読み取り
 	body, err := io.ReadAll(resp.Body)
@@ -392,7 +474,6 @@ func (pr *PollerRegistry) startPolling(ctx context.Context, videoID string, poll
 
 func main() {
 	apiKey := os.Getenv("YT_API_KEY")
-	defaultVideoID := os.Getenv("YT_VIDEO_ID") // デフォルト値として使用
 	port := getEnv("PORT", "8080")
 
 	if apiKey == "" {
@@ -403,9 +484,11 @@ func main() {
 	registry := NewPollerRegistry(apiKey)
 
 	// トップページ - 動画ID入力フォーム
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, homePageHTML, defaultVideoID)
+		if _, err := fmt.Fprintf(w, homePageHTML, ""); err != nil {
+			log.Printf("ホームページ出力エラー: %v", err)
+		}
 	})
 
 	// JSONエンドポイント - 動画ID指定必須
@@ -457,7 +540,9 @@ func main() {
 					return // チャンネルが閉じられた
 				}
 				msgJSON, _ := json.Marshal(msg)
-				fmt.Fprintf(w, "data: %s\n\n", msgJSON)
+				if _, err := fmt.Fprintf(w, "data: %s\n\n", msgJSON); err != nil {
+					log.Printf("SSEデータ出力エラー: %v", err)
+				}
 				flusher.Flush()
 			}
 		}
@@ -472,13 +557,42 @@ func main() {
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, overlayPageHTML, videoID)
+		if _, err := fmt.Fprintf(w, overlayPageHTML, videoID); err != nil {
+			log.Printf("オーバーレイページ出力エラー: %v", err)
+		}
 	})
 
+	// ログ表示ページ
+	http.HandleFunc("/logs", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if _, err := fmt.Fprint(w, logsPageHTML); err != nil {
+			log.Printf("ログページ出力エラー: %v", err)
+		}
+	})
+
+	// ログAPI エンドポイント
+	http.HandleFunc("/api/logs", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		logs := globalLogBuffer.GetAll()
+		_ = json.NewEncoder(w).Encode(logs)
+	})
+
+	logInfo("Server starting", "")
 	log.Printf("server listening on :%s", port)
 	log.Printf("  Home page: http://localhost:%s/", port)
 	log.Printf("  Overlay: http://localhost:%s/overlay?video_id=YOUR_VIDEO_ID", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Printf("  Logs: http://localhost:%s/logs", port)
+
+	// セキュアなHTTPサーバー設定
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           nil,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	log.Fatal(srv.ListenAndServe())
 }
 
 // HTMLテンプレート定数
@@ -574,12 +688,15 @@ const homePageHTML = `<!doctype html>
         <input 
           type="text" 
           id="videoId" 
-          placeholder="kXpv3asP0Qw" 
+          placeholder="https://www.youtube.com/watch?v=kXpv3asP0Qw" 
           value="%s"
           required
         />
         <div class="example">
-          例: https://www.youtube.com/watch?v=<strong>kXpv3asP0Qw</strong> の太字部分
+          対応形式:<br>
+          • https://www.youtube.com/watch?v=<strong>kXpv3asP0Qw</strong><br>
+          • https://youtu.be/<strong>kXpv3asP0Qw</strong><br>
+          • <strong>kXpv3asP0Qw</strong> (動画IDのみ)
         </div>
       </div>
       
@@ -589,12 +706,43 @@ const homePageHTML = `<!doctype html>
 </div>
 
 <script>
+function extractVideoId(input) {
+  // 入力値をトリム
+  const trimmed = input.trim();
+  
+  // 空文字チェック
+  if (!trimmed) return '';
+  
+  // パターン1: https://www.youtube.com/watch?v=VIDEO_ID
+  const watchPattern = /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/;
+  let match = trimmed.match(watchPattern);
+  if (match) return match[1];
+  
+  // パターン2: https://youtu.be/VIDEO_ID
+  const shortPattern = /(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]{11})/;
+  match = trimmed.match(shortPattern);
+  if (match) return match[1];
+  
+  // パターン3: 11文字の動画IDのみ（英数字、-、_）
+  const idPattern = /^[a-zA-Z0-9_-]{11}$/;
+  if (idPattern.test(trimmed)) return trimmed;
+  
+  // どのパターンにも一致しない場合
+  return '';
+}
+
 function handleSubmit(event) {
   event.preventDefault();
-  const videoId = document.getElementById('videoId').value.trim();
-  if (videoId) {
-    window.location.href = '/overlay?video_id=' + encodeURIComponent(videoId);
+  const input = document.getElementById('videoId').value;
+  const videoId = extractVideoId(input);
+  
+  if (!videoId) {
+    alert('有効なYouTube URLまたは動画IDを入力してください。\\n\\n対応形式:\\n• https://www.youtube.com/watch?v=VIDEO_ID\\n• https://youtu.be/VIDEO_ID\\n• VIDEO_ID（11文字の英数字）');
+    return;
   }
+  
+  // 成功時はオーバーレイページに遷移
+  window.location.href = '/overlay?video_id=' + encodeURIComponent(videoId);
 }
 </script>
 </body>
@@ -734,6 +882,184 @@ window.addEventListener('beforeunload', () => {
     eventSource.close();
   }
 });
+</script>
+</body>
+</html>`
+
+const logsPageHTML = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>System Logs</title>
+<style>
+  :root {
+    --bg: #1a1a1a;
+    --card-bg: #2a2a2a;
+    --text: #e0e0e0;
+    --text-dim: #999;
+    --info: #4fc3f7;
+    --error: #f44336;
+    --border: #3a3a3a;
+  }
+  * { box-sizing: border-box; }
+  html, body { 
+    margin: 0; 
+    padding: 0; 
+    font-family: 'Monaco', 'Consolas', monospace; 
+    background: var(--bg);
+    color: var(--text);
+  }
+  .container { 
+    max-width: 1400px; 
+    margin: 0 auto; 
+    padding: 20px; 
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  h1 {
+    margin: 0;
+    font-size: 24px;
+  }
+  .controls {
+    display: flex;
+    gap: 10px;
+  }
+  .filter-btn {
+    padding: 6px 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .filter-btn.active {
+    background: var(--info);
+    color: #000;
+  }
+  .log-container {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 15px;
+    height: calc(100vh - 140px);
+    overflow-y: auto;
+  }
+  .log-entry {
+    display: flex;
+    gap: 10px;
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    background: #222;
+    border-radius: 4px;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+  }
+  .log-entry.info {
+    border-left-color: var(--info);
+  }
+  .log-entry.error {
+    border-left-color: var(--error);
+    background: rgba(244, 67, 54, 0.1);
+  }
+  .timestamp {
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  .level {
+    font-weight: 600;
+    width: 50px;
+    text-align: center;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+  .level.info {
+    background: var(--info);
+    color: #000;
+  }
+  .level.error {
+    background: var(--error);
+    color: #fff;
+  }
+  .message {
+    flex: 1;
+  }
+  .video-id {
+    color: var(--info);
+    font-size: 11px;
+    padding: 2px 6px;
+    background: rgba(79, 195, 247, 0.1);
+    border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>📊 System Logs</h1>
+    <div class="controls">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="info">Info</button>
+      <button class="filter-btn" data-filter="error">Error</button>
+    </div>
+  </div>
+  
+  <div class="log-container" id="log-container"></div>
+</div>
+
+<script>
+let logs = [];
+let filter = 'all';
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filter = btn.dataset.filter;
+    renderLogs();
+  });
+});
+
+async function fetchLogs() {
+  try {
+    const response = await fetch('/api/logs');
+    logs = await response.json();
+    renderLogs();
+  } catch (error) {
+    console.error('Failed to fetch logs:', error);
+  }
+}
+
+function renderLogs() {
+  const container = document.getElementById('log-container');
+  const filteredLogs = filter === 'all' 
+    ? logs 
+    : logs.filter(log => log.level.toLowerCase() === filter);
+  
+  container.innerHTML = filteredLogs.map(log => {
+    const levelClass = log.level.toLowerCase();
+    const videoId = log.video_id ? '<span class="video-id">' + log.video_id + '</span>' : '';
+    return '<div class="log-entry ' + levelClass + '">' +
+      '<span class="timestamp">' + log.timestamp + '</span>' +
+      '<span class="level ' + levelClass + '">' + log.level + '</span>' +
+      '<span class="message">' + log.message + '</span>' +
+      videoId +
+    '</div>';
+  }).join('');
+  
+  container.scrollTop = container.scrollHeight;
+}
+
+fetchLogs();
+setInterval(fetchLogs, 2000);
 </script>
 </body>
 </html>`

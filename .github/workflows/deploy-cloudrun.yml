@@ -61,7 +61,7 @@ jobs:
           --memory 256Mi \
           --concurrency 10 \
           --timeout 3600 \
-          --set-env-vars "YT_API_KEY=${{ secrets.YT_API_KEY }},YT_VIDEO_ID=${{ secrets.YT_VIDEO_ID }}" \
+          --set-env-vars "YT_API_KEY=${{ secrets.YT_API_KEY }}" \
           --port 8080
 
     - name: Get Cloud Run URL
