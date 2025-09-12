@@ -681,14 +681,14 @@ const homePageHTML = `<!doctype html>
   <div class="card">
     <h1>🎥 YouTube Live Chat Monitor</h1>
     <p class="subtitle">ライブ配信のチャットに参加したユーザーを表示します</p>
-    
+
     <form onsubmit="handleSubmit(event)">
       <div class="form-group">
         <label for="videoId">YouTube動画ID</label>
-        <input 
-          type="text" 
-          id="videoId" 
-          placeholder="https://www.youtube.com/watch?v=kXpv3asP0Qw" 
+        <input
+          type="text"
+          id="videoId"
+          placeholder="https://www.youtube.com/watch?v=kXpv3asP0Qw"
           value="%s"
           required
         />
@@ -699,7 +699,7 @@ const homePageHTML = `<!doctype html>
           • <strong>kXpv3asP0Qw</strong> (動画IDのみ)
         </div>
       </div>
-      
+
       <button type="submit">チャット監視を開始</button>
     </form>
   </div>
@@ -709,24 +709,24 @@ const homePageHTML = `<!doctype html>
 function extractVideoId(input) {
   // 入力値をトリム
   const trimmed = input.trim();
-  
+
   // 空文字チェック
   if (!trimmed) return '';
-  
+
   // パターン1: https://www.youtube.com/watch?v=VIDEO_ID
   const watchPattern = /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/;
   let match = trimmed.match(watchPattern);
   if (match) return match[1];
-  
+
   // パターン2: https://youtu.be/VIDEO_ID
   const shortPattern = /(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]{11})/;
   match = trimmed.match(shortPattern);
   if (match) return match[1];
-  
+
   // パターン3: 11文字の動画IDのみ（英数字、-、_）
   const idPattern = /^[a-zA-Z0-9_-]{11}$/;
   if (idPattern.test(trimmed)) return trimmed;
-  
+
   // どのパターンにも一致しない場合
   return '';
 }
@@ -735,12 +735,12 @@ function handleSubmit(event) {
   event.preventDefault();
   const input = document.getElementById('videoId').value;
   const videoId = extractVideoId(input);
-  
+
   if (!videoId) {
     alert('有効なYouTube URLまたは動画IDを入力してください。\\n\\n対応形式:\\n• https://www.youtube.com/watch?v=VIDEO_ID\\n• https://youtu.be/VIDEO_ID\\n• VIDEO_ID（11文字の英数字）');
     return;
   }
-  
+
   // 成功時はオーバーレイページに遷移
   window.location.href = '/overlay?video_id=' + encodeURIComponent(videoId);
 }
@@ -807,7 +807,7 @@ const overlayPageHTML = `<!doctype html>
 <div class="wrap">
   <div class="card">
     <div class="title">
-      Commented Users 
+      Commented Users
       <span class="count" id="count">0</span>
       <span class="status" id="status">接続中...</span>
     </div>
@@ -823,7 +823,7 @@ let users = new Set();
 function updateUI() {
   const ul = document.getElementById('list');
   const cnt = document.getElementById('count');
-  
+
   ul.innerHTML = '';
   Array.from(users).forEach(name => {
     const li = document.createElement('li');
@@ -835,20 +835,20 @@ function updateUI() {
     li.appendChild(span);
     ul.appendChild(li);
   });
-  
+
   cnt.textContent = users.size;
 }
 
 function connectSSE() {
   const status = document.getElementById('status');
-  
+
   eventSource = new EventSource('/events?video_id=' + encodeURIComponent(videoId));
-  
+
   eventSource.onopen = function() {
     status.textContent = '接続済み';
     status.style.color = '#4caf50';
   };
-  
+
   eventSource.onmessage = function(event) {
     try {
       const msg = JSON.parse(event.data);
@@ -860,11 +860,11 @@ function connectSSE() {
       console.error('Failed to parse message:', e);
     }
   };
-  
+
   eventSource.onerror = function() {
     status.textContent = '再接続中...';
     status.style.color = '#ff9800';
-    
+
     setTimeout(() => {
       if (eventSource.readyState === EventSource.CLOSED) {
         connectSSE();
@@ -903,17 +903,17 @@ const logsPageHTML = `<!doctype html>
     --border: #3a3a3a;
   }
   * { box-sizing: border-box; }
-  html, body { 
-    margin: 0; 
-    padding: 0; 
-    font-family: 'Monaco', 'Consolas', monospace; 
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Monaco', 'Consolas', monospace;
     background: var(--bg);
     color: var(--text);
   }
-  .container { 
-    max-width: 1400px; 
-    margin: 0 auto; 
-    padding: 20px; 
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
   }
   .header {
     display: flex;
@@ -1011,7 +1011,7 @@ const logsPageHTML = `<!doctype html>
       <button class="filter-btn" data-filter="error">Error</button>
     </div>
   </div>
-  
+
   <div class="log-container" id="log-container"></div>
 </div>
 
@@ -1040,10 +1040,10 @@ async function fetchLogs() {
 
 function renderLogs() {
   const container = document.getElementById('log-container');
-  const filteredLogs = filter === 'all' 
-    ? logs 
+  const filteredLogs = filter === 'all'
+    ? logs
     : logs.filter(log => log.level.toLowerCase() === filter);
-  
+
   container.innerHTML = filteredLogs.map(log => {
     const levelClass = log.level.toLowerCase();
     const videoId = log.video_id ? '<span class="video-id">' + log.video_id + '</span>' : '';
@@ -1054,7 +1054,7 @@ function renderLogs() {
       videoId +
     '</div>';
   }).join('');
-  
+
   container.scrollTop = container.scrollHeight;
 }
 
