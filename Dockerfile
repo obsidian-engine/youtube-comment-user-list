@@ -1,38 +1,43 @@
 # マルチステージビルドでGoアプリケーションを最適化
 FROM golang:1.24-alpine AS builder
 
-# 必要なパッケージをインストール
+# ====== Build Args ======
+# ビルド対象のパッケージパス（例：./cmd/server, ./）
+ARG APP_PATH=./cmd/server
+ARG GOOS=linux
+ARG GOARCH=amd64
+
+# ====== 必要パッケージ ======
 RUN apk add --no-cache git ca-certificates
 
-# 作業ディレクトリを設定
+# ====== 作業ディレクトリ ======
 WORKDIR /app
 
-# Go モジュールファイルをコピー
+# ====== 依存解決（キャッシュ最適化） ======
 COPY go.mod go.sum ./
-
-# 依存関係をダウンロード
 RUN go mod download
 
 # ソースコードをコピー
 COPY . .
 
-# バイナリをビルド（静的リンク & buildxキャッシュ対応）
+# ====== ビルド（静的リンク + build cache） ======
+# - cd は使わず、go build にパッケージパスを渡す
+# - /root/.cache/go-build を buildx のキャッシュにマウント
 RUN --mount=type=cache,target=/go/pkg/mod \
-    cd cmd/server && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-      go build -ldflags="-w -s -extldflags '-static'" -a -installsuffix cgo -o /app/server .
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} \
+      go build -trimpath -ldflags="-w -s -extldflags '-static'" -o /app/server ${APP_PATH}
 
-# 本番用の最小イメージ
+# ====== 本番用の最小イメージ ======
 FROM scratch
 
-# CA証明書をコピー（HTTPSリクエスト用）
+# CA証明書（HTTPS 通信で必要）
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# ビルドしたバイナリをコピー
+# ビルドしたバイナリ
 COPY --from=builder /app/server /server
 
-# ポート8080を公開
 EXPOSE 8080
 
-# サーバーを起動
-CMD ["/server"]
+# 実行
+ENTRYPOINT ["/server"]
