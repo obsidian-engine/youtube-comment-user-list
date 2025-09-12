@@ -200,91 +200,154 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User List - YouTube Live Chat Monitor</title>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px;
-            background-color: #f5f5f5;
+        :root{
+            --bg:#0f172a; /* slate-900 */
+            --panel:#111827; /* gray-900 */
+            --panel-2:#0b1222;
+            --text:#e5e7eb; /* gray-200 */
+            --muted:#94a3b8; /* slate-400 */
+            --accent:#22d3ee; /* cyan-400 */
+            --accent-2:#38bdf8; /* sky-400 */
+            --danger:#fda4af; /* rose-300 */
+            --ok:#86efac; /* green-300 */
+            --border:#1f2937; /* gray-800 */
+            --row:#0b1222;
+            --row-alt:#0d1426;
+            --badge:#1f2937;
         }
-        .container { 
-            background: white; 
-            padding: 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .user-list { 
-            margin-top: 20px; 
-        }
-        .user { 
-            border: 1px solid #ddd; 
-            margin: 5px 0; 
-            padding: 10px; 
-            border-radius: 4px;
-        }
-        .status { 
-            margin: 20px 0; 
-            padding: 10px; 
-            border-radius: 4px;
-        }
-        .online { 
-            background-color: #d4edda; 
-            color: #155724; 
-        }
-        .offline { 
-            background-color: #f8d7da; 
-            color: #721c24; 
+        *{box-sizing:border-box}
+        body{margin:0;background:var(--bg);color:var(--text);font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"}
+        a{color:var(--accent)}
+        .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
+        header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+        .title{font-size:22px;font-weight:700}
+        .sub{color:var(--muted);font-size:13px}
+        .card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--border);border-radius:12px;box-shadow:0 6px 30px rgba(0,0,0,.25)}
+        .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+        .left, .right{display:flex;gap:12px;align-items:center}
+        .controls input[type="text"]{background:#0b1222;border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;min-width:220px}
+        .controls select, .controls button, .controls .toggle{background:#0b1222;border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px}
+        .controls button{cursor:pointer}
+        .status{padding:10px 12px;border-radius:8px;font-size:13px}
+        .status.online{background:rgba(34,211,238,.08);color:#67e8f9;border:1px solid rgba(103,232,249,.25)}
+        .status.offline{background:rgba(244,63,94,.08);color:#fda4af;border:1px solid rgba(253,164,175,.25)}
+        .meta{color:var(--muted);font-size:12px}
+        .content{padding:12px 16px}
+        table{width:100%;border-collapse:separate;border-spacing:0 8px}
+        thead th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:0 10px}
+        tbody tr{background:var(--row);border:1px solid var(--border)}
+        tbody tr:nth-child(even){background:var(--row-alt)}
+        td{padding:12px 10px;vertical-align:middle}
+        .idx{color:var(--muted);width:56px}
+        .name{display:flex;align-items:center;gap:10px}
+        .avatar{width:28px;height:28px;border-radius:50%;background:#1f2937;display:inline-flex;align-items:center;justify-content:center;color:#cbd5e1;font-weight:700}
+        .badge{font-size:11px;color:#a5b4fc;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);padding:2px 8px;border-radius:999px}
+        .pill{font-size:12px;color:#bae6fd;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);padding:4px 10px;border-radius:999px}
+        .actions button{background:#0b1222;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 10px;cursor:pointer}
+        .empty{padding:24px;text-align:center;color:var(--muted)}
+        .footer{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--border)}
+        .btn{background:linear-gradient(180deg,#0ea5e9,#0891b2);border:0;color:#e6faff;padding:10px 14px;border-radius:10px;cursor:pointer}
+        @media (max-width:720px){
+            thead{display:none}
+            table, tbody, tr, td{display:block;width:100%}
+            tbody tr{margin:8px 0;border-radius:10px}
+            td{padding:8px 12px}
+            .idx{display:none}
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>ユーザーリスト</h1>
-        <p><a href="/">← ホームに戻る</a></p>
-        
-        <div class="form-group">
-            <button onclick="loadUsers()">ユーザーリスト取得</button>
-            <button onclick="stopMonitoring()" style="margin-left: 10px;">監視停止</button>
+    <div class="wrap">
+        <header>
+            <div class="title">ユーザーリスト</div>
+            <div class="sub">YouTube Live Chat 参加者</div>
+            <div style="margin-left:auto"><a href="/">ホームに戻る →</a></div>
+        </header>
+
+        <div class="card">
+            <div class="toolbar">
+                <div class="left controls">
+                    <input id="search" type="text" placeholder="名前・Channel IDで検索" oninput="renderUsers()"/>
+                    <select id="sort" onchange="renderUsers()">
+                        <option value="first_seen_desc">新しい順</option>
+                        <option value="first_seen_asc">古い順</option>
+                        <option value="name_asc">名前 A→Z</option>
+                        <option value="name_desc">名前 Z→A</option>
+                    </select>
+                    <button class="btn" onclick="loadUsers()">更新</button>
+                    <button onclick="stopMonitoring()">監視停止</button>
+                </div>
+                <div class="right">
+                    <div id="status" class="status">読み込み中...</div>
+                </div>
+            </div>
+            <div class="content">
+                <div class="meta" style="margin-bottom:8px">
+                    <span id="count">0</span> 名 <span id="updated"></span>
+                    <span style="margin-left:12px">自動更新: 
+                        <label class="toggle"><input id="auto" type="checkbox" checked onchange="toggleAuto()"> ON</label>
+                        <select id="interval" onchange="resetAuto()">
+                            <option value="5000">5秒</option>
+                            <option value="10000" selected>10秒</option>
+                            <option value="30000">30秒</option>
+                        </select>
+                    </span>
+                </div>
+                <div id="userList">
+                    <div class="empty">データを読み込んでいます…</div>
+                </div>
+            </div>
+            <div class="footer">
+                <div class="meta">ChannelをクリックするとYouTubeチャンネルを開きます</div>
+                <div><a href="/">← ホーム</a></div>
+            </div>
         </div>
-        
-        <div id="status"></div>
-        <div id="userList"></div>
     </div>
 
     <script>
         let consecutiveErrors = 0;
         const MAX_CONSECUTIVE_ERRORS = 3;
         let autoUpdateInterval = null;
+        let cachedUsers = [];
+        let isActive = false;
 
-        // ページ読み込み時に自動でユーザーリストを取得
         window.onload = function() {
             loadUsers();
-            // 自動更新を開始
             startAutoUpdate();
         };
 
+        function fmtDate(s){
+            try{ return new Date(s).toLocaleString(); }catch(e){ return '-'; }
+        }
+        function initials(name){
+            if(!name) return '?';
+            return name.trim().split(/\s+/).map(p=>p[0]).join('').substring(0,2).toUpperCase();
+        }
+
         async function loadUsers() {
             const statusDiv = document.getElementById('status');
-            const userListDiv = document.getElementById('userList');
-            statusDiv.innerHTML = '<div class="status">読み込み中...</div>';
-            userListDiv.innerHTML = '';
+            const updated = document.getElementById('updated');
+            statusDiv.textContent = '読み込み中...';
             try {
                 const activeResponse = await fetch('/api/monitoring/active');
                 if (!activeResponse.ok) {
                     if (activeResponse.status === 404) {
                         consecutiveErrors++;
-                        statusDiv.innerHTML = '<div class="status offline">監視セッションがありません</div>';
-                        userListDiv.innerHTML = '<p>監視を開始するには<a href="/">ホームページ</a>に戻ってください。</p>';
+                        isActive = false;
+                        statusDiv.className = 'status offline';
+                        statusDiv.textContent = '監視セッションがありません';
+                        document.getElementById('userList').innerHTML = '<div class="empty">監視を開始するにはホームに戻ってください。</div>';
                         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
                             stopAutoUpdate();
-                            statusDiv.innerHTML += '<br><small>自動更新を停止しました。</small>';
+                            statusDiv.innerHTML += '  自動更新を停止しました';
                         }
                         return;
                     }
                     throw new Error('Failed to get active video info (status ' + activeResponse.status + ')');
                 }
                 const activeData = await activeResponse.json();
-                // 新API形式: { success, data: { videoId, isActive } } 旧形式フォールバック
                 const videoId = (activeData.data && activeData.data.videoId) || activeData.videoId;
-                const isActive = (activeData.data && typeof activeData.data.isActive !== 'undefined') ? activeData.data.isActive : activeData.isActive;
+                isActive = (activeData.data && typeof activeData.data.isActive !== 'undefined') ? activeData.data.isActive : activeData.isActive;
                 if (!videoId) {
                     throw new Error('Active videoId not found in response');
                 }
@@ -295,81 +358,130 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
                 const data = await response.json();
                 if (data.success) {
                     consecutiveErrors = 0;
-                    const statusClass = isActive ? 'status online' : 'status offline';
-                    const statusText = isActive ? 'オンライン' : '停止済み';
-                    statusDiv.innerHTML = '<div class="' + statusClass + '">' + statusText + ' - ユーザー数: ' + data.count + '</div>';
-                    if (data.users && data.users.length > 0) {
-                        let html = '<div class="user-list">';
-                        data.users.forEach(user => {
-                            html += '<div class="user">' +
-                                '<strong>' + (user.display_name || user.displayName || '') + '</strong><br>' +
-                                'Channel: ' + (user.channel_id || user.channelID || '') + '<br>' +
-                                '初回参加: ' + (user.first_seen ? new Date(user.first_seen).toLocaleString() : '-') +
-                                '</div>';
-                        });
-                        html += '</div>';
-                        userListDiv.innerHTML = html;
-                    } else {
-                        userListDiv.innerHTML = '<p>まだユーザーが参加していません。</p>';
-                    }
+                    cachedUsers = Array.isArray(data.users) ? data.users : [];
+                    const cls = isActive ? 'status online' : 'status offline';
+                    const txt = isActive ? 'オンライン' : '停止済み';
+                    statusDiv.className = cls; statusDiv.textContent = txt + ' - ユーザー数: ' + (data.count ?? cachedUsers.length);
+                    updated.textContent = '（更新: ' + new Date().toLocaleTimeString() + '）';
+                    renderUsers();
                 } else {
-                    statusDiv.innerHTML = '<div class="status offline">エラー: ' + (data.error || 'unknown') + '</div>';
+                    statusDiv.className = 'status offline';
+                    statusDiv.textContent = 'エラー: ' + (data.error || 'unknown');
                 }
             } catch (error) {
-                statusDiv.innerHTML = '<div class="status offline">通信エラー: ' + error.message + '</div>';
+                statusDiv.className = 'status offline';
+                statusDiv.textContent = '通信エラー: ' + error.message;
             }
         }
 
-        async function stopMonitoring() {
-            if (!confirm('監視を停止しますか？')) {
+        function renderUsers(){
+            const list = document.getElementById('userList');
+            const q = (document.getElementById('search').value || '').toLowerCase();
+            const sort = document.getElementById('sort').value;
+            let users = cachedUsers.slice();
+            if(q){
+                users = users.filter(u => {
+                    const name = (u.display_name || u.displayName || '').toLowerCase();
+                    const cid = (u.channel_id || u.channelID || '').toLowerCase();
+                    return name.includes(q) || cid.includes(q);
+                });
+            }
+            users.sort((a,b)=>{
+                const nameA = (a.display_name || a.displayName || '').toLowerCase();
+                const nameB = (b.display_name || b.displayName || '').toLowerCase();
+                const tA = new Date(a.first_seen || a.firstSeen || 0).getTime();
+                const tB = new Date(b.first_seen || b.firstSeen || 0).getTime();
+                switch(sort){
+                    case 'first_seen_asc': return tA - tB;
+                    case 'name_asc': return nameA.localeCompare(nameB);
+                    case 'name_desc': return nameB.localeCompare(nameA);
+                    default: return tB - tA; // first_seen_desc
+                }
+            });
+            document.getElementById('count').textContent = users.length;
+            if(users.length === 0){
+                list.innerHTML = '<div class="empty">該当するユーザーがいません</div>';
                 return;
             }
-            
-            try {
-                const response = await fetch('/api/monitoring/stop', {
-                    method: 'DELETE'
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    alert('監視を停止しました。ホームページに戻ります。');
-                    window.location.href = '/';
-                } else {
-                    alert('エラー: ' + data.error);
-                }
-            } catch (error) {
-                alert('通信エラー: ' + error.message);
-            }
+            let html = '';
+            html += '<table><thead><tr>'+
+                    '<th class="idx">#</th>'+
+                    '<th>ユーザー名</th>'+
+                    '<th>Channel ID</th>'+
+                    '<th>初回参加</th>'+
+                    '<th></th>'+
+                '</tr></thead><tbody>';
+            users.forEach((u,i)=>{
+                const name = (u.display_name || u.displayName || '');
+                const cid = (u.channel_id || u.channelID || '');
+                const first = fmtDate(u.first_seen || u.firstSeen);
+                const init = initials(name);
+                const url = cid ? 'https://www.youtube.com/channel/' + encodeURIComponent(cid) : '#';
+                html += '<tr>'+
+                    '<td class="idx">'+(i+1)+'</td>'+
+                    '<td class="name"><span class="avatar">'+init+'</span><div><div>'+escapeHtml(name)+'</div><div class="badge">Live</div></div></td>'+
+                    '<td><a href="'+url+'" target="_blank" rel="noopener">'+escapeHtml(cid)+'</a></td>'+
+                    '<td><span class="pill">'+first+'</span></td>'+
+                    '<td class="actions"><button onclick="copy(\''+cid+'\')">Copy</button></td>'+
+                '</tr>';
+            });
+            html += '</tbody></table>';
+            list.innerHTML = html;
         }
 
-        // ウィンドウクローズ時にサーバー停止処理
-        window.addEventListener('beforeunload', function(e) {
-            // 同期的にサーバー停止をリクエスト
-            navigator.sendBeacon('/api/monitoring/stop', new FormData());
-        });
+        function escapeHtml(s){
+            return (s||'').replace(/[&<>"']/g, c=>({
+                '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#039;'
+            })[c]);
+        }
 
-        // 自動更新の管理関数
+        function copy(text){
+            if(!text) return;
+            navigator.clipboard?.writeText(text).then(()=>{
+                toast('Channel IDをコピーしました');
+            }).catch(()=>{
+                const ta = document.createElement('textarea');
+                ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                toast('Channel IDをコピーしました');
+            });
+        }
+
+        let toastTimer=null;
+        function toast(msg){
+            clearTimeout(toastTimer);
+            let el = document.getElementById('toast');
+            if(!el){
+                el = document.createElement('div');
+                el.id='toast';
+                el.style.position='fixed';el.style.right='16px';el.style.bottom='16px';el.style.padding='10px 14px';
+                el.style.background='#0ea5e9';el.style.color='#082f49';el.style.borderRadius='10px';el.style.boxShadow='0 10px 30px rgba(0,0,0,.35)';
+                document.body.appendChild(el);
+            }
+            el.textContent = msg; el.style.opacity='1';
+            toastTimer = setTimeout(()=>{ el.style.opacity='0'; }, 1600);
+        }
+
         function startAutoUpdate() {
-            if (autoUpdateInterval) {
-                clearInterval(autoUpdateInterval);
-            }
-            autoUpdateInterval = setInterval(() => {
-                loadUsers();
-            }, 10000);
+            if (autoUpdateInterval) clearInterval(autoUpdateInterval);
+            if (!document.getElementById('auto').checked) return;
+            const ms = parseInt(document.getElementById('interval').value || '10000', 10);
+            autoUpdateInterval = setInterval(loadUsers, ms);
+        }
+        function stopAutoUpdate() { if (autoUpdateInterval) { clearInterval(autoUpdateInterval); autoUpdateInterval = null; } }
+        function resetAuto(){ stopAutoUpdate(); startAutoUpdate(); }
+        function toggleAuto(){ if(document.getElementById('auto').checked){ startAutoUpdate(); } else { stopAutoUpdate(); } }
+
+        async function stopMonitoring() {
+            if (!confirm('監視を停止しますか？')) { return; }
+            try {
+                const response = await fetch('/api/monitoring/stop', { method: 'DELETE' });
+                const data = await response.json();
+                if (data.success) { alert('監視を停止しました。ホームに戻ります。'); window.location.href = '/'; }
+                else { alert('エラー: ' + data.error); }
+            } catch (error) { alert('通信エラー: ' + error.message); }
         }
 
-        function stopAutoUpdate() {
-            if (autoUpdateInterval) {
-                clearInterval(autoUpdateInterval);
-                autoUpdateInterval = null;
-            }
-        }
-
-        // ページ離脱時に自動更新を停止
-        window.addEventListener('beforeunload', function() {
-            stopAutoUpdate();
-        });
+        window.addEventListener('beforeunload', function(){ stopAutoUpdate(); navigator.sendBeacon('/api/monitoring/stop', new FormData()); });
     </script>
 </body>
 </html>`
