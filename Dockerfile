@@ -17,10 +17,10 @@ RUN go mod download
 COPY . .
 
 # バイナリをビルド（静的リンク）
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags='-w -s -extldflags "-static"' \
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 sh -c 'cd cmd/server && go build \
+    -ldflags="-w -s -extldflags \"-static\"" \
     -a -installsuffix cgo \
-    -o server ./cmd/server
+    -o /app/server .'
 
 # 本番用の最小イメージ
 FROM scratch
