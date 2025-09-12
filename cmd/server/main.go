@@ -272,7 +272,7 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 
 	// 適切なタイムアウト設定でサーバーを作成（YouTube APIポーリング対応）
 	server := &http.Server{
-		Addr:              getEnv("PORT", ":8080"),
+		Addr:              ":" + getEnv("PORT", "8080"),
 		Handler:           r,
 		ReadTimeout:       30 * time.Second,  // 延長: YouTube APIリクエスト対応
 		WriteTimeout:      60 * time.Second,  // 大幅延長: ポーリング処理対応
