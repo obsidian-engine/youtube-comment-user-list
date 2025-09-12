@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/application/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
 )
@@ -94,7 +95,7 @@ func (h *SSEHandler) StreamMessages(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	// Send periodic heartbeat and listen for messages
-	heartbeatTicker := time.NewTicker(30 * time.Second)
+	heartbeatTicker := time.NewTicker(constants.SSEHeartbeatInterval)
 	defer heartbeatTicker.Stop()
 
 	// Channel to receive messages from the monitoring session
@@ -109,7 +110,7 @@ func (h *SSEHandler) StreamMessages(w http.ResponseWriter, r *http.Request) {
 		case <-heartbeatTicker.C:
 			// Send heartbeat
 			h.sendSSEMessage(w, "heartbeat", map[string]interface{}{
-				"timestamp": time.Now().Format("2006-01-02T15:04:05Z07:00"),
+				"timestamp": time.Now().Format(constants.TimeFormatISO8601),
 			}, videoID)
 
 			if flusher, ok := w.(http.Flusher); ok {
@@ -138,7 +139,7 @@ func (h *SSEHandler) StreamMessages(w http.ResponseWriter, r *http.Request) {
 				flusher.Flush()
 			}
 
-		case <-time.After(5 * time.Minute):
+		case <-time.After(constants.SSEConnectionTimeout):
 			// Timeout - close connection to prevent resource leaks
 			h.logger.LogAPI("INFO", "SSE connection timeout", videoID, correlationID, nil)
 			h.sendSSEMessage(w, "timeout", map[string]string{
@@ -158,7 +159,7 @@ func (h *SSEHandler) sendChatMessage(w http.ResponseWriter, message entity.ChatM
 		"isChatOwner": message.AuthorDetails.IsChatOwner,
 		"isModerator": message.AuthorDetails.IsModerator,
 		"isMember":    message.AuthorDetails.IsMember,
-		"timestamp":   message.Timestamp.Format("2006-01-02T15:04:05Z07:00"),
+		"timestamp":   message.Timestamp.Format(constants.TimeFormatISO8601),
 	}
 
 	h.sendSSEMessage(w, "chat_message", chatData, message.VideoID)
@@ -174,7 +175,7 @@ func (h *SSEHandler) sendSSEMessage(w http.ResponseWriter, eventType string, dat
 	message := SSEMessage{
 		Type:      eventType,
 		Data:      data,
-		Timestamp: time.Now().Format("2006-01-02T15:04:05Z07:00"),
+		Timestamp: time.Now().Format(constants.TimeFormatISO8601),
 		VideoID:   videoID,
 	}
 
@@ -237,7 +238,7 @@ func (h *SSEHandler) StreamUserList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update user list periodically
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(constants.SSEUserListUpdateInterval)
 	defer ticker.Stop()
 
 	for {
@@ -253,7 +254,7 @@ func (h *SSEHandler) StreamUserList(w http.ResponseWriter, r *http.Request) {
 				flusher.Flush()
 			}
 
-		case <-time.After(5 * time.Minute):
+		case <-time.After(constants.SSEConnectionTimeout):
 			// Timeout
 			h.logger.LogAPI("INFO", "SSE user list connection timeout", videoID, correlationID, nil)
 			return
@@ -284,8 +285,8 @@ func (h *SSEHandler) sendCurrentUserList(w http.ResponseWriter, videoID, correla
 func (h *SSEHandler) extractVideoIDFromPath(path string) string {
 	// Expected paths: /api/sse/{videoId}, /api/sse/{videoId}/users
 	parts := splitPath(path)
-	if len(parts) >= 3 && parts[1] == "api" && parts[2] == "sse" {
-		if len(parts) >= 4 {
+	if len(parts) >= constants.MinPathPartsForAPI && parts[1] == "api" && parts[2] == "sse" {
+		if len(parts) >= constants.MinPathPartsForVideoID {
 			return parts[3]
 		}
 	}

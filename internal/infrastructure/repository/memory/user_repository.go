@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
 )
 
@@ -29,7 +30,7 @@ func (r *UserRepository) GetUserList(ctx context.Context, videoID string) (*enti
 	userList, exists := r.userLists[videoID]
 	if !exists {
 		// Create a new user list with default max users if it doesn't exist
-		defaultMaxUsers := 1000
+		defaultMaxUsers := constants.DefaultMaxUsers
 		userList = entity.NewUserList(defaultMaxUsers)
 		r.userLists[videoID] = userList
 	}

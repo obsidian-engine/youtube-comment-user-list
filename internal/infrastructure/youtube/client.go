@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
 )
 
@@ -25,7 +26,7 @@ func NewClient(apiKey string) *Client {
 	return &Client{
 		apiKey: apiKey,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: constants.YouTubeHTTPClientTimeout,
 		},
 	}
 }
@@ -109,7 +110,7 @@ func (c *Client) FetchVideoInfo(ctx context.Context, videoID string) (*entity.Vi
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != constants.HTTPStatusOK {
 		return nil, fmt.Errorf("videos.list API error: status=%d, body=%s", resp.StatusCode, string(body))
 	}
 
@@ -152,7 +153,7 @@ func (c *Client) FetchLiveChat(ctx context.Context, liveChatID string, pageToken
 	base := "https://www.googleapis.com/youtube/v3/liveChat/messages"
 	params := []string{
 		"part=authorDetails",
-		"maxResults=2000",
+		fmt.Sprintf("maxResults=%d", constants.YouTubeChatMaxResults),
 		"liveChatId=" + liveChatID,
 		"key=" + c.apiKey,
 	}
@@ -186,7 +187,7 @@ func (c *Client) FetchLiveChat(ctx context.Context, liveChatID string, pageToken
 		return nil, fmt.Errorf("LiveChat response read failed: %w", err)
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != constants.HTTPStatusOK {
 		return nil, fmt.Errorf("liveChatMessages.list API error: status=%d, body=%s", resp.StatusCode, string(body))
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
 )
 
@@ -84,10 +85,10 @@ func (ps *PollingService) isLiveStreamActive(videoInfo *entity.VideoInfo) bool {
 // pollMessages ライブチャットメッセージの継続的なポーリングを処理します
 func (ps *PollingService) pollMessages(ctx context.Context, videoID, liveChatID string, messagesChan chan<- entity.ChatMessage, correlationID string) error {
 	var pageToken string
-	consecutiveErrors := 0
-	maxConsecutiveErrors := 5
-	baseWaitTime := 5 * time.Second
-	maxWaitTime := 60 * time.Second
+	consecutiveErrors := constants.InitialCounterValue
+	maxConsecutiveErrors := constants.MaxConsecutiveErrors
+	baseWaitTime := constants.PollingBaseWaitTime
+	maxWaitTime := constants.PollingMaxWaitTime
 
 	for {
 		select {
@@ -118,7 +119,7 @@ func (ps *PollingService) pollMessages(ctx context.Context, videoID, liveChatID 
 			}
 
 			// 成功時にエラーカウントをリセット
-			consecutiveErrors = 0
+			consecutiveErrors = constants.InitialCounterValue
 
 			// メッセージを処理
 			if len(pollResult.Messages) > 0 {
@@ -173,8 +174,8 @@ func (ps *PollingService) pollMessages(ctx context.Context, videoID, liveChatID 
 // calculateBackoffTime エラー処理のための指数バックオフ時間を計算します
 func (ps *PollingService) calculateBackoffTime(errorCount int, baseTime, maxTime time.Duration) time.Duration {
 	backoffTime := baseTime
-	for i := 1; i < errorCount; i++ {
-		backoffTime *= 2
+	for i := constants.BackoffInitialStep; i < errorCount; i++ {
+		backoffTime *= constants.ExponentialBackoffMultiplier
 		if backoffTime > maxTime {
 			return maxTime
 		}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
 )
@@ -82,7 +83,7 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 
 	// 新しい監視セッションを作成
 	sessionCtx, cancel := context.WithCancel(ctx)
-	messagesChan := make(chan entity.ChatMessage, 100)
+	messagesChan := make(chan entity.ChatMessage, constants.ChatMessageChannelBuffer)
 
 	// この動画用のユーザーリストを作成
 	userList, err := uc.userService.CreateUserList(ctx, videoID, maxUsers)

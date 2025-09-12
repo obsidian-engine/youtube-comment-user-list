@@ -7,6 +7,8 @@ import (
 	"log"
 	"os"
 	"time"
+
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 )
 
 // StructuredLogger 構造化ログ機能を持つLoggerインターフェースを実装します
@@ -37,7 +39,7 @@ type LogEntry struct {
 // LogStructured 構造化メッセージをログ出力します
 func (l *StructuredLogger) LogStructured(level, component, event, message, videoID, correlationID string, context map[string]interface{}) {
 	entry := LogEntry{
-		Timestamp:     time.Now().Format("2006-01-02T15:04:05.000Z07:00"),
+		Timestamp:     time.Now().Format(constants.TimeFormatISO8601),
 		Level:         level,
 		Component:     component,
 		Event:         event,
@@ -68,7 +70,7 @@ func (l *StructuredLogger) LogUser(level, message, videoID, correlationID string
 // LogError エラーイベントをログ出力します
 func (l *StructuredLogger) LogError(level, message, videoID, correlationID string, err error, context map[string]interface{}) {
 	entry := LogEntry{
-		Timestamp:     time.Now().Format("2006-01-02T15:04:05.000Z07:00"),
+		Timestamp:     time.Now().Format(constants.TimeFormatISO8601),
 		Level:         level,
 		Component:     "error",
 		Event:         "error_occurred",

@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/application/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
 )
 
@@ -175,8 +176,8 @@ func (h *LogHandler) parseLogFilters(r *http.Request) usecase.LogFilters {
 	}
 
 	// Default limit if not specified
-	if filters.Limit == 0 {
-		filters.Limit = 100
+	if filters.Limit == constants.MinValidLimit {
+		filters.Limit = constants.DefaultLogDisplayLimit
 	}
 
 	return filters

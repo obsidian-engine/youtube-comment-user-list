@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/application/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
 )
@@ -80,7 +81,7 @@ func (h *MonitoringHandler) StartMonitoring(w http.ResponseWriter, r *http.Reque
 	}
 
 	if req.MaxUsers <= 0 {
-		req.MaxUsers = 1000 // Default max users
+		req.MaxUsers = constants.DefaultMaxUsers
 	}
 
 	// Start monitoring
@@ -227,8 +228,8 @@ func (h *MonitoringHandler) extractVideoIDFromPath(path string) string {
 	// Simple path parsing - in a real implementation, you might use a router like gorilla/mux
 	// Expected paths: /api/monitoring/{videoId}/users, /api/monitoring/{videoId}/status, etc.
 	parts := splitPath(path)
-	if len(parts) >= 3 && parts[1] == "api" && parts[2] == "monitoring" {
-		if len(parts) >= 4 {
+	if len(parts) >= constants.MinPathPartsForAPI && parts[1] == "api" && parts[2] == "monitoring" {
+		if len(parts) >= constants.MinPathPartsForVideoID {
 			return parts[3]
 		}
 	}

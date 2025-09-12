@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
 )
 
@@ -83,9 +84,13 @@ func (vs *VideoService) ExtractVideoIDFromURL(inputURL string) (string, error) {
 		// 標準YouTube URL: https://www.youtube.com/watch?v=VIDEO_ID
 		if parsedURL.Path == "/watch" {
 			videoID = parsedURL.Query().Get("v")
-		} else if strings.HasPrefix(parsedURL.Path, "/embed/") {
+			break
+		}
+
+		if strings.HasPrefix(parsedURL.Path, "/embed/") {
 			// 埋め込みURL: https://www.youtube.com/embed/VIDEO_ID
 			videoID = strings.TrimPrefix(parsedURL.Path, "/embed/")
+			break
 		}
 	case strings.Contains(parsedURL.Host, "youtu.be"):
 		// 短縮URL: https://youtu.be/VIDEO_ID
@@ -154,8 +159,8 @@ func (vs *VideoService) validateVideoID(videoID string) error {
 	}
 
 	// YouTube動画IDは通常11文字で、英数字、ハイフン、アンダースコアを含みます
-	if len(videoID) != 11 {
-		return fmt.Errorf("invalid video ID length: expected 11 characters, got %d", len(videoID))
+	if len(videoID) != constants.YouTubeVideoIDLength {
+		return fmt.Errorf("invalid video ID length: expected %d characters, got %d", constants.YouTubeVideoIDLength, len(videoID))
 	}
 
 	// 有効な文字をチェック（英数字、ハイフン、アンダースコア）

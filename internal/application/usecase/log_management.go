@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
 )
 
@@ -51,7 +52,7 @@ func NewLogManagementUseCase(logger service.Logger, maxLogEntries int) *LogManag
 // AddLogEntry 新しいログエントリをバッファに追加します
 func (uc *LogManagementUseCase) AddLogEntry(level, component, event, message, videoID, correlationID string, context map[string]interface{}) {
 	entry := LogEntry{
-		Timestamp:     time.Now().Format("2006-01-02 15:04:05.000"),
+		Timestamp:     time.Now().Format(constants.TimeFormatLog),
 		Level:         level,
 		Component:     component,
 		Event:         event,

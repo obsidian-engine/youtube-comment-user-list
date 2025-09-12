@@ -13,6 +13,8 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
+
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/application/usecase"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/service"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/infrastructure/events"
@@ -108,7 +110,7 @@ func buildContainer(apiKey string) *ApplicationContainer {
 	container.Logger = logging.NewStructuredLogger()
 	container.YouTubeClient = youtube.NewClient(apiKey)
 	container.UserRepository = memory.NewUserRepository()
-	container.ChatRepository = memory.NewChatRepository(10000) // Max 10k messages per video
+	container.ChatRepository = memory.NewChatRepository(constants.DefaultMaxChatMessages)
 	// 最大10,000メッセージ/動画
 	container.EventPublisher = events.NewSimplePublisher(container.Logger)
 
@@ -143,7 +145,7 @@ func buildContainer(apiKey string) *ApplicationContainer {
 
 	container.LogManagementUC = usecase.NewLogManagementUseCase(
 		container.Logger,
-		1000, // Max 1000 log entries
+		constants.DefaultMaxLogEntries,
 		// 最大1,000ログエントリ
 	)
 
@@ -196,9 +198,9 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 			// Extract operation from path
 			// パスから操作を抽出
 			remaining := path[len("/api/monitoring/"):]
-			if len(remaining) >= 11 { // Minimum video ID length
+			if len(remaining) >= constants.YouTubeVideoIDLength {
 				// 動画IDの最小長
-				switch remaining[11:] {
+				switch remaining[constants.YouTubeVideoIDLength:] {
 				case "/users":
 					container.MonitoringHandler.GetUserList(w, r)
 				case "/status":
@@ -218,27 +220,33 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 	// SSEエンドポイント
 	mux.HandleFunc("/api/sse/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if len(path) > len("/api/sse/") {
-			remaining := path[len("/api/sse/"):]
-			if len(remaining) >= 11 { // Minimum video ID length
-				// 動画IDの最小長
-				if len(remaining) == 11 {
-					// /api/sse/{videoId}
-					// /api/sse/{動画ID}
-					container.SSEHandler.StreamMessages(w, r)
-				} else if remaining[11:] == "/users" {
-					// /api/sse/{videoId}/users
-					// /api/sse/{動画ID}/users
-					container.SSEHandler.StreamUserList(w, r)
-				} else {
-					http.NotFound(w, r)
-				}
-			} else {
-				http.NotFound(w, r)
-			}
-		} else {
+		if len(path) <= len("/api/sse/") {
 			http.NotFound(w, r)
+			return
 		}
+
+		remaining := path[len("/api/sse/"):]
+		if len(remaining) < constants.YouTubeVideoIDLength {
+			http.NotFound(w, r)
+			return
+		}
+
+		// 動画IDの最小長
+		if len(remaining) == constants.YouTubeVideoIDLength {
+			// /api/sse/{videoId}
+			// /api/sse/{動画ID}
+			container.SSEHandler.StreamMessages(w, r)
+			return
+		}
+
+		if remaining[constants.YouTubeVideoIDLength:] == "/users" {
+			// /api/sse/{videoId}/users
+			// /api/sse/{動画ID}/users
+			container.SSEHandler.StreamUserList(w, r)
+			return
+		}
+
+		http.NotFound(w, r)
 	})
 
 	// Log endpoints
@@ -261,15 +269,14 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 	server := &http.Server{
 		Addr:         getEnv("PORT", ":8080"),
 		Handler:      loggingMiddleware(container.Logger, mux),
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  constants.HTTPReadTimeout,
+		WriteTimeout: constants.HTTPWriteTimeout,
+		IdleTimeout:  constants.HTTPIdleTimeout,
 	}
 
 	return server
 }
 
-// loggingMiddleware adds request logging
 // loggingMiddleware はリクエストログ機能を追加する
 func loggingMiddleware(logger service.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -324,7 +331,7 @@ func waitForShutdown(container *ApplicationContainer, server *http.Server) {
 	<-quit
 	container.Logger.LogStructured("INFO", "main", "shutdown_start", "Shutdown signal received", "", "", nil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ShutdownTimeout)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
