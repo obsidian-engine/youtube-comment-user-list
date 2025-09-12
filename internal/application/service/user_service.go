@@ -66,11 +66,22 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 			// コア機能にとって重要ではないため、ここではエラーを返しません
 		}
 	} else {
-		us.logger.LogUser("DEBUG", "User already exists or list is full", message.VideoID, correlationID, map[string]interface{}{
+		exists := userList.HasUser(user.ChannelID)
+		msg := "User was not added"
+		reason := "unknown"
+		if exists {
+			msg = "User already exists"
+			reason = "already_exists"
+		} else if userList.IsFull() {
+			msg = "User list is full"
+			reason = "list_full"
+		}
+		us.logger.LogUser("DEBUG", msg, message.VideoID, correlationID, map[string]interface{}{
 			"channelId":   user.ChannelID,
 			"displayName": user.DisplayName,
 			"userCount":   userList.Count(),
 			"isFull":      userList.IsFull(),
+			"reason":      reason,
 		})
 	}
 

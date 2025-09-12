@@ -3,6 +3,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -182,6 +183,13 @@ func (uc *ChatMonitoringUseCase) GetUserList(ctx context.Context, videoID string
 // runPolling 動画のポーリングループを処理します
 func (uc *ChatMonitoringUseCase) runPolling(ctx context.Context, liveChatID, videoID string, messagesChan chan<- entity.ChatMessage, correlationID string) {
 	if err := uc.pollingService.StartPolling(ctx, liveChatID, videoID, messagesChan); err != nil {
+		// コンテキストキャンセル/タイムアウトは正常停止として扱う
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
+			uc.logger.LogStructured("INFO", "monitoring", "polling_stopped", "Polling stopped normally", videoID, correlationID, map[string]interface{}{
+				"reason": err.Error(),
+			})
+			return
+		}
 		uc.logger.LogError("ERROR", "Polling ended with error", videoID, correlationID, err, nil)
 	}
 }

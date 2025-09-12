@@ -4,6 +4,7 @@ package youtube
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -143,6 +144,10 @@ func (c *Client) doRequestWithRetry(ctx context.Context, url string) (*http.Resp
 		_ = resp.Body.Close() // エラーは無視（レスポンス処理済み）
 
 		if readErr != nil {
+			// コンテキストキャンセル/タイムアウトは即座に終了
+			if ctx.Err() != nil || errors.Is(readErr, context.Canceled) || errors.Is(readErr, context.DeadlineExceeded) {
+				return nil, ctx.Err()
+			}
 			lastErr = fmt.Errorf("failed to read response body: %w", readErr)
 			continue
 		}

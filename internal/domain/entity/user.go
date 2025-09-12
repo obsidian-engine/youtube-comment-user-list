@@ -45,6 +45,12 @@ func (ul *UserList) AddUser(channelID, displayName string) bool {
 	return true
 }
 
+// HasUser 指定したチャンネルIDのユーザーが存在するかを返します
+func (ul *UserList) HasUser(channelID string) bool {
+	_, exists := ul.Users[channelID]
+	return exists
+}
+
 // GetUsers 全ユーザーのスナップショットを返します
 func (ul *UserList) GetUsers() []*User {
 	users := make([]*User, 0, len(ul.Users))
