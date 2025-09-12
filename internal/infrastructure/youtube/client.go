@@ -125,7 +125,13 @@ func (c *Client) doRequestWithRetry(ctx context.Context, url string) (*http.Resp
 
 		resp, err := c.httpClient.Do(req)
 		cancel() // すぐにキャンセル
-
+		
+		// 異常ケース防御: err が nil なのに resp が nil の場合はリトライ
+		if err == nil && resp == nil {
+			lastErr = fmt.Errorf("nil http response returned from http client")
+			continue
+		}
+		
 		if err != nil {
 			lastErr = err
 			// コンテキストキャンセルは即座に終了
@@ -138,7 +144,7 @@ func (c *Client) doRequestWithRetry(ctx context.Context, url string) (*http.Resp
 			}
 			return nil, fmt.Errorf("HTTP request failed: %w", err)
 		}
-
+		
 		// レスポンスボディを読み取り（ステータス判定に必要）
 		body, readErr := io.ReadAll(resp.Body)
 		_ = resp.Body.Close() // エラーは無視（レスポンス処理済み）
@@ -332,10 +338,19 @@ func (c *Client) FetchVideoInfo(ctx context.Context, videoID string) (*entity.Vi
 	if err != nil {
 		return nil, err
 	}
+	// 念のための防御: まれに nil 応答が返るケースに対応
+	if resp == nil {
+		return nil, fmt.Errorf("nil http response returned for videoID=%s", videoID)
+	}
+	if resp.Body == nil {
+		return nil, fmt.Errorf("nil response body returned for videoID=%s", videoID)
+	}
 	defer func() {
-		if err2 := resp.Body.Close(); err2 != nil {
-			// 重要ではないためエラーをログに記録しますが返却しません
-			fmt.Printf("Warning: failed to close response body: %v\n", err2)
+		if resp != nil && resp.Body != nil {
+			if err2 := resp.Body.Close(); err2 != nil {
+				// 重要ではないためエラーをログに記録しますが返却しません
+				fmt.Printf("Warning: failed to close response body: %v\n", err2)
+			}
 		}
 	}()
 

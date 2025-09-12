@@ -206,3 +206,33 @@ func (h *MonitoringHandler) GetVideoStatus(w http.ResponseWriter, r *http.Reques
 		"status":  status,
 	})
 }
+
+
+// GetActiveUserList GET /api/monitoring/users を処理します（アクティブセッションのユーザー一覧を直接返す）
+func (h *MonitoringHandler) GetActiveUserList(w http.ResponseWriter, r *http.Request) {
+	correlationID := fmt.Sprintf("http-%s", r.Header.Get("requestId"))
+
+	videoID, _, exists := h.chatMonitoringUC.GetActiveVideoID()
+	if !exists || videoID == "" {
+		h.logger.LogAPI("INFO", "No monitoring session found for active users request", "", correlationID, nil)
+		response.RenderErrorWithCorrelation(w, r, http.StatusNotFound, "No monitoring session found", correlationID)
+		return
+	}
+
+	h.logger.LogAPI("INFO", "Get active user list request received", videoID, correlationID, nil)
+
+	users, err := h.chatMonitoringUC.GetUserList(r.Context(), videoID)
+	if err != nil {
+		h.logger.LogError("ERROR", "Failed to get active user list", videoID, correlationID, err, nil)
+		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
+		return
+	}
+
+	// デバッグ用：レスポンスをログ出力
+	h.logger.LogAPI("DEBUG", "Sending active user list response", videoID, correlationID, map[string]interface{}{
+		"userCount": len(users),
+		"success":   true,
+	})
+
+	response.RenderUserList(w, r, users, len(users))
+}
