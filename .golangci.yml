@@ -1,48 +1,5 @@
 version: "2"
 
-# 無視するファイル
-exclude:
-  - ".*_test.go"
-  - "vendor/.*"
-  - ".*\\.gen\\.go"
-  - ".*\\.pb\\.go"
-  - ".*\\.pb\\.gw\\.go"
-  - ".*mock.*\\.go"
-  - ".*mock_.*\\.go"
-  - "third_party/.*"
-  - "examples/.*"
-  - "scripts/.*"
-  - "tools/.*"
-  - ".env"
-  - ".*\\.md"
-  - ".*\\.txt"
-  - ".*\\.json"
-  - ".*\\.yaml"
-  - ".*\\.yml"
-  - ".*\\.toml"
-  - ".*\\.xml"
-  - ".*\\.ini"
-  - ".*\\.lock"
-  - ".*\\.log"
-  - ".*\\.csv"
-  - ".*\\.tsv"
-  - ".*\\.dockerfile"
-  - "Dockerfile"
-  - "Makefile"
-  - ".*\\.sh"
-  - ".*\\.bat"
-  - ".*\\.ps1"
-  - ".*\\.zsh"
-  - ".*\\.fish"
-  - ".*\\.bash"
-  - ".*\\.fish"
-  - ".*\\.ksh"
-  - ".*\\.csh"
-  - ".*\\.zshrc"
-  - ".*\\.bashrc"
-  - ".*\\.profile"
-  - ".*\\.bash_profile"
-
 linters:
   enable:
     - govet
@@ -56,14 +13,20 @@ linters:
     - goconst
     - unconvert
     - unparam
-formatters:
-  enable:
-    - gofmt
-    - goimports
 
 run:
   timeout: 5m
-  go: "1.21"
+  go: "1.23"
+  skip-dirs:
+    - vendor
+    - bin
+    - .serena
+    - .idea
+  skip-files:
+    - '.*\.gen\.go'
+    - '.*\.pb\.go'
+    - '.*\.pb\.gw\.go'
+    - '.*mock.*\.go'
 
 issues:
   max-issues-per-linter: 0

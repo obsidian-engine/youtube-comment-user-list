@@ -1,0 +1,55 @@
+{{define "content"}}
+  <div class="appbar flat">
+    <div class="page-header">
+      <span class="material-symbols-outlined icon-xl brand">list</span>
+      <div>
+        <div class="title">システムログ</div>
+        <div class="sub">アプリケーションイベント</div>
+      </div>
+      <div class="page-actions ml-auto"><canvas id="sparkLogs" width="120" height="28" aria-hidden="true"></canvas></div>
+    </div>
+  </div>
+  <!-- breadcrumb はヘッダー化に伴い削除 -->
+  <div class="card fade-in">
+    <div class="toolbar">
+      <div class="controls flex flex-wrap gap-8 flex-center">
+        <select id="level">
+          <option value="">全レベル</option>
+          <option value="INFO">INFO</option>
+          <option value="WARNING">WARNING</option>
+          <option value="ERROR">ERROR</option>
+        </select>
+        <input id="component" type="text" placeholder="component で絞り込み"/>
+        <input id="video" type="text" placeholder="video_id で絞り込み"/>
+        <select id="limit">
+          <option value="100">100件</option>
+          <option value="300" selected>300件</option>
+          <option value="1000">1000件</option>
+        </select>
+        <button class="btn primary" data-action="logs:refresh"><span class="material-symbols-outlined icon-lg">sync</span> 更新</button>
+        <button class="btn danger" data-action="logs:clear"><span class="material-symbols-outlined icon-lg">delete</span> 全クリア</button>
+        <button class="btn secondary" data-action="logs:export"><span class="material-symbols-outlined icon-lg">download</span> エクスポート</button>
+      </div>
+      <div class="status inline-label">
+        <label class="inline-label"><input id="auto" type="checkbox" checked data-action="logs:auto-toggle"> 自動更新</label>
+        <select id="interval" data-action="logs:auto-interval">
+          <option value="10000" selected>10秒</option>
+          <option value="30000">30秒</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-content">
+      <div class="muted" id="meta">読み込み中…</div>
+      <div id="logTable" class="mt-12"></div>
+      <div class="muted" id="stats"></div>
+    </div>
+  </div>
+{{end}}
+
+{{define "scripts"}}
+  <script type="module" src="/static/js/pages/logs.js"></script>
+{{end}}
+
+{{define "logs"}}
+  {{template "base" .}}
+{{end}}

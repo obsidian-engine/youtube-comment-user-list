@@ -1,0 +1,45 @@
+{{define "content"}}
+  <div class="appbar flat">
+    <div class="page-header" style="gap:18px;">
+      <span class="material-symbols-outlined" aria-hidden="true" style="font-size:28px;color:#2563eb;">home</span>
+      <div>
+        <div class="title" style="font-size:24px;">YouTube Live Chat Monitor</div>
+        <div class="sub">チャット参加者をリアルタイム収集</div>
+      </div>
+    </div>
+  </div>
+  <div class="breadcrumb" style="margin-bottom:12px"><a href="/">Home</a></div>
+  <div id="runBanner" class="card" style="margin-bottom:14px;display:none">
+    <div class="card-content" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="badge"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px">sensors</span> 監視中</span>
+      <span id="runInfo" class="sub"></span>
+      <a class="btn" style="margin-left:auto" href="/users"><span class="material-symbols-outlined" style="font-size:18px">group</span> ユーザー一覧を見る</a>
+      <button class="btn secondary" type="button" data-action="home:status-refresh" style="margin-left:4px;padding:8px 10px;font-size:12px"><span class="material-symbols-outlined" style="font-size:16px">refresh</span> ステータス更新</button>
+    </div>
+  </div>
+  <div class="card fade-in"><div class="card-content">
+    <form id="monitoringForm" class="section">
+      <div>
+        <label for="videoInput">YouTube Video ID</label>
+        <input type="text" id="videoInput" name="videoInput" placeholder="例: VIDEO_ID" required>
+      </div>
+      <div>
+        <label for="maxUsers">最大ユーザー数 (未指定時は 200)</label>
+        <input type="number" id="maxUsers" name="maxUsers" placeholder="未指定時は 200" min="1" max="10000">
+      </div>
+      <div>
+        <button id="startBtn" type="submit" class="btn primary"><span class="material-symbols-outlined" style="font-size:18px">play_circle</span> 監視を開始</button>
+        <span class="sub" style="margin-left:8px">開始後はユーザー一覧に遷移します</span>
+      </div>
+    </form>
+    <div id="message" class="sub" style="min-height:22px;margin-top:6px"></div>
+  </div></div>
+{{end}}
+
+{{define "scripts"}}
+  <script type="module" src="/static/js/pages/home.js"></script>
+{{end}}
+
+{{define "home"}}
+  {{template "base" .}}
+{{end}}

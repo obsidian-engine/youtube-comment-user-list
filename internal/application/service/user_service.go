@@ -2,14 +2,15 @@
 package service
 
 import (
-	"context"
-	"fmt"
-	"sort"
-	"strings"
-	"unicode"
+    "context"
+    "fmt"
+    "sort"
+    "strings"
+    "unicode"
 
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 )
 
 // UserService チャットユーザーを管理するサービスです
@@ -37,10 +38,10 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 	correlationID := fmt.Sprintf("user-%s-%s", message.VideoID, message.ID)
 
 	userList, err := us.userRepo.GetUserList(ctx, message.VideoID)
-	if err != nil {
-		us.logger.LogError("ERROR", "Failed to get user list", message.VideoID, correlationID, err, nil)
-		return fmt.Errorf("failed to get user list: %w", err)
-	}
+    if err != nil {
+        us.logger.LogError(constants.LogLevelError, "Failed to get user list", message.VideoID, correlationID, err, nil)
+        return fmt.Errorf("failed to get user list: %w", err)
+    }
 
 	existedBefore := userList.HasUser(message.AuthorDetails.ChannelID)
 	added := userList.UpsertFromMessage(message)
@@ -48,7 +49,7 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 	// 追加 or 更新 の判定
 	if added {
 		u := userList.Users[message.AuthorDetails.ChannelID]
-		us.logger.LogUser("INFO", "New user added", message.VideoID, correlationID, map[string]interface{}{
+        us.logger.LogUser(constants.LogLevelInfo, "New user added", message.VideoID, correlationID, map[string]interface{}{
 			"channelId":    u.ChannelID,
 			"displayName":  u.DisplayName,
 			"userCount":    userList.Count(),
@@ -57,13 +58,13 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 		})
 
 		if err := us.userRepo.UpdateUserList(ctx, message.VideoID, userList); err != nil {
-			us.logger.LogError("ERROR", "Failed to update user list (add)", message.VideoID, correlationID, err, nil)
-			return fmt.Errorf("failed to update user list: %w", err)
-		}
+            us.logger.LogError(constants.LogLevelError, "Failed to update user list (add)", message.VideoID, correlationID, err, nil)
+            return fmt.Errorf("failed to update user list: %w", err)
+        }
 
 		if err := us.eventPub.PublishUserAdded(ctx, *u, message.VideoID); err != nil {
-			us.logger.LogError("ERROR", "Failed to publish user added event", message.VideoID, correlationID, err, nil)
-		}
+            us.logger.LogError(constants.LogLevelError, "Failed to publish user added event", message.VideoID, correlationID, err, nil)
+        }
 		return nil
 	}
 
@@ -71,7 +72,7 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 	if existedBefore {
 		u := userList.Users[message.AuthorDetails.ChannelID]
 		// 更新ログ（DEBUG）
-		us.logger.LogUser("DEBUG", "User updated", message.VideoID, correlationID, map[string]interface{}{
+        us.logger.LogUser(constants.LogLevelDebug, "User updated", message.VideoID, correlationID, map[string]interface{}{
 			"channelId":    u.ChannelID,
 			"displayName":  u.DisplayName,
 			"messageCount": u.MessageCount,
@@ -79,18 +80,18 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 		})
 		// 保存（メモリなので参照更新だが一貫性のため）
 		if err := us.userRepo.UpdateUserList(ctx, message.VideoID, userList); err != nil {
-			us.logger.LogError("ERROR", "Failed to persist updated user list", message.VideoID, correlationID, err, nil)
-			return fmt.Errorf("failed to update user list: %w", err)
-		}
-	} else {
-		// 追加できず（満杯）
-		us.logger.LogUser("WARN", "User list full - user skipped", message.VideoID, correlationID, map[string]interface{}{
-			"channelId":   message.AuthorDetails.ChannelID,
-			"displayName": message.AuthorDetails.DisplayName,
-			"userCount":   userList.Count(),
-			"maxUsers":    userList.MaxUsers,
-		})
-	}
+            us.logger.LogError(constants.LogLevelError, "Failed to persist updated user list", message.VideoID, correlationID, err, nil)
+            return fmt.Errorf("failed to update user list: %w", err)
+        }
+    } else {
+        // 追加できず（満杯）
+        us.logger.LogUser(constants.LogLevelWarning, "User list full - user skipped", message.VideoID, correlationID, map[string]interface{}{
+            "channelId":   message.AuthorDetails.ChannelID,
+            "displayName": message.AuthorDetails.DisplayName,
+            "userCount":   userList.Count(),
+            "maxUsers":    userList.MaxUsers,
+        })
+    }
 	return nil
 }
 
@@ -103,41 +104,74 @@ func (us *UserService) GetUserList(ctx context.Context, videoID string) (*entity
 func (us *UserService) CreateUserList(ctx context.Context, videoID string, maxUsers int) (*entity.UserList, error) {
 	correlationID := fmt.Sprintf("create-userlist-%s", videoID)
 
-	us.logger.LogUser("INFO", "Creating new user list", videoID, correlationID, map[string]interface{}{
-		"operation": "create_user_list",
-		"maxUsers":  maxUsers,
-	})
+    us.logger.LogUser(constants.LogLevelInfo, "Creating new user list", videoID, correlationID, map[string]interface{}{
+        "operation": "create_user_list",
+        "maxUsers":  maxUsers,
+    })
 
 	userList := entity.NewUserList(maxUsers)
 
-	if err := us.userRepo.UpdateUserList(ctx, videoID, userList); err != nil {
-		us.logger.LogError("ERROR", "Failed to create user list", videoID, correlationID, err, nil)
-		return nil, fmt.Errorf("failed to create user list: %w", err)
-	}
+    if err := us.userRepo.UpdateUserList(ctx, videoID, userList); err != nil {
+        us.logger.LogError(constants.LogLevelError, "Failed to create user list", videoID, correlationID, err, nil)
+        return nil, fmt.Errorf("failed to create user list: %w", err)
+    }
 
-	us.logger.LogUser("INFO", "User list created successfully", videoID, correlationID, map[string]interface{}{
-		"operation": "create_user_list",
-		"maxUsers":  maxUsers,
-	})
+    us.logger.LogUser(constants.LogLevelInfo, "User list created successfully", videoID, correlationID, map[string]interface{}{
+        "operation": "create_user_list",
+        "maxUsers":  maxUsers,
+    })
 
 	return userList, nil
 }
 
 // GetUserListSnapshot ユーザーリストのスナップショットを取得します
 func (us *UserService) GetUserListSnapshot(ctx context.Context, videoID string) ([]*entity.User, error) {
+	// 互換: 既定の並び順は参加順（first_seen）
+	return us.GetUserListSnapshotWithOrder(ctx, videoID, "first_seen")
+}
+
+// GetUserListSnapshotWithOrder フィルタ適用後に指定した順序でスナップショットを取得します
+// 既定で以下を除外します: チャットオーナー, モデレーター, ボット(Nightbot等)
+// order: first_seen | kana | message_count
+func (us *UserService) GetUserListSnapshotWithOrder(ctx context.Context, videoID string, order string) ([]*entity.User, error) {
 	userList, err := us.GetUserList(ctx, videoID)
 	if err != nil {
 		return nil, err
 	}
-	users := userList.GetUsers()
-	// 並び順: first_seen 昇順。同一タイムスタンプの場合は表示名の「あいうえお」相当の順で安定ソート。
-	sort.SliceStable(users, func(i, j int) bool {
-		if users[i].FirstSeen.Equal(users[j].FirstSeen) {
-			return lessJapanese(users[i].DisplayName, users[j].DisplayName)
+
+	raw := userList.GetUsers()
+	// 既定フィルタ適用
+	filtered := make([]*entity.User, 0, len(raw))
+	for _, u := range raw {
+		if shouldExcludeUser(u) {
+			continue
 		}
-		return users[i].FirstSeen.Before(users[j].FirstSeen)
-	})
-	return users, nil
+		filtered = append(filtered, u)
+	}
+
+	// 並び替え
+	switch strings.ToLower(strings.TrimSpace(order)) {
+	case "kana":
+		sort.SliceStable(filtered, func(i, j int) bool {
+			return lessJapanese(filtered[i].DisplayName, filtered[j].DisplayName)
+		})
+	case "message_count":
+		sort.SliceStable(filtered, func(i, j int) bool {
+			if filtered[i].MessageCount == filtered[j].MessageCount {
+				return lessJapanese(filtered[i].DisplayName, filtered[j].DisplayName)
+			}
+			return filtered[i].MessageCount > filtered[j].MessageCount
+		})
+	default: // first_seen
+		sort.SliceStable(filtered, func(i, j int) bool {
+			if filtered[i].FirstSeen.Equal(filtered[j].FirstSeen) {
+				return lessJapanese(filtered[i].DisplayName, filtered[j].DisplayName)
+			}
+			return filtered[i].FirstSeen.Before(filtered[j].FirstSeen)
+		})
+	}
+
+	return filtered, nil
 }
 
 // lessJapanese は日本語の簡易的な「あいうえお」順になるよう正規化して比較します
@@ -170,4 +204,39 @@ func normalizeJapanese(s string) string {
 		buf = append(buf, r)
 	}
 	return string(buf)
+}
+
+// shouldExcludeUser 既定の除外条件を適用します
+// - チャットオーナー
+// - モデレーター
+// - 既知/推定ボット
+func shouldExcludeUser(u *entity.User) bool {
+	if u == nil {
+		return true
+	}
+	if u.IsChatOwner || u.IsModerator {
+		return true
+	}
+	name := strings.ToLower(strings.TrimSpace(u.DisplayName))
+	if name == "" {
+		return false
+	}
+	if isBotDisplayName(name) {
+		return true
+	}
+	return false
+}
+
+func isBotDisplayName(name string) bool {
+	// 代表例: Nightbot, StreamElements, Streamlabs 等
+	if strings.Contains(name, "bot") {
+		return true
+	}
+	known := []string{"nightbot", "streamelements", "streamlabs"}
+	for _, k := range known {
+		if strings.Contains(name, k) {
+			return true
+		}
+	}
+	return false
 }

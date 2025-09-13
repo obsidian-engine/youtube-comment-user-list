@@ -10,7 +10,7 @@ const (
 	DefaultMaxChatMessages = 10000
 
 	// DefaultMaxUsers デフォルトの最大ユーザー数
-	DefaultMaxUsers = 1000
+	DefaultMaxUsers = 200
 
 	// DefaultMaxLogEntries デフォルトの最大ログエントリ数
 	DefaultMaxLogEntries = 1000
@@ -38,8 +38,8 @@ const (
 	// YouTubeVideoIDLength YouTube動画IDの標準長
 	YouTubeVideoIDLength = 11
 
-	// YouTubeChatMaxResults YouTube Live Chat APIの最大結果数
-	YouTubeChatMaxResults = 2000
+    // YouTubeChatMaxResults YouTube Live Chat APIの最大結果数（公式上限は200）
+    YouTubeChatMaxResults = 200
 
 	// YouTubeHTTPClientTimeout YouTubeクライアントのHTTPタイムアウト
 	YouTubeHTTPClientTimeout = 45 * time.Second
@@ -65,6 +65,8 @@ const (
 const (
 	// DefaultPollingIntervalMs デフォルトポーリング間隔（ミリ秒）
 	DefaultPollingIntervalMs = 10000
+	// MinPollingIntervalMs 最低保証ポーリング間隔（ミリ秒） - APIがより短い値を返してもこれ未満にはしない
+	MinPollingIntervalMs = 10000
 )
 
 // Server-Sent Events Configuration
@@ -77,7 +79,10 @@ const (
 	SSEConnectionTimeout = 5 * time.Minute
 
 	// SSEUserListUpdateInterval SSEユーザーリスト更新間隔
-	SSEUserListUpdateInterval = 10 * time.Second
+	SSEUserListUpdateInterval = 60 * time.Second
+
+	// SSEUserListHeartbeatInterval ユーザーリストSSE専用ハートビート間隔（更新間隔が長いので別途）
+	SSEUserListHeartbeatInterval = 30 * time.Second
 )
 
 // Time Format Constants
@@ -88,6 +93,21 @@ const (
 
 	// TimeFormatLog ログ用タイムスタンプフォーマット
 	TimeFormatLog = "2006-01-02 15:04:05.000"
+)
+
+// Logging Constants
+// ログ関連の定数
+const (
+    // LogLevelDebug デバッグレベル
+    LogLevelDebug = "DEBUG"
+    // LogLevelInfo 情報レベル
+    LogLevelInfo = "INFO"
+    // LogLevelWarning 警告レベル
+    LogLevelWarning = "WARNING"
+    // LogLevelError エラーレベル
+    LogLevelError = "ERROR"
+    // LogLevelFatal 致命的レベル
+    LogLevelFatal = "FATAL"
 )
 
 // Validation Constants

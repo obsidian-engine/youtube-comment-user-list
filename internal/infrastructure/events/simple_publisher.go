@@ -2,11 +2,11 @@
 package events
 
 import (
-	"context"
-	"fmt"
-	"log"
+    "context"
+    "fmt"
 
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 )
 
 // SimplePublisher シンプルなインメモリイベント処理でEventPublisherインターフェースを実装します
@@ -31,14 +31,14 @@ func (p *SimplePublisher) PublishChatMessage(ctx context.Context, message entity
 	correlationID := fmt.Sprintf("event-msg-%s", message.ID)
 
 	// イベントをログ出力
-	p.logger.LogStructured("INFO", "events", "chat_message_published", "Chat message event published", message.VideoID, correlationID, map[string]interface{}{
+    p.logger.LogStructured(constants.LogLevelInfo, "events", "chat_message_published", "Chat message event published", message.VideoID, correlationID, map[string]interface{}{
 		"messageId":   message.ID,
 		"channelId":   message.AuthorDetails.ChannelID,
 		"displayName": message.AuthorDetails.DisplayName,
 		"isChatOwner": message.AuthorDetails.IsChatOwner,
 		"isModerator": message.AuthorDetails.IsModerator,
 		"isMember":    message.AuthorDetails.IsMember,
-		"timestamp":   message.Timestamp.Format("2006-01-02T15:04:05Z07:00"),
+		"timestamp":   message.Timestamp.Format(constants.TimeFormatISO8601),
 	})
 
 	// 実際の実装では以下のようなことを行う可能性があります:
@@ -48,11 +48,7 @@ func (p *SimplePublisher) PublishChatMessage(ctx context.Context, message entity
 	// - アナリティクス処理のトリガー
 	// - 購読者への通知送信
 
-	// 現在はイベントをログ出力するだけ
-	log.Printf("EVENT: ChatMessage published for video %s from %s (%s)",
-		message.VideoID,
-		message.AuthorDetails.DisplayName,
-		message.AuthorDetails.ChannelID)
+    // 現在は構造化ロガーでの出力のみ
 
 	return nil
 }
@@ -62,7 +58,7 @@ func (p *SimplePublisher) PublishUserAdded(ctx context.Context, user entity.User
 	correlationID := fmt.Sprintf("event-user-%s", user.ChannelID)
 
 	// イベントをログ出力
-	p.logger.LogStructured("INFO", "events", "user_added_published", "User added event published", videoID, correlationID, map[string]interface{}{
+    p.logger.LogStructured(constants.LogLevelInfo, "events", "user_added_published", "User added event published", videoID, correlationID, map[string]interface{}{
 		"channelId":   user.ChannelID,
 		"displayName": user.DisplayName,
 	})
@@ -73,11 +69,7 @@ func (p *SimplePublisher) PublishUserAdded(ctx context.Context, user entity.User
 	// - リアルタイムユーザーカウンターの更新
 	// - ユーザーエンゲージメントワークフローのトリガー
 
-	// 現在はイベントをログ出力するだけ
-	log.Printf("EVENT: User added for video %s: %s (%s)",
-		videoID,
-		user.DisplayName,
-		user.ChannelID)
+    // 現在は構造化ロガーでの出力のみ
 
 	return nil
 }

@@ -8,3 +8,10 @@ youtube-comment-user-list
 youtube-monitor
 server.log
 docs
+AGENTS.md
+.cache
+/server
+.gocache
+node_modules
+test-results
+tests
