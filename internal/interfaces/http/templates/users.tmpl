@@ -1,0 +1,53 @@
+{{define "content"}}
+  <div class="appbar">
+    <div class="page-header" style="gap:18px;">
+      <span class="material-symbols-outlined" aria-hidden="true" style="font-size:28px;color:#2563eb;">group</span>
+      <div>
+        <div class="title" style="font-size:24px;">ユーザーリスト</div>
+        <div class="sub">YouTube Live Chat 参加者</div>
+      </div>
+      <div class="page-actions ml-auto"><canvas id="sparkUsers" width="120" height="28" aria-hidden="true"></canvas></div>
+    </div>
+  </div>
+  <div class="breadcrumb" style="margin-bottom:12px"><a href="/">Home</a><span class="sep"> / </span><span>ユーザー一覧</span></div>
+  <div class="card fade-in">
+    <div class="toolbar">
+      <div class="left controls">
+        <input id="search" type="text" placeholder="名前・Channel IDで検索" data-action="users:search"/>
+        <select id="order" data-action="users:order">
+          <option value="first_seen" selected>参加順</option>
+          <option value="kana">五十音順</option>
+          <option value="message_count">発言数</option>
+        </select>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input id="autoEnd" type="checkbox" checked> 自動終了検知</label>
+        <button class="btn primary" data-action="users:manual-refresh"><span class="material-symbols-outlined" style="font-size:18px">sync</span> 即時更新</button>
+        <button class="btn danger" data-action="users:stop"><span class="material-symbols-outlined" style="font-size:18px">stop_circle</span> 監視停止</button>
+      </div>
+      <div class="right">
+        <div id="status" class="status">初回取得中...</div>
+      </div>
+    </div>
+    <div id="warn" style="display:none;padding:10px 16px;color:#fecaca;border-top:1px solid var(--line);background:rgba(244,63,94,.08)">警告: LIVEが inactive の可能性。監視は起動中です。</div>
+    <div class="card-content">
+      <div class="meta" style="margin-bottom:8px">
+        <span id="count">0</span> 名 <span id="updated"></span>
+        <span style="margin-left:12px;font-size:11px;opacity:.75">自動更新: 60秒間隔</span>
+      </div>
+      <div id="userList">
+        <div class="empty">データを読み込んでいます…</div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="meta">ChannelをクリックするとYouTubeチャンネルを開きます</div>
+      <div><a href="/" class="btn secondary"><span class="material-symbols-outlined" style="font-size:18px">home</span> ホーム</a></div>
+    </div>
+  </div>
+{{end}}
+
+{{define "scripts"}}
+  <script type="module" src="/static/js/pages/users.js"></script>
+{{end}}
+
+{{define "users"}}
+  {{template "base" .}}
+{{end}}

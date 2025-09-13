@@ -7,19 +7,23 @@ import (
 	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/application/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
 )
 
 // HealthHandler ヘルスチェック用のハンドラー
 type HealthHandler struct {
 	chatMonitoringUC *usecase.ChatMonitoringUseCase
 	startTime        time.Time
+	logger           repository.Logger
 }
 
 // NewHealthHandler 新しいヘルスチェックハンドラーを作成
-func NewHealthHandler(chatMonitoringUC *usecase.ChatMonitoringUseCase) *HealthHandler {
+func NewHealthHandler(chatMonitoringUC *usecase.ChatMonitoringUseCase, logger repository.Logger) *HealthHandler {
 	return &HealthHandler{
 		chatMonitoringUC: chatMonitoringUC,
 		startTime:        time.Now(),
+		logger:           logger,
 	}
 }
 
@@ -49,6 +53,12 @@ type MonitoringStatus struct {
 
 // Health ヘルスチェックエンドポイント
 func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
+	cid := correlationIDFrom(r, "http")
+	h.logger.LogAPI(constants.LogLevelInfo, "Health check request", "", cid, map[string]interface{}{
+		"userAgent":  r.Header.Get("User-Agent"),
+		"remoteAddr": r.RemoteAddr,
+	})
+
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 

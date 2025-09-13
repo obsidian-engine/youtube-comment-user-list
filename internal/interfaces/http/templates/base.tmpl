@@ -1,0 +1,31 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+  <link rel="stylesheet" href="/static/ui.css">
+  <script src="/static/app.js"></script>
+</head>
+<body>
+<div class="sidebar">
+  <div class="logo">YT Monitor</div>
+  <nav>
+    <a href="/" class="{{if eq .Active "home"}}active{{end}}"><span class="icon material-symbols-outlined">home</span>ホーム</a>
+    <a href="/users" class="{{if eq .Active "users"}}active{{end}}"><span class="icon material-symbols-outlined">group</span>ユーザー一覧</a>
+    <a href="/logs" class="{{if eq .Active "logs"}}active{{end}}"><span class="icon material-symbols-outlined">list</span>ログ</a>
+  </nav>
+</div>
+
+<div class="main fade-in">
+  {{block "content" .}}{{end}}
+</div>
+
+{{block "scripts" .}}{{end}}
+</body>
+</html>
+{{end}}
+

@@ -11,3 +11,4 @@ docs
 AGENTS.md
 .cache
 /server
+.gocache

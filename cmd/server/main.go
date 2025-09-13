@@ -221,7 +221,7 @@ func buildContainer(apiKey string) *ApplicationContainer {
 	)
 
 	// ヘルスチェックハンドラー
-	container.HealthHandler = handler.NewHealthHandler(container.ChatMonitoringUC)
+	container.HealthHandler = handler.NewHealthHandler(container.ChatMonitoringUC, container.Logger)
 
 	return container
 }
@@ -310,8 +310,8 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 
 		// ログエンドポイント（統合）
 		r.Route("/logs", func(r chi.Router) {
-			r.Method(http.MethodGet, "/", http.HandlerFunc(container.LogHandler.Handle))
-			r.Method(http.MethodDelete, "/", http.HandlerFunc(container.LogHandler.Handle))
+			r.Get("/", container.LogHandler.GetLogs)
+			r.Delete("/", container.LogHandler.ClearLogs)
 		})
 	})
 
