@@ -10,7 +10,7 @@ const (
 	DefaultMaxChatMessages = 10000
 
 	// DefaultMaxUsers デフォルトの最大ユーザー数
-	DefaultMaxUsers = 1000
+	DefaultMaxUsers = 200
 
 	// DefaultMaxLogEntries デフォルトの最大ログエントリ数
 	DefaultMaxLogEntries = 1000

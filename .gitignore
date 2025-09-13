@@ -10,3 +10,4 @@ server.log
 docs
 AGENTS.md
 .cache
+/server
