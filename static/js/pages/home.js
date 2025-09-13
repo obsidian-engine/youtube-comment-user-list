@@ -41,7 +41,6 @@ async function main() {
   const videoInput = /** @type {HTMLInputElement|null} */($('#videoInput'));
   const runBanner = $('#runBanner');
   const runInfo = $('#runInfo');
-  const resumeBtn = $('#resumeBtn');
   const appbarStop = $('#appbarStop');
 
   let activeVideoId = null; let activeStatus = false; let submitting = false; let detectTimer = null; let detecting = false;
@@ -59,9 +58,21 @@ async function main() {
       if(videoInput && !videoInput.value) videoInput.value = stored;
       if(runInfo) runInfo.textContent = 'videoId: '+stored+' / 状態: 起動中';
       if(runBanner) runBanner.style.display = 'block';
+      if(form) form.style.display = 'none';
+      try{
+        const stopBtn = document.querySelector('[data-action="home:stop"]');
+        if(stopBtn) stopBtn.disabled = false;
+        const pill = document.getElementById('runPillText'); if(pill) pill.textContent = '監視中';
+      }catch(_){ }
     } else {
       if(activeStatus && msg) msg.innerHTML = '<span style="color:#dc2626">前回の監視は停止しました</span>';
-      activeVideoId=null; activeStatus=false; if(runBanner) runBanner.style.display='none';
+      activeVideoId=null; activeStatus=false; if(runBanner) runBanner.style.display='block';
+      if(runInfo) runInfo.textContent = '停止中';
+      try{
+        const stopBtn = document.querySelector('[data-action="home:stop"]');
+        if(stopBtn) stopBtn.disabled = true;
+        const pill = document.getElementById('runPillText'); if(pill) pill.textContent = '停止中';
+      }catch(_){ }
     }
   }
 
@@ -89,6 +100,7 @@ async function main() {
           if(msg) msg.innerHTML='<span style="color:#16a34a">開始しました。遷移します…</span>';
           if(runInfo) runInfo.textContent='videoId: '+video+' / 状態: 起動中';
           if(runBanner) runBanner.style.display='block';
+          if(form) form.style.display='none';
           setTimeout(()=>location.href='/users',600);
         } else { submitting=false; setBtnState(startBtn,false); if(msg) msg.innerHTML='<span style="color:#dc2626">エラー: '+esc(data && data.error || 'unknown')+'</span>'; }
       }catch(err){ submitting=false; setBtnState(startBtn,false); if(msg) msg.innerHTML='<span style="color:#dc2626">通信エラー: '+esc(err.message||err)+'</span>'; }
@@ -117,6 +129,18 @@ async function main() {
         e.preventDefault();
         refreshExisting();
         break;
+      case 'home:stop':
+        e.preventDefault();
+        (async()=>{
+          const ok = await window.confirmModal('監視停止','現在の監視を停止しますか？','停止','キャンセル');
+          if(!ok) return;
+          try{
+            const { data } = await fetchJSON('/api/monitoring/stop', { method:'DELETE' });
+            if(data && data.success){ try{ localStorage.removeItem('currentVideoId'); }catch(_){ } window.toast('監視を停止しました',{type:'success'}); refreshExisting(); }
+            else { window.toast('停止失敗: '+(data && data.error || 'unknown'),{type:'error'}); }
+          }catch(e){ window.toast('通信エラー: '+(e && e.message || e),{type:'error'}); }
+        })();
+        break;
       default:
         break;
     }
@@ -124,13 +148,7 @@ async function main() {
 
   document.addEventListener('DOMContentLoaded', async ()=>{
     await refreshExisting();
-    try{
-      const stored=localStorage.getItem('currentVideoId')||'';
-      if(resumeBtn){
-        resumeBtn.style.display = (!activeStatus && stored) ? 'inline-flex' : 'none';
-        resumeBtn.addEventListener('click', async ()=>{ try{ await window.Monitoring.resume(stored); }catch(_){ } });
-      }
-    }catch(_){ }
+    try{ /* resume ボタンは廃止 */ }catch(_){ }
     startDetectLoop();
   });
 

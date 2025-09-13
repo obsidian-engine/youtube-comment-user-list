@@ -1,50 +1,67 @@
 {{define "content"}}
-  <div class="appbar">
-    <div class="page-header" style="gap:18px;">
-      <span class="material-symbols-outlined" aria-hidden="true" style="font-size:28px;color:#2563eb;">group</span>
-      <div>
-        <div class="title" style="font-size:24px;">ユーザーリスト</div>
-        <div class="sub">YouTube Live Chat 参加者</div>
+  <!-- ページ内の大きなヘッダーは不要のため撤去。ログ遷移はグローバルヘッダーで提供 -->
+  <!-- breadcrumb はヘッダー化に伴い削除 -->
+  <!-- Home の入力セクションを統合 -->
+  <div id="runBanner" class="card mb-12" style="display:none">
+    <div class="card-content" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span id="runPill" class="pill"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px">sensors</span> <span id="runPillText">監視中</span></span>
+      <span id="runInfo" class="sub"></span>
+      <div class="ml-auto row" style="gap:8px; align-items:center;">
+        <button class="btn secondary" type="button" data-action="home:status-refresh"><span class="material-symbols-outlined" style="font-size:16px">refresh</span> ステータス更新</button>
+        <button class="btn danger" type="button" data-action="home:stop"><span class="material-symbols-outlined" style="font-size:16px">stop_circle</span> 停止</button>
       </div>
-      <div class="page-actions ml-auto"><canvas id="sparkUsers" width="120" height="28" aria-hidden="true"></canvas></div>
     </div>
   </div>
-  <div class="breadcrumb" style="margin-bottom:12px"><a href="/">Home</a><span class="sep"> / </span><span>ユーザー一覧</span></div>
+  <div class="card">
+    <div class="card-content">
+      <form id="monitoringForm" class="section">
+        <div>
+          <label for="videoInput">YouTube Video ID</label>
+          <input type="text" id="videoInput" name="videoInput" placeholder="例: VIDEO_ID" required>
+        </div>
+        <div>
+          <label for="maxUsers">最大ユーザー数 (未指定時は 200)</label>
+          <input type="number" id="maxUsers" name="maxUsers" placeholder="未指定時は 200" min="1" max="10000">
+        </div>
+        <div>
+          <button id="startBtn" type="submit" class="btn primary"><span class="material-symbols-outlined" style="font-size:18px">play_circle</span> 監視を開始</button>
+        </div>
+      </form>
+      <div id="message" class="sub min-h-22 mt-6"></div>
+    </div>
+  </div>
   <div class="card fade-in">
     <div class="toolbar">
-      <div class="left controls">
+      <div class="left controls flex flex-wrap gap-8">
         <input id="search" type="text" placeholder="名前・Channel IDで検索" data-action="users:search"/>
         <select id="order" data-action="users:order">
           <option value="first_seen" selected>参加順</option>
           <option value="kana">五十音順</option>
           <option value="message_count">発言数</option>
         </select>
-        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input id="autoEnd" type="checkbox" checked> 自動終了検知</label>
-        <button class="btn primary" data-action="users:manual-refresh"><span class="material-symbols-outlined" style="font-size:18px">sync</span> 即時更新</button>
-        <button class="btn danger" data-action="users:stop"><span class="material-symbols-outlined" style="font-size:18px">stop_circle</span> 監視停止</button>
+        <label class="inline-label"><input id="autoEnd" type="checkbox" checked> 自動終了検知</label>
+        <button class="btn primary" data-action="users:manual-refresh"><span class="material-symbols-outlined icon-lg">sync</span> 即時更新</button>
+        <button class="btn danger" data-action="users:stop"><span class="material-symbols-outlined icon-lg">stop_circle</span> 監視停止</button>
       </div>
       <div class="right">
         <div id="status" class="status">初回取得中...</div>
       </div>
     </div>
-    <div id="warn" style="display:none;padding:10px 16px;color:#fecaca;border-top:1px solid var(--line);background:rgba(244,63,94,.08)">警告: LIVEが inactive の可能性。監視は起動中です。</div>
+    <div id="warn" class="warn-banner hidden">警告: LIVEが inactive の可能性。監視は起動中です。</div>
     <div class="card-content">
-      <div class="meta" style="margin-bottom:8px">
+      <div class="meta mb-8">
         <span id="count">0</span> 名 <span id="updated"></span>
-        <span style="margin-left:12px;font-size:11px;opacity:.75">自動更新: 60秒間隔</span>
+        <span class="small-note">自動更新: 60秒間隔</span>
       </div>
       <div id="userList">
         <div class="empty">データを読み込んでいます…</div>
       </div>
     </div>
-    <div class="footer">
-      <div class="meta">ChannelをクリックするとYouTubeチャンネルを開きます</div>
-      <div><a href="/" class="btn secondary"><span class="material-symbols-outlined" style="font-size:18px">home</span> ホーム</a></div>
-    </div>
   </div>
 {{end}}
 
 {{define "scripts"}}
+  <script type="module" src="/static/js/pages/home.js"></script>
   <script type="module" src="/static/js/pages/users.js"></script>
 {{end}}
 

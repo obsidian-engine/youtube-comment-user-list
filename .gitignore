@@ -12,3 +12,6 @@ AGENTS.md
 .cache
 /server
 .gocache
+node_modules
+test-results
+tests

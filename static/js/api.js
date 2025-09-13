@@ -30,7 +30,7 @@ export async function fetchJSON(url, init = {}, opts = {}) {
 }
 
 // Monitoring APIs
-/** @returns {Promise<JSONResult<any>>} */
+/** @returns {Promise<JSONResult<unknown>>} */
 export async function getActive() {
   return fetchJSON('/api/monitoring/active', { cache: 'no-store' });
 }
@@ -38,7 +38,7 @@ export async function getActive() {
 /**
  * @param {string} videoId
  * @param {number=} maxUsers
- * @returns {Promise<JSONResult<any>>}
+ * @returns {Promise<JSONResult<unknown>>}
  */
 export async function startMonitoring(videoId, maxUsers) {
   const body = { video_input: String(videoId) };
@@ -50,7 +50,7 @@ export async function startMonitoring(videoId, maxUsers) {
 
 /**
  * @param {string} [videoId]
- * @returns {Promise<JSONResult<any>>}
+ * @returns {Promise<JSONResult<unknown>>}
  */
 export async function resumeMonitoring(videoId) {
   const body = videoId ? { video_input: String(videoId) } : {};
@@ -59,7 +59,7 @@ export async function resumeMonitoring(videoId) {
   });
 }
 
-/** @returns {Promise<JSONResult<any>>} */
+/** @returns {Promise<JSONResult<unknown>>} */
 export async function stopMonitoring() {
   return fetchJSON('/api/monitoring/stop', { method: 'DELETE' });
 }
@@ -88,7 +88,7 @@ export async function getLogsStats(params) {
   return fetchJSON('/api/logs?' + sp.toString());
 }
 
-/** @returns {Promise<JSONResult<any>>} */
+/** @returns {Promise<JSONResult<unknown>>} */
 export async function clearLogs() {
   return fetchJSON('/api/logs', { method: 'DELETE' });
 }

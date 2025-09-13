@@ -1,18 +1,18 @@
 {{define "content"}}
-  <div class="appbar">
-    <div class="page-header" style="gap:18px;">
-      <span class="material-symbols-outlined" style="font-size:28px;color:#2563eb;">list</span>
+  <div class="appbar flat">
+    <div class="page-header">
+      <span class="material-symbols-outlined icon-xl brand">list</span>
       <div>
-        <div class="title" style="font-size:24px;">システムログ</div>
+        <div class="title">システムログ</div>
         <div class="sub">アプリケーションイベント</div>
       </div>
       <div class="page-actions ml-auto"><canvas id="sparkLogs" width="120" height="28" aria-hidden="true"></canvas></div>
     </div>
   </div>
-  <div class="breadcrumb" style="margin-bottom:12px"><a href="/">Home</a><span class="sep"> / </span><span>ログ</span></div>
+  <!-- breadcrumb はヘッダー化に伴い削除 -->
   <div class="card fade-in">
     <div class="toolbar">
-      <div class="controls" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <div class="controls flex flex-wrap gap-8 flex-center">
         <select id="level">
           <option value="">全レベル</option>
           <option value="INFO">INFO</option>
@@ -26,21 +26,21 @@
           <option value="300" selected>300件</option>
           <option value="1000">1000件</option>
         </select>
-        <button class="btn primary" data-action="logs:refresh"><span class="material-symbols-outlined" style="font-size:18px">sync</span> 更新</button>
-        <button class="btn danger" data-action="logs:clear"><span class="material-symbols-outlined" style="font-size:18px">delete</span> 全クリア</button>
-        <button class="btn secondary" data-action="logs:export"><span class="material-symbols-outlined" style="font-size:18px">download</span> エクスポート</button>
+        <button class="btn primary" data-action="logs:refresh"><span class="material-symbols-outlined icon-lg">sync</span> 更新</button>
+        <button class="btn danger" data-action="logs:clear"><span class="material-symbols-outlined icon-lg">delete</span> 全クリア</button>
+        <button class="btn secondary" data-action="logs:export"><span class="material-symbols-outlined icon-lg">download</span> エクスポート</button>
       </div>
-      <div class="status">
-        <label style="display:inline-flex;align-items:center;gap:6px"><input id="auto" type="checkbox" checked data-action="logs:auto-toggle"> 自動更新</label>
+      <div class="status inline-label">
+        <label class="inline-label"><input id="auto" type="checkbox" checked data-action="logs:auto-toggle"> 自動更新</label>
         <select id="interval" data-action="logs:auto-interval">
           <option value="10000" selected>10秒</option>
           <option value="30000">30秒</option>
         </select>
       </div>
     </div>
-    <div class="card-content" style="padding:14px 16px">
+    <div class="card-content">
       <div class="muted" id="meta">読み込み中…</div>
-      <div id="logTable" style="margin-top:12px"></div>
+      <div id="logTable" class="mt-12"></div>
       <div class="muted" id="stats"></div>
     </div>
   </div>

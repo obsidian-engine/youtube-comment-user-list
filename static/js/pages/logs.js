@@ -31,7 +31,9 @@ async function loadStats(params){
   try{ const { ok, data } = await getLogsStats(params); if(ok && data && data.success){ const el = $('#stats'); if(el) el.textContent = '統計: 総数 '+data.total+' / エラー '+data.errors+' / 警告 '+data.warnings; } }catch(_){ }
 }
 
+let loading = false;
 async function loadLogs(){
+  if(loading) return; loading = true;
   const meta = $('#meta'); const table = $('#logTable');
   if(table && window.buildSkeletonTable){ table.innerHTML = window.buildSkeletonTable(6,8); }
   const params = buildParams();
@@ -50,6 +52,7 @@ async function loadLogs(){
     } else { if(meta) meta.textContent = 'エラー: '+esc((data && data.error) || 'unknown'); }
   }catch(e){ if(meta) meta.textContent='通信エラー: '+esc(e && e.message || e); }
   loadStats(params);
+  loading = false;
 }
 
 function stopAuto(){ if(autoTimer){ clearInterval(autoTimer); autoTimer=null; } }

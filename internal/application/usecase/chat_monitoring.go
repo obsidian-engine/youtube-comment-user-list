@@ -100,12 +100,17 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 	uc.mu.Lock()
 	defer uc.mu.Unlock()
 
-	// 既に監視中の場合は停止
-    if uc.currentSession != nil {
-        uc.logger.LogStructured(constants.LogLevelInfo, "monitoring", "stopping_previous", "Stopping previous monitoring session", uc.currentSession.VideoID, correlationID, nil)
-        uc.currentSession.Cancel()
-        uc.currentSession = nil
-    }
+	// 既存セッションが同一 VideoID なら再利用（多重起動防止）
+	if uc.currentSession != nil {
+		if uc.currentSession.VideoID == videoID {
+			uc.logger.LogStructured(constants.LogLevelInfo, "monitoring", "reuse_existing", "Reusing existing monitoring session", videoID, correlationID, nil)
+			return uc.currentSession, nil
+		}
+		// 別動画であれば既存を停止して差し替え
+		uc.logger.LogStructured(constants.LogLevelInfo, "monitoring", "stopping_previous", "Stopping previous monitoring session", uc.currentSession.VideoID, correlationID, nil)
+		uc.currentSession.Cancel()
+		uc.currentSession = nil
+	}
 
 	// 新しい監視セッションを作成（バックグラウンドタスク用の独立したコンテキスト）
 	sessionCtx, cancel := context.WithCancel(context.Background())

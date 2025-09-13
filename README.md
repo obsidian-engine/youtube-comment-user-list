@@ -15,6 +15,47 @@ YouTube Live配信のチャット参加者をリアルタイムで収集・監�
 - 📊 **システムログ** - 構造化ログ表示・管理
 - 💾 **インメモリ高速処理** - 軽量・高速動作
 
+## 🖌 UI スタイル / Pico.css 採用理由
+
+本プロジェクトでは `@picocss/pico` を **ベースリセット & 軽量な初期スタイル** として利用し、その上から `static/ui.css` でコンポーネントデザインを完全上書きしています。
+
+### 採用理由
+- 0 からの CSS Reset 実装工数を削減（フォーム/タイポ系の初期値が整う）
+- CSS ファイル 1 枚 / 依存レスで Cloud Run コールドスタートに影響しない
+- Utility framework ではないため BEM/独自クラス構成を阻害しない
+
+### 読み込み順 (base.gohtml)
+1. Google Fonts / Material Symbols
+2. Pico (`pico.min.css`)
+3. プロジェクト固有スタイル (`/static/ui.css`) ← ここで上書き
+
+```html
+<link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+<link rel="stylesheet" href="/static/ui.css">
+```
+
+### 上書きポリシー
+- Pico の要素セレクタは極力利用せず、`.btn`, `.card`, `.appbar`, `.sidebar` など固有クラスを定義
+- 競合しやすい `button`, `a`, `table` などは **目的化クラス (.btn / .toolbar / .table-scroll)** に限定
+- ダーク/ライト切替は `:root` と `html[data-theme]` でトークン管理。`prefers-color-scheme` を尊重しつつ、将来的に UI トグル追加可能。
+
+### 余白/ラディアス/影トークン
+`ui.css` の `:root` にまとめています。調整例:
+```css
+:root {
+  --radius-lg: 14px; /* カード角 */
+  --shadow-1: 0 1px 2px rgba(16,24,40,.06), 0 2px 6px rgba(16,24,40,.04);
+}
+```
+**新規コンポーネント追加時の指針:** まず既存トークンを使う → 不足時のみトークンを追加し、要素側にハードコードしない。
+
+### 衝突回避チェックリスト
+- フォーム: Pico の `input, select` 初期スタイル → `.btn` / 独自 `input` 上書き済み
+- テーブル: 独自 `border-spacing` / 行影 / ラウンドを適用（Pico のフラット表を置換）
+- ボタン: `.btn` クラス必須。素の `<button>` にはテーマ差分が出ないようにする
+
+---
+
 ## 🏗️ アーキテクチャ
 
 Clean Architecture (Onion Architecture) に基づく4層構造：

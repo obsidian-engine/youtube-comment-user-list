@@ -29,7 +29,8 @@ func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
         "userAgent":  r.Header.Get("User-Agent"),
         "remoteAddr": r.RemoteAddr,
     })
-    h.renderer.Render(w, "home", &view.PageData{Title: "Home - YouTube Live Chat Monitor", Active: "home"})
+    // ホームはユーザー一覧と統合: 同一テンプレートを表示
+    h.renderer.Render(w, "users", &view.PageData{Title: "YouTube Live Chat Monitor", Active: "users"})
 }
 
 // ServeUserListPage GET /users を処理します

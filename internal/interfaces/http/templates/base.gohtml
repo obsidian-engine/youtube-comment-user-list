@@ -7,28 +7,26 @@
   <title>{{.Title}}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
-  <!-- Lightweight CSS framework to normalize base styles -->
-  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
-  <!-- Project overrides should come after the framework -->
   <link rel="stylesheet" href="/static/ui.css">
   <script src="/static/app.js"></script>
 </head>
 <body>
-<div class="sidebar">
-  <div class="logo">YT Monitor</div>
-  <nav>
-    <a href="/" class="{{if eq .Active "home"}}active{{end}}"><span class="icon material-symbols-outlined">home</span>ホーム</a>
-    <a href="/users" class="{{if eq .Active "users"}}active{{end}}"><span class="icon material-symbols-outlined">group</span>ユーザー一覧</a>
-    <a href="/logs" class="{{if eq .Active "logs"}}active{{end}}"><span class="icon material-symbols-outlined">list</span>ログ</a>
-  </nav>
-</div>
-
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">YT Monitor</div>
+    <nav class="topnav">
+      <a href="/" class="{{if eq .Active "users"}}active{{end}}"><span class="icon material-symbols-outlined">group</span>ユーザー</a>
+      <a href="/logs" class="{{if eq .Active "logs"}}active{{end}}"><span class="icon material-symbols-outlined">list</span>ログ</a>
+    </nav>
+  </div>
+  </header>
 <div class="main fade-in">
-  {{block "content" .}}{{end}}
+  <div class="wrap">
+    {{block "content" .}}{{end}}
+  </div>
 </div>
 
 {{block "scripts" .}}{{end}}
 </body>
 </html>
 {{end}}
-
