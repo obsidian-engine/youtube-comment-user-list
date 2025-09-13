@@ -192,7 +192,6 @@ func (h *LogHandler) parseLogFilters(r *http.Request) usecase.LogFilters {
 	return filters
 }
 
-
 // writeJSON はJSONレスポンスを書き込みます（フロント互換のためトップレベルに値を置く）
 func (h *LogHandler) writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")

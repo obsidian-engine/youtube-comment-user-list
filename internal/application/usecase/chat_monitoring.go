@@ -195,7 +195,12 @@ func (uc *ChatMonitoringUseCase) GetActiveVideoID() (string, bool, bool) {
 
 // GetUserList 指定された動画のユーザーリストを返します
 func (uc *ChatMonitoringUseCase) GetUserList(ctx context.Context, videoID string) ([]*entity.User, error) {
-	return uc.userService.GetUserListSnapshot(ctx, videoID)
+    return uc.userService.GetUserListSnapshot(ctx, videoID)
+}
+
+// GetUserListOrdered 指定順序でユーザーリストを返します
+func (uc *ChatMonitoringUseCase) GetUserListOrdered(ctx context.Context, videoID string, order string) ([]*entity.User, error) {
+    return uc.userService.GetUserListSnapshotWithOrder(ctx, videoID, order)
 }
 
 // runPolling 動画のポーリングループを処理します

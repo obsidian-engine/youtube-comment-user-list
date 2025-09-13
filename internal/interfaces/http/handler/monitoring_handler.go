@@ -126,9 +126,10 @@ func (h *MonitoringHandler) GetUserList(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	h.logger.LogAPI("INFO", "Get user list request received", videoID, correlationID, nil)
+    h.logger.LogAPI("INFO", "Get user list request received", videoID, correlationID, nil)
 
-	users, err := h.chatMonitoringUC.GetUserList(r.Context(), videoID)
+    order := r.URL.Query().Get("order")
+    users, err := h.chatMonitoringUC.GetUserListOrdered(r.Context(), videoID, order)
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to get user list", videoID, correlationID, err, nil)
 		h.logger.LogAPI("DEBUG", "Sending error response", videoID, correlationID, map[string]interface{}{
@@ -205,9 +206,10 @@ func (h *MonitoringHandler) GetActiveUserList(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	h.logger.LogAPI("INFO", "Get active user list request received", videoID, correlationID, nil)
+    h.logger.LogAPI("INFO", "Get active user list request received", videoID, correlationID, nil)
 
-	users, err := h.chatMonitoringUC.GetUserList(r.Context(), videoID)
+    order := r.URL.Query().Get("order")
+    users, err := h.chatMonitoringUC.GetUserListOrdered(r.Context(), videoID, order)
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to get active user list", videoID, correlationID, err, nil)
 		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
