@@ -10,6 +10,7 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/application/usecase"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
+	"github.com/obsidian-engine/youtube-comment-user-list/internal/interfaces/http/response"
 )
 
 // LogHandler ログ管理のHTTPリクエストを処理します
@@ -69,11 +70,11 @@ func (h *LogHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 	logs, err := h.logManagementUC.GetRecentLogs(r.Context(), filters)
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to get logs", "", correlationID, err, nil)
-		h.writeJSONError(w, err.Error(), correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
 		return
 	}
 
-	h.writeJSON(w, http.StatusOK, map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"logs":    logs,
 		"count":   len(logs),
@@ -90,7 +91,7 @@ func (h *LogHandler) GetLogStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := h.logManagementUC.GetLogStats(r.Context())
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to get log stats", "", correlationID, err, nil)
-		h.writeJSONError(w, err.Error(), correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
 		return
 	}
 
@@ -121,7 +122,7 @@ func (h *LogHandler) ClearLogs(w http.ResponseWriter, r *http.Request) {
 	err := h.logManagementUC.ClearLogs(r.Context())
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to clear logs", "", correlationID, err, nil)
-		h.writeJSONError(w, err.Error(), correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
 		return
 	}
 
@@ -143,7 +144,7 @@ func (h *LogHandler) ExportLogs(w http.ResponseWriter, r *http.Request) {
 	exportData, err := h.logManagementUC.ExportLogs(r.Context(), filters)
 	if err != nil {
 		h.logger.LogError("ERROR", "Failed to export logs", "", correlationID, err, nil)
-		h.writeJSONError(w, err.Error(), correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
 		return
 	}
 
@@ -191,23 +192,17 @@ func (h *LogHandler) parseLogFilters(r *http.Request) usecase.LogFilters {
 	return filters
 }
 
-// writeJSON はJSONレスポンスを書き込みます
+
+// writeJSON はJSONレスポンスを書き込みます（フロント互換のためトップレベルに値を置く）
 func (h *LogHandler) writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		h.logger.LogError("ERROR", "Failed to encode JSON response", "", "", err, nil)
-	}
+	_ = json.NewEncoder(w).Encode(data)
 }
 
-// writeJSONError はJSONエラーレスポンスを書き込みます
-func (h *LogHandler) writeJSONError(w http.ResponseWriter, message, correlationID string) {
+// writeJSON (package-level) for internal reuse
+func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusInternalServerError)
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"error":         message,
-		"correlationID": correlationID,
-	}); err != nil {
-		h.logger.LogError("ERROR", "Failed to encode JSON error response", "", correlationID, err, nil)
-	}
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(data)
 }
