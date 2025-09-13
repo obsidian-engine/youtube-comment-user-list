@@ -113,8 +113,26 @@ func (h *MonitoringHandler) StopMonitoring(w http.ResponseWriter, r *http.Reques
 }
 
 // GetUserList GET /api/monitoring/{videoId}/users を処理します
-// NOTE: このエンドポイントは非推奨です。代わりに GET /api/monitoring/users を使用してください。
-// 非推奨のユーザー一覧API（/api/monitoring/{videoId}/users）は削除しました
+// 互換性のために復活（UIの一部がスナップショット取得に使用）。
+func (h *MonitoringHandler) GetUserList(w http.ResponseWriter, r *http.Request) {
+    correlationID := fmt.Sprintf("http-%s", r.Header.Get("requestId"))
+    videoID := chi.URLParam(r, "videoId")
+    if videoID == "" {
+        response.RenderErrorWithCorrelation(w, r, http.StatusBadRequest, "video ID is required", correlationID)
+        return
+    }
+
+    h.logger.LogAPI(constants.LogLevelInfo, "Get user list request received", videoID, correlationID, nil)
+
+    users, err := h.chatMonitoringUC.GetUserList(r.Context(), videoID)
+    if err != nil {
+        h.logger.LogError(constants.LogLevelError, "Failed to get user list", videoID, correlationID, err, nil)
+        response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
+        return
+    }
+
+    response.RenderUserList(w, r, users, len(users))
+}
 
 // GetActiveVideoID 現在監視中のvideoIDを取得します
 func (h *MonitoringHandler) GetActiveVideoID(w http.ResponseWriter, r *http.Request) {

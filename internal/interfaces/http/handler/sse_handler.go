@@ -77,7 +77,8 @@ func (h *SSEHandler) StreamUserList(w http.ResponseWriter, r *http.Request) {
 	// 監視セッションを取得
 	_, exists := h.chatMonitoringUC.GetMonitoringSession(videoID)
     if !exists {
-        h.logger.LogError(constants.LogLevelError, "No active monitoring session found", videoID, correlationID, nil, nil)
+        // セッション未存在は異常ではなく状態情報のため INFO で記録
+        h.logger.LogAPI(constants.LogLevelInfo, "No active monitoring session found", videoID, correlationID, nil)
         h.sendSSEMessage(w, "error", map[string]string{
             "message": "No active monitoring session for this video",
         }, videoID)

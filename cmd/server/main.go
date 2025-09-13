@@ -289,6 +289,7 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 			r.Post("/start", container.MonitoringHandler.StartMonitoring)
 			r.Delete("/stop", container.MonitoringHandler.StopMonitoring)
 			r.Get("/active", container.MonitoringHandler.GetActiveVideoID)
+			r.Get("/{videoId}/users", container.MonitoringHandler.GetUserList)
 			r.Get("/{videoId}/status", container.MonitoringHandler.GetVideoStatus)
 			// 自動終了検知の切替/取得
 			r.Get("/auto-end", container.MonitoringHandler.GetAutoEndSetting)
