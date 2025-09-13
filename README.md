@@ -207,3 +207,5 @@ MIT License
 ## 🙋 サポート
 
 Issues や質問は [GitHub Issues](../../issues) までお願いします。
+
+- Junie にコードをどう共有する？→ docs/how-to-share-code-with-junie.md をご覧ください。

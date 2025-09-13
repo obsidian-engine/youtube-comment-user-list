@@ -272,7 +272,6 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 		r.Route("/monitoring", func(r chi.Router) {
 			r.Post("/start", container.MonitoringHandler.StartMonitoring)
 			r.Delete("/stop", container.MonitoringHandler.StopMonitoring)
-			r.Get("/active", container.MonitoringHandler.GetActiveVideoID)
 			// 新規: アクティブセッションのユーザー一覧を直接返す
 			r.Get("/users", container.MonitoringHandler.GetActiveUserList)
 			r.Get("/{videoId}/users", container.MonitoringHandler.GetUserList)
