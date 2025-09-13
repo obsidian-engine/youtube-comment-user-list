@@ -113,7 +113,11 @@ func (h *MonitoringHandler) StopMonitoring(w http.ResponseWriter, r *http.Reques
 }
 
 // GetUserList GET /api/monitoring/{videoId}/users を処理します
+// NOTE: このエンドポイントは非推奨です。代わりに GET /api/monitoring/users を使用してください。
 func (h *MonitoringHandler) GetUserList(w http.ResponseWriter, r *http.Request) {
+	// Deprecation headers
+	w.Header().Set("Deprecation", "true")
+	w.Header().Set("Link", "</api/monitoring/users>; rel=\"successor-version\"")
 	correlationID := fmt.Sprintf("http-%s", r.Header.Get("requestId"))
 	videoID := chi.URLParam(r, "videoId")
 

@@ -129,6 +129,10 @@ go run cmd/server/main.go
 | `GET /health` | ヘルスチェック |
 | `POST /api/monitoring/start` | 監視開始 |
 | `DELETE /api/monitoring/stop` | 監視停止 |
+| `GET /api/monitoring/active` | 現在監視中のvideoId取得 |
+| `GET /api/monitoring/users` | アクティブセッションのユーザー一覧取得（推奨） |
+| `GET /api/monitoring/{videoId}/users` | 指定videoIdのユーザー一覧取得（非推奨: `/api/monitoring/users` を使用） |
+| `GET /api/monitoring/{videoId}/status` | 動画のライブ配信ステータス取得 |
 | `GET /api/sse/{videoId}` | チャットSSE配信 |
 | `GET /api/sse/{videoId}/users` | ユーザーリストSSE配信 |
 

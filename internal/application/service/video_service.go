@@ -37,7 +37,7 @@ func NewVideoService(youtubeClient repository.YouTubeClient, logger repository.L
 	}
 }
 
-// getVideoInfoCached キャッシュ＋TTL＋quotaExceeded バックオフを用いて���画情報を取得
+// getVideoInfoCached キャッシュ＋TTL＋quotaExceeded バックオフを用いて動画情報を取得
 // ttl: 再フェッチしない最小期間
 // backoffOnQuota: クォータ超過時に設定するバックオフ期間
 func (vs *VideoService) getVideoInfoCached(ctx context.Context, videoID string, ttl, backoffOnQuota time.Duration) (*entity.VideoInfo, error) {

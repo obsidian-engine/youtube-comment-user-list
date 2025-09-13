@@ -139,62 +139,35 @@ func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
 	       
 	        // サーバー（メンバーリスト取得）ステータスの可視化
 	        async function refreshStatus(){
+	            if(window.__ACTIVE_SESSION_LOCK){return;} // prevent concurrent
+	            window.__ACTIVE_SESSION_LOCK=true;
 	            const runBanner = document.getElementById('runBanner');
 	            const runInfo = document.getElementById('runInfo');
 	            const warnBanner = document.getElementById('warnBanner');
 	            const warnDetail = document.getElementById('warnDetail');
 	            try{
-	                const res = await fetch('/api/monitoring/active');
-	                if(!res.ok){
-	                    runBanner.style.display='none';
-	                    warnBanner.style.display='none';
-	                    return;
+	                // 既に videoId がキャッシュされていれば再取得しない（明示リフレッシュ時のみ再取得）
+	                if(!window.__ACTIVE_VIDEO_ID || window.__FORCE_ACTIVE_REFRESH){
+	                    const res = await fetch('/api/monitoring/active');
+	                    if(!res.ok){ runBanner.style.display='none'; warnBanner.style.display='none'; window.__ACTIVE_VIDEO_ID=''; return; }
+	                    const data = await res.json();
+	                    window.__ACTIVE_VIDEO_ID = (data.data && data.data.videoId) || data.videoId || '';
+	                    window.__ACTIVE_IS_ACTIVE = (data.data && typeof data.data.isActive !== 'undefined') ? data.data.isActive : data.isActive;
+	                    window.__FORCE_ACTIVE_REFRESH=false;
 	                }
-	                const data = await res.json();
-	                const videoId = (data.data && data.data.videoId) || data.videoId;
-	                const isActive = (data.data && typeof data.data.isActive !== 'undefined') ? data.data.isActive : data.isActive;
-	                if(!videoId){
-	                    runBanner.style.display='none';
-	                    warnBanner.style.display='none';
-	                    return;
-	                }
+	                const videoId = window.__ACTIVE_VIDEO_ID;
+	                const isActive = window.__ACTIVE_IS_ACTIVE;
+	                if(!videoId){ runBanner.style.display='none'; warnBanner.style.display='none'; return; }
 	                runBanner.style.display='block';
 	                runInfo.textContent = 'videoId: '+videoId+' / 状態: ' + (isActive? '起動中' : '停止');
-	                try{
-	                    const sres = await fetch('/api/monitoring/'+encodeURIComponent(videoId)+'/status');
-	                    if(sres.ok){
-	                        const sdata = await sres.json();
-	                        const statusVal = extractBroadcastStatus(sdata);
-	                        const norm = statusVal.toLowerCase();
-	                        const OK = ['live','upcoming'];
-	                        if(isActive && statusVal && !OK.includes(norm)){
-	                            warnBanner.style.display='block';
-	                            warnDetail.textContent = 'videoId='+videoId+' / LIVEステータス: '+statusVal;
-	                        }else{
-	                            warnBanner.style.display='none';
-	                        }
-	                    }else{
-	                        warnBanner.style.display='none';
-	                    }
-	                }catch(_){ warnBanner.style.display='none'; }
+	                // LIVE ステータスは負荷軽減のため抑制（従来の詳細チェック削除）
 	            }catch(_){
-	                runBanner.style.display='none';
-	                warnBanner.style.display='none';
-	            }
+	                runBanner.style.display='none'; warnBanner.style.display='none';
+	            } finally { window.__ACTIVE_SESSION_LOCK=false; }
 	        }
-	        function extractBroadcastStatus(resp){
-	            if(!resp) return '';
-	            if(typeof resp.status === 'string') return resp.status;
-	            if(resp.data){
-	                const d = resp.data;
-	                if(typeof d.status === 'string') return d.status;
-	            }
-	            return '';
-	        }
-	        document.addEventListener('DOMContentLoaded', ()=>{ refreshStatus(); setInterval(refreshStatus, 60000); });
-         // 自動停止は行いません（手動停止してください）
-         const statusBtn = document.getElementById('statusRefreshBtn');
-         if(statusBtn){ statusBtn.addEventListener('click', ()=>{ refreshStatus(); }); }
+	        document.addEventListener('DOMContentLoaded', ()=>{ refreshStatus(); /* 自動繰り返し廃止 */ });
+	        const statusBtn = document.getElementById('statusRefreshBtn');
+	        if(statusBtn){ statusBtn.addEventListener('click', ()=>{ window.__FORCE_ACTIVE_REFRESH=true; refreshStatus(); }); }
 	    </script>
 	    <style id="activeBannerStyles">
 	        .active-banner{position:fixed;left:0;right:0;bottom:0;background:#7f1d1d;color:#fee2e2;border-top:2px solid #ef4444;z-index:9999;box-shadow:0 -8px 30px rgba(0,0,0,.45)}
@@ -212,23 +185,20 @@ func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
 	    </div>
 	    <script>
 	        async function updateActiveBanner(){
+	            // 高頻度ポーリング廃止：初回のみ
 	            const el=document.getElementById('activeBanner');
+	            if(window.__ACTIVE_BANNER_INIT){ return; }
+	            window.__ACTIVE_BANNER_INIT=true;
 	            try{
 	                const res=await fetch('/api/monitoring/active');
-	                if(!res.ok){ el.style.display='none'; return; }
+	                if(!res.ok){ if(el) el.style.display='none'; return; }
 	                const data=await res.json();
 	                const active=(data.data&&typeof data.data.isActive!=='undefined')?data.data.isActive:data.isActive;
-	                if(active){ el.style.display='block'; } else { el.style.display='none'; }
-	            }catch(_){ el.style.display='none'; }
+	                if(el){ el.style.display=active?'block':'none'; }
+	                if(active){ window.__ACTIVE_VIDEO_ID=(data.data&&data.data.videoId)||data.videoId||window.__ACTIVE_VIDEO_ID; }
+	            }catch(_){ if(el) el.style.display='none'; }
 	        }
-	        async function stopFromBanner(){
-	            if(!confirm('監視を停止しますか？')) return;
-	            try{ const res=await fetch('/api/monitoring/stop',{method:'DELETE'}); const data=await res.json(); if(data.success){ alert('監視を停止しました'); document.getElementById('activeBanner').style.display='none'; } else { alert('エラー: '+(data.error||'unknown')); } }catch(e){ alert('通信エラー: '+e.message); }
-	        }
-	        document.addEventListener('DOMContentLoaded',()=>{
-	            updateActiveBanner(); setInterval(updateActiveBanner,10000);
-	            const btn=document.getElementById('abStop'); if(btn) btn.addEventListener('click', stopFromBanner);
-	        });
+	        document.addEventListener('DOMContentLoaded',()=>{ updateActiveBanner(); /* setInterval removed */ const btn=document.getElementById('abStop'); if(btn) btn.addEventListener('click', stopFromBanner); });
 	    </script>
 		</body>
 		</html>`
@@ -384,91 +354,47 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
         }
 
         async function refreshUsers(isInitial, opts={}){
-            if(fetching && !opts.force) return; // 競合防止
+            if(fetching && !opts.force) return;
             fetching = true;
             const statusDiv = document.getElementById('status');
             const updated = document.getElementById('updated');
             statusDiv.textContent = isInitial ? '初回取得中...' : '更新中...';
-
             try {
-                // 現在の監視セッション取得
-                const activeRes = await fetch('/api/monitoring/active', { cache:'no-store' });
-                if(!activeRes.ok){
-                    if(activeRes.status === 404){
-                        statusDiv.className = 'status offline';
-                        statusDiv.textContent = '監視セッションがありません';
-                        document.getElementById('userList').innerHTML = '<div class="empty">監視を開始するにはホームへ戻ってください。</div>';
-                    } else {
+                // active セッションを初回のみ取得
+                if(!currentVideoId){
+                    const activeRes = await fetch('/api/monitoring/active', { cache:'no-store' });
+                    if(!activeRes.ok){
+                        if(activeRes.status === 404){
+                            statusDiv.className = 'status offline';
+                            statusDiv.textContent = '監視セッションがありません';
+                            document.getElementById('userList').innerHTML = '<div class="empty">監視を開始するにはホームへ戻ってください。</div>';
+                            fetching = false; return; }
                         statusDiv.className = 'status offline';
                         statusDiv.textContent = 'アクティブ確認失敗 (' + activeRes.status + ')';
+                        fetching=false; return;
                     }
-                    fetching = false;
-                    return;
+                    const activeData = await activeRes.json();
+                    currentVideoId = (activeData.data && activeData.data.videoId) || activeData.videoId || '';
+                    isActive = (activeData.data && typeof activeData.data.isActive !== 'undefined') ? activeData.data.isActive : activeData.isActive;
                 }
-                const activeData = await activeRes.json();
-                const videoId = (activeData.data && activeData.data.videoId) || activeData.videoId;
-                isActive = (activeData.data && typeof activeData.data.isActive !== 'undefined') ? activeData.data.isActive : activeData.isActive;
-                currentVideoId = videoId || currentVideoId;
-                if(!videoId){
-                    statusDiv.className = 'status offline';
-                    statusDiv.textContent = 'videoId 取得不可';
-                    fetching = false;
-                    return;
+                if(!currentVideoId){
+                    statusDiv.className='status offline'; statusDiv.textContent='videoId 取得不可'; fetching=false; return;
                 }
-
-                // ユーザーリスト取得
-                const listRes = await fetch('/api/monitoring/' + encodeURIComponent(videoId) + '/users', { cache:'no-store' });
-                if(!listRes.ok){
-                    statusDiv.className = 'status offline';
-                    statusDiv.textContent = 'ユーザー取得失敗 (' + listRes.status + ')';
-                    fetching = false;
-                    return;
-                }
+                // ユーザーリストのみ取得（active 再問い合わせしない）
+                const listRes = await fetch('/api/monitoring/' + encodeURIComponent(currentVideoId) + '/users', { cache:'no-store' });
+                if(!listRes.ok){ statusDiv.className='status offline'; statusDiv.textContent='ユーザー取得失敗 ('+listRes.status+')'; fetching=false; return; }
                 const listData = await listRes.json();
-                if(!listData.success){
-                    statusDiv.className = 'status offline';
-                    statusDiv.textContent = 'エラー: ' + (listData.error || 'unknown');
-                    fetching = false; return;
-                }
+                if(!listData.success){ statusDiv.className='status offline'; statusDiv.textContent='エラー: '+(listData.error||'unknown'); fetching=false; return; }
                 cachedUsers = Array.isArray(listData.users) ? listData.users : [];
-
                 const cls = isActive ? 'status online' : 'status offline';
                 const txt = isActive ? 'オンライン' : '停止済み';
                 statusDiv.className = 'status ' + cls.split(' ').pop();
                 statusDiv.textContent = txt + ' - コメントユーザー数: ' + (listData.count ?? cachedUsers.length);
                 updated.textContent = '（更新: ' + new Date().toLocaleTimeString() + '）';
-
-                // LIVEステータス vs 監視状態
-                updateLiveStatusWarning(videoId);
                 renderUsers();
             } catch(err){
-                statusDiv.className = 'status offline';
-                statusDiv.textContent = '通信エラー: ' + err.message;
-            } finally {
-                fetching = false;
-            }
-        }
-
-        async function updateLiveStatusWarning(videoId){
-            const warn = document.getElementById('warn');
-            const now = Date.now();
-            // 60秒未満なら再取得スキップ
-            if(now - lastStatusFetch < 60000){ return; }
-            try {
-                const sres = await fetch('/api/monitoring/' + encodeURIComponent(videoId) + '/status', { cache:'no-store' });
-                if(!sres.ok){ warn.style.display='none'; return; }
-                const sdata = await sres.json();
-                lastStatusFetch = now;
-                const statusVal = extractBroadcastStatus(sdata);
-                const norm = statusVal.toLowerCase();
-                const OK = ['live','upcoming'];
-                if(isActive && statusVal && !OK.includes(norm)){
-                    warn.style.display='block';
-                    warn.textContent = '警告: LIVEステータスが ' + statusVal + ' の可能性。監視は起動中です。';
-                } else {
-                    warn.style.display='none';
-                }
-            } catch { warn.style.display='none'; }
+                statusDiv.className='status offline'; statusDiv.textContent='通信エラー: '+err.message;
+            } finally { fetching=false; }
         }
 
         function renderUsers(){
@@ -562,6 +488,9 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
     </script>
     <script>
         async function updateAppbarMon(){
+            // 繰り返し廃止：初回のみ
+            if(window.__APPBAR_MON_INIT){ return; }
+            window.__APPBAR_MON_INIT=true;
             const pill=document.getElementById('appbarMon');
             try{
                 const res=await fetch('/api/monitoring/active');
@@ -571,19 +500,7 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
                 if(pill){ pill.style.display=active?'inline-flex':'none'; }
             }catch(_){ if(pill) pill.style.display='none'; }
         }
-        async function stopFromAppbar(){
-            if(!confirm('監視を停止しますか？')) return;
-            try{
-                const res=await fetch('/api/monitoring/stop',{method:'DELETE'});
-                const data=await res.json();
-                if(data.success){ alert('監視を停止しました'); const pill=document.getElementById('appbarMon'); if(pill) pill.style.display='none'; }
-                else{ alert('エラー: '+(data.error||'unknown')); }
-            }catch(e){ alert('通信エラー: '+e.message); }
-        }
-        document.addEventListener('DOMContentLoaded',()=>{
-            updateAppbarMon(); setInterval(updateAppbarMon,30000);
-            const btn=document.getElementById('appbarStop'); if(btn) btn.addEventListener('click', stopFromAppbar);
-        });
+        document.addEventListener('DOMContentLoaded',()=>{ updateAppbarMon(); const btn=document.getElementById('appbarStop'); if(btn) btn.addEventListener('click', stopFromAppbar); });
     </script>
 </body>
 </html>`
@@ -764,23 +681,13 @@ func (h *StaticHandler) ServeLogsPage(w http.ResponseWriter, r *http.Request) {
 	    </div>
 	    <script>
 	        async function updateActiveBanner(){
+	            // logs ページも初回のみ
+	            if(window.__LOG_ACTIVE_BANNER_INIT){ return; }
+	            window.__LOG_ACTIVE_BANNER_INIT=true;
 	            const el=document.getElementById('activeBanner');
-	            try{
-	                const res=await fetch('/api/monitoring/active');
-	                if(!res.ok){ el.style.display='none'; return; }
-	                const data=await res.json();
-	                const active=(data.data&&typeof data.data.isActive!=='undefined')?data.data.isActive:data.isActive;
-	                if(active){ el.style.display='block'; } else { el.style.display='none'; }
-	            }catch(_){ el.style.display='none'; }
+	            try{ const res=await fetch('/api/monitoring/active'); if(!res.ok){ if(el) el.style.display='none'; return;} const data=await res.json(); const active=(data.data&&typeof data.data.isActive!=='undefined')?data.data.isActive:data.isActive; if(el){ el.style.display=active?'block':'none'; } }catch(_){ if(el) el.style.display='none'; }
 	        }
-	        async function stopFromBanner(){
-	            if(!confirm('監視を停止しますか？')) return;
-	            try{ const res=await fetch('/api/monitoring/stop',{method:'DELETE'}); const data=await res.json(); if(data.success){ alert('監視を停止しました'); document.getElementById('activeBanner').style.display='none'; } else { alert('エラー: '+(data.error||'unknown')); } }catch(e){ alert('通信エラー: '+e.message); }
-	        }
-	        document.addEventListener('DOMContentLoaded',()=>{
-	            updateActiveBanner(); setInterval(updateActiveBanner,10000);
-	            const btn=document.getElementById('abStop'); if(btn) btn.addEventListener('click', stopFromBanner);
-	        });
+	        document.addEventListener('DOMContentLoaded',()=>{ updateActiveBanner(); const btn=document.getElementById('abStop'); if(btn) btn.addEventListener('click', stopFromBanner); });
 	    </script>
 	</body>
 	</html>`
