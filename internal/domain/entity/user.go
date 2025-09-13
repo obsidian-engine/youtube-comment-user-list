@@ -60,20 +60,6 @@ func NewUserList(maxUsers int) *UserList {
 	}
 }
 
-// AddUser 新規追加のみ（内部利用）。追加されたら true
-func (ul *UserList) AddUser(u *User) bool {
-	ul.mu.Lock()
-	defer ul.mu.Unlock()
-	if len(ul.Users) >= ul.MaxUsers {
-		return false
-	}
-	if _, exists := ul.Users[u.ChannelID]; exists {
-		return false
-	}
-	ul.Users[u.ChannelID] = u
-	return true
-}
-
 // UpsertFromMessage メッセージからユーザーを新規作成または更新。戻り値: 新規追加されたか
 func (ul *UserList) UpsertFromMessage(msg ChatMessage) bool {
 	ul.mu.Lock()

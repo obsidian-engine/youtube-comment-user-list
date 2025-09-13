@@ -38,15 +38,6 @@ func RenderSuccessWithCorrelation(w http.ResponseWriter, r *http.Request, data i
 	})
 }
 
-// RenderError エラーレスポンスを返す
-func RenderError(w http.ResponseWriter, r *http.Request, status int, message string) {
-	render.Status(r, status)
-	render.JSON(w, r, &APIResponse{
-		Success: false,
-		Error:   message,
-	})
-}
-
 // RenderErrorWithCorrelation エラーレスポンス（相関ID付き）を返す
 func RenderErrorWithCorrelation(w http.ResponseWriter, r *http.Request, status int, message, correlationID string) {
 	render.Status(r, status)

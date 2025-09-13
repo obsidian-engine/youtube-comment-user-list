@@ -20,9 +20,10 @@ RUN CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} \
     -o /app/server ${APP_PATH}
 
 # ---- Runtime Stage ----
-FROM scratch
+# distrolessを使用（scratchより若干大きいが、デバッグ情報とセキュリティパッチが含まれる）
+FROM gcr.io/distroless/static-debian12:nonroot
 
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+# 証明書は distroless に含まれているため不要
 COPY --from=builder /app/server /server
 
 EXPOSE 8080
