@@ -274,6 +274,12 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 	r.Get("/health", container.HealthHandler.Health)
 	r.Get("/ready", container.HealthHandler.Ready)
 
+	// favicon(空) で404ログ抑止
+	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.WriteHeader(http.StatusNoContent) // 204
+	})
+
 	// 静的ページ
 	r.Get("/", container.StaticHandler.ServeHome)
 	r.Get("/users", container.StaticHandler.ServeUserListPage)
@@ -287,6 +293,7 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 		// 監視エンドポイント
 		r.Route("/monitoring", func(r chi.Router) {
 			r.Post("/start", container.MonitoringHandler.StartMonitoring)
+			r.Post("/resume", container.MonitoringHandler.ResumeMonitoring)
 			r.Delete("/stop", container.MonitoringHandler.StopMonitoring)
 			r.Get("/active", container.MonitoringHandler.GetActiveVideoID)
 			r.Get("/{videoId}/users", container.MonitoringHandler.GetUserList)

@@ -162,8 +162,29 @@ func (uc *ChatMonitoringUseCase) StopMonitoring() error {
 	uc.currentSession.Cancel()
 	uc.currentSession = nil
 
-    uc.logger.LogStructured(constants.LogLevelInfo, "monitoring", "session_stopped", "Stopped monitoring session", videoID, correlationID, nil)
+	uc.logger.LogStructured(constants.LogLevelInfo, "monitoring", "session_stopped", "Stopped monitoring session", videoID, correlationID, nil)
 	return nil
+}
+
+// ResumeMonitoring 停止後に最後の動画で監視を再開します（または指定最大ユーザー数で再開）
+func (uc *ChatMonitoringUseCase) ResumeMonitoring(ctx context.Context, maxUsers int) (*MonitoringSession, error) {
+	uc.mu.RLock()
+	active := uc.currentSession != nil
+	last := uc.lastVideoID
+	uc.mu.RUnlock()
+
+	if active {
+		// 既に監視中ならそのまま成功扱い
+		return uc.currentSession, nil
+	}
+	if last == "" {
+		return nil, fmt.Errorf("no previous video to resume")
+	}
+	if maxUsers <= 0 {
+		maxUsers = constants.DefaultMaxUsers
+	}
+	// StartMonitoring は videoInput として ID も受け付ける
+	return uc.StartMonitoring(ctx, last, maxUsers)
 }
 
 // GetMonitoringSession 動画の現在の監視セッションを返します

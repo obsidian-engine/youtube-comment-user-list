@@ -19,6 +19,14 @@ type MonitoringHandler struct {
 	logger           repository.Logger
 }
 
+// ResumeMonitoringRequest 監視再開のリクエストボディ
+// video_input が省略された場合は最後に監視した動画で再開します
+// max_users が省略/0/負の場合はデフォルト(200)を適用
+type ResumeMonitoringRequest struct {
+	VideoInput string `json:"video_input"`
+	MaxUsers   int    `json:"max_users"`
+}
+
 // NewMonitoringHandler 新しい監視ハンドラーを作成します
 func NewMonitoringHandler(
 	chatMonitoringUC *usecase.ChatMonitoringUseCase,
@@ -110,6 +118,58 @@ func (h *MonitoringHandler) StopMonitoring(w http.ResponseWriter, r *http.Reques
 	response.RenderSuccessWithCorrelation(w, r, map[string]string{
 		"message": "Monitoring stopped successfully",
 	}, correlationID)
+}
+
+// ResumeMonitoring POST /api/monitoring/resume を処理します
+func (h *MonitoringHandler) ResumeMonitoring(w http.ResponseWriter, r *http.Request) {
+	correlationID := fmt.Sprintf("http-%s", r.Header.Get("X-Request-ID"))
+	if correlationID == "http-" {
+		correlationID = fmt.Sprintf("http-%s", r.Header.Get("requestId"))
+	}
+
+	h.logger.LogAPI(constants.LogLevelInfo, "Resume monitoring request received", "", correlationID, map[string]interface{}{
+		"method": r.Method,
+		"path":   r.URL.Path,
+	})
+
+	var req ResumeMonitoringRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err.Error() != "EOF" {
+		h.logger.LogError(constants.LogLevelError, "Invalid request body", "", correlationID, err, nil)
+		response.RenderErrorWithCorrelation(w, r, http.StatusBadRequest, "Invalid request body", correlationID)
+		return
+	}
+
+	// 既に稼働中なら現在の videoId を返す
+	if videoID, isActive, exists := h.chatMonitoringUC.GetActiveVideoID(); exists && isActive {
+		h.logger.LogAPI(constants.LogLevelInfo, "Monitoring already active", videoID, correlationID, nil)
+		response.RenderStartMonitoring(w, r, videoID, "Monitoring already active")
+		return
+	}
+
+	maxUsers := req.MaxUsers
+	if maxUsers <= 0 {
+		maxUsers = constants.DefaultMaxUsers
+	}
+
+	videoInput := req.VideoInput
+	if videoInput == "" {
+		// lastVideoId を使って再開	h.logger.LogAPI(constants.LogLevelInfo, "No video_input provided. Using lastVideoId to resume", "", correlationID, nil)
+		session, err := h.chatMonitoringUC.ResumeMonitoring(r.Context(), maxUsers)
+		if err != nil {
+			response.RenderErrorWithCorrelation(w, r, http.StatusBadRequest, err.Error(), correlationID)
+			return
+		}
+		response.RenderStartMonitoring(w, r, session.VideoID, "Monitoring resumed successfully")
+		return
+	}
+
+	// 明示された video_input で再開（実体はStart）
+	session, err := h.chatMonitoringUC.StartMonitoring(r.Context(), videoInput, maxUsers)
+	if err != nil {
+		response.RenderErrorWithCorrelation(w, r, http.StatusBadRequest, err.Error(), correlationID)
+		return
+	}
+	response.RenderStartMonitoring(w, r, session.VideoID, "Monitoring started successfully")
 }
 
 // GetUserList GET /api/monitoring/{videoId}/users を処理します
