@@ -118,7 +118,18 @@ func (ps *PollingService) StartPolling(ctx context.Context, liveChatID string, v
 		consecutiveErrors = 0
 		nextPageToken = newPageToken
 		if pollingInterval > 0 {
-			pollingIntervalMs = pollingInterval
+			// 下限強制（過剰ポーリングによるQuota超過防止）
+			if pollingInterval < constants.MinPollingIntervalMs {
+				ps.logger.LogPoller("DEBUG", "Adjust polling interval to minimum threshold", videoID, correlationID, map[string]interface{}{
+					"operation":            "adjust_polling_interval",
+					"requestedIntervalMs":  pollingInterval,
+					"appliedIntervalMs":    constants.MinPollingIntervalMs,
+					"minIntervalEnforcedMs": constants.MinPollingIntervalMs,
+				})
+				pollingIntervalMs = constants.MinPollingIntervalMs
+			} else {
+				pollingIntervalMs = pollingInterval
+			}
 		}
 
 		// メッセージを順次処理

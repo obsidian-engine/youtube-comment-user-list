@@ -230,6 +230,9 @@ func (h *SSEHandler) StreamUserList(w http.ResponseWriter, r *http.Request) {
 	// 定期的なユーザーリスト更新を送信
 	updateTicker := time.NewTicker(constants.SSEUserListUpdateInterval)
 	defer updateTicker.Stop()
+	// ユーザーリスト用ハートビート（更新間隔を長くしたため）
+	heartbeatTicker := time.NewTicker(constants.SSEUserListHeartbeatInterval)
+	defer heartbeatTicker.Stop()
 
 	for {
 		select {
@@ -240,6 +243,16 @@ func (h *SSEHandler) StreamUserList(w http.ResponseWriter, r *http.Request) {
 		case <-updateTicker.C:
 			// 更新されたユーザーリストを送信
 			h.sendCurrentUserList(w, videoID, correlationID)
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+
+		case <-heartbeatTicker.C:
+			// ハートビート（軽量イベント）
+			h.sendSSEMessage(w, "heartbeat", map[string]interface{}{
+				"timestamp": time.Now().Format(constants.TimeFormatISO8601),
+				"type":      "user_list",
+			}, videoID)
 			if flusher, ok := w.(http.Flusher); ok {
 				flusher.Flush()
 			}
@@ -278,7 +291,7 @@ func (h *SSEHandler) sendCurrentUserList(w http.ResponseWriter, videoID, correla
 	h.sendSSEMessage(w, "user_list", userListData, videoID)
 }
 
-// writeJSONError はJSONエラーレスポンスを書き込みます
+// writeJSONError JSON形式のエラーレスポンスを書き込みます
 func (h *SSEHandler) writeJSONError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)

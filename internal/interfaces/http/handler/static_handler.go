@@ -302,6 +302,11 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
             td{padding:8px 12px}
             .idx{display:none}
         }
+        /* Readable numbered list styles for shoutout */
+        #numberedList{list-style:none;padding:0;margin:0;counter-reset:n}
+        #numberedList li{counter-increment:n;margin:.35em 0;line-height:1.45;font-size:clamp(18px,3vw,28px)}
+        #numberedList li::before{content:counter(n)'. ';font-weight:700;color:#FFD700;margin-right:.35em}
+        .count{margin-top:12px;color:#9aa0a6;font-size:clamp(12px,2vw,16px)}
     </style>
 </head>
 <body>
@@ -507,30 +512,12 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
             }
 
             let html = '';
-            html += '<table><thead><tr>'+ 
-                '<th class="idx">#</th>'+ 
-                '<th>ユーザー名</th>'+ 
-                '<th>Channel ID</th>'+ 
-                '<th>初回参加</th>'+ 
-                '<th>発言数</th>'+ 
-                '<th></th>'+ 
-                '</tr></thead><tbody>';
+            html += '<ol id="numberedList">';
             users.forEach((u,i)=>{
                 const name = (u.display_name || u.displayName || '');
-                const cid = (u.channel_id || u.channelID || '');
-                const first = fmtDate(u.first_seen || u.firstSeen);
-                const msgCount = (u.message_count != null) ? u.message_count : (u.messageCount || 0);
-                const url = cid ? 'https://www.youtube.com/channel/' + encodeURIComponent(cid) : '#';
-                html += '<tr>'+ 
-                    '<td class="idx">'+(i+1)+'</td>'+ 
-                    '<td class="name">'+escapeHtml(name)+'</td>'+ 
-                    '<td><a href="'+url+'" target="_blank" rel="noopener">'+escapeHtml(cid)+'</a></td>'+ 
-                    '<td><span class="pill">'+first+'</span></td>'+ 
-                    '<td>'+msgCount+'</td>'+ 
-                    '<td class="actions"><button onclick="copy(\''+cid+'\')">Copy</button></td>'+ 
-                    '</tr>';
+                html += '<li>'+escapeHtml(name)+'</li>';
             });
-            html += '</tbody></table>';
+            html += '</ol>';
             list.innerHTML = html;
         }
 

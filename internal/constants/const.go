@@ -65,6 +65,8 @@ const (
 const (
 	// DefaultPollingIntervalMs デフォルトポーリング間隔（ミリ秒）
 	DefaultPollingIntervalMs = 10000
+	// MinPollingIntervalMs 最低保証ポーリング間隔（ミリ秒） - APIがより短い値を返してもこれ未満にはしない
+	MinPollingIntervalMs = 10000
 )
 
 // Server-Sent Events Configuration
@@ -77,7 +79,10 @@ const (
 	SSEConnectionTimeout = 5 * time.Minute
 
 	// SSEUserListUpdateInterval SSEユーザーリスト更新間隔
-	SSEUserListUpdateInterval = 10 * time.Second
+	SSEUserListUpdateInterval = 60 * time.Second
+
+	// SSEUserListHeartbeatInterval ユーザーリストSSE専用ハートビート間隔（更新間隔が長いので別途）
+	SSEUserListHeartbeatInterval = 30 * time.Second
 )
 
 // Time Format Constants
