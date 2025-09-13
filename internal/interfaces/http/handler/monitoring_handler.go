@@ -114,40 +114,7 @@ func (h *MonitoringHandler) StopMonitoring(w http.ResponseWriter, r *http.Reques
 
 // GetUserList GET /api/monitoring/{videoId}/users を処理します
 // NOTE: このエンドポイントは非推奨です。代わりに GET /api/monitoring/users を使用してください。
-func (h *MonitoringHandler) GetUserList(w http.ResponseWriter, r *http.Request) {
-	// Deprecation headers
-	w.Header().Set("Deprecation", "true")
-	w.Header().Set("Link", "</api/monitoring/users>; rel=\"successor-version\"")
-	correlationID := fmt.Sprintf("http-%s", r.Header.Get("requestId"))
-	videoID := chi.URLParam(r, "videoId")
-
-	if videoID == "" {
-		response.RenderErrorWithCorrelation(w, r, http.StatusBadRequest, "video ID is required", correlationID)
-		return
-	}
-
-    h.logger.LogAPI("INFO", "Get user list request received", videoID, correlationID, nil)
-
-    order := r.URL.Query().Get("order")
-    users, err := h.chatMonitoringUC.GetUserListOrdered(r.Context(), videoID, order)
-	if err != nil {
-		h.logger.LogError("ERROR", "Failed to get user list", videoID, correlationID, err, nil)
-		h.logger.LogAPI("DEBUG", "Sending error response", videoID, correlationID, map[string]interface{}{
-			"statusCode": http.StatusInternalServerError,
-			"error":      err.Error(),
-		})
-		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
-		return
-	}
-
-	// デバッグ用：レスポンスをログ出力
-	h.logger.LogAPI("DEBUG", "Sending user list response", videoID, correlationID, map[string]interface{}{
-		"userCount": len(users),
-		"success":   true,
-	})
-
-	response.RenderUserList(w, r, users, len(users))
-}
+// 非推奨のユーザー一覧API（/api/monitoring/{videoId}/users）は削除しました
 
 // GetActiveVideoID 現在監視中のvideoIDを取得します
 func (h *MonitoringHandler) GetActiveVideoID(w http.ResponseWriter, r *http.Request) {
@@ -196,31 +163,42 @@ func (h *MonitoringHandler) GetVideoStatus(w http.ResponseWriter, r *http.Reques
 }
 
 // GetActiveUserList GET /api/monitoring/users を処理します（アクティブセッションのユーザー一覧を直接返す）
-func (h *MonitoringHandler) GetActiveUserList(w http.ResponseWriter, r *http.Request) {
+// 現行UIはSSEでユーザー一覧取得のため、/api/monitoring/users は削除しました
+
+// AutoEndToggleRequest 自動終了検知の切替リクエスト
+type AutoEndToggleRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// GetAutoEndSetting GET /api/monitoring/auto-end 現在の自動終了検知状態を返します
+func (h *MonitoringHandler) GetAutoEndSetting(w http.ResponseWriter, r *http.Request) {
 	correlationID := fmt.Sprintf("http-%s", r.Header.Get("requestId"))
-
-	videoID, _, exists := h.chatMonitoringUC.GetActiveVideoID()
-	if !exists || videoID == "" {
-		h.logger.LogAPI("INFO", "No monitoring session found for active users request", "", correlationID, nil)
-		response.RenderErrorWithCorrelation(w, r, http.StatusNotFound, "No monitoring session found", correlationID)
-		return
-	}
-
-    h.logger.LogAPI("INFO", "Get active user list request received", videoID, correlationID, nil)
-
-    order := r.URL.Query().Get("order")
-    users, err := h.chatMonitoringUC.GetUserListOrdered(r.Context(), videoID, order)
+	videoID, enabled, err := h.chatMonitoringUC.IsAutoEndEnabled()
 	if err != nil {
-		h.logger.LogError("ERROR", "Failed to get active user list", videoID, correlationID, err, nil)
-		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
+		response.RenderErrorWithCorrelation(w, r, http.StatusNotFound, err.Error(), correlationID)
 		return
 	}
+	response.RenderSuccessWithCorrelation(w, r, map[string]interface{}{
+		"videoId": videoID,
+		"enabled": enabled,
+	}, correlationID)
+}
 
-	// デバッグ用：レスポンスをログ出力
-	h.logger.LogAPI("DEBUG", "Sending active user list response", videoID, correlationID, map[string]interface{}{
-		"userCount": len(users),
-		"success":   true,
-	})
-
-	response.RenderUserList(w, r, users, len(users))
+// SetAutoEndSetting POST /api/monitoring/auto-end 自動終了検知の有効/無効を設定します
+func (h *MonitoringHandler) SetAutoEndSetting(w http.ResponseWriter, r *http.Request) {
+	correlationID := fmt.Sprintf("http-%s", r.Header.Get("requestId"))
+	var req AutoEndToggleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.RenderErrorWithCorrelation(w, r, http.StatusBadRequest, "Invalid request body", correlationID)
+		return
+	}
+	videoID, err := h.chatMonitoringUC.SetAutoEndEnabled(req.Enabled)
+	if err != nil {
+		response.RenderErrorWithCorrelation(w, r, http.StatusBadRequest, err.Error(), correlationID)
+		return
+	}
+	response.RenderSuccessWithCorrelation(w, r, map[string]interface{}{
+		"videoId": videoID,
+		"enabled": req.Enabled,
+	}, correlationID)
 }

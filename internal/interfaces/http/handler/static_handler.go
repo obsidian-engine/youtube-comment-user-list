@@ -192,6 +192,7 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
   <option value="kana">五十音順</option>
   <option value="message_count">発言数</option>
 </select>
+<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input id="autoEnd" type="checkbox"> 自動終了検知</label>
 <button class="md-btn" onclick="manualRefresh()"><span class="material-symbols-outlined" style="font-size:18px">sync</span> 即時更新</button>
 <button class="md-btn" style="background:#b91c1c" onclick="stopMonitoring()"><span class="material-symbols-outlined" style="font-size:18px">stop_circle</span> 監視停止</button>
 <button class="md-btn" style="background:#6b7280" onclick="freezeAndStop()"><span class="material-symbols-outlined" style="font-size:18px">task_alt</span> 終了して固定</button>
@@ -208,9 +209,10 @@ function renderUsers(){const list=document.getElementById('userList');const q=(d
 function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#039;'}[c]));}
 function stopMonitoring(){if(!confirm('監視を停止しますか？'))return;fetch('/api/monitoring/stop',{method:'DELETE'}).then(r=>r.json()).then(d=>{if(d.success){localStorage.removeItem('currentVideoId');alert('監視を停止しました。ホームへ戻ります。');location.href='/';}else alert('エラー: '+(d.error||'unknown'));}).catch(e=>alert('通信エラー: '+e.message));}
 function freezeAndStop(){if(!confirm('現在のリストで固定表示します。監視を停止しますか？'))return;try{frozen=true;if(es){es.close();}const st=document.getElementById('status');st.className='status offline';st.textContent='固定表示（監視停止済み）';fetch('/api/monitoring/stop',{method:'DELETE'}).catch(()=>{});}catch(_){} }
+function loadAutoEnd(){const cb=document.getElementById('autoEnd');if(!cb)return;fetch('/api/monitoring/auto-end').then(r=>r.json()).then(d=>{if(d.success){cb.checked=!!d.enabled;}}).catch(()=>{});cb.addEventListener('change',()=>{fetch('/api/monitoring/auto-end',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:cb.checked})}).catch(()=>{cb.checked=!cb.checked;});});}
 function detectActive(videoId){return new Promise(res=>{if(!videoId)return res(false);try{const ev=new EventSource('/api/sse/'+encodeURIComponent(videoId)+'/users');let decided=false;const done=v=>{if(decided)return;decided=true;ev.close();res(v)};const to=setTimeout(()=>done(false),2000);ev.addEventListener('connected',()=>{clearTimeout(to);done(true)});ev.addEventListener('user_list',()=>{clearTimeout(to);done(true)});ev.addEventListener('error',()=>{clearTimeout(to);done(false)});}catch{res(false);}});} 
 function updateAppbar(){const pill=document.getElementById('appbarMon');const vid=localStorage.getItem('currentVideoId')||'';if(!vid){pill.style.display='none';return;}detectActive(vid).then(a=>{pill.style.display=a?'inline-flex':'none';});}
-window.addEventListener('DOMContentLoaded',()=>{initUserList();updateAppbar();});
+window.addEventListener('DOMContentLoaded',()=>{initUserList();updateAppbar();loadAutoEnd();});
 </script>
 </body></html>`
 

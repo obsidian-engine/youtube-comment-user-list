@@ -14,9 +14,9 @@ import (
 
 // UserService チャットユーザーを管理するサービスです
 type UserService struct {
-    userRepo repository.UserRepository
-    logger   repository.Logger
-    eventPub repository.EventPublisher
+	userRepo repository.UserRepository
+	logger   repository.Logger
+	eventPub repository.EventPublisher
 }
 
 // NewUserService 新しいUserServiceを作成します
@@ -125,52 +125,52 @@ func (us *UserService) CreateUserList(ctx context.Context, videoID string, maxUs
 
 // GetUserListSnapshot ユーザーリストのスナップショットを取得します
 func (us *UserService) GetUserListSnapshot(ctx context.Context, videoID string) ([]*entity.User, error) {
-    // 互換: 既定の並び順は参加順（first_seen）
-    return us.GetUserListSnapshotWithOrder(ctx, videoID, "first_seen")
+	// 互換: 既定の並び順は参加順（first_seen）
+	return us.GetUserListSnapshotWithOrder(ctx, videoID, "first_seen")
 }
 
 // GetUserListSnapshotWithOrder フィルタ適用後に指定した順序でスナップショットを取得します
 // 既定で以下を除外します: チャットオーナー, モデレーター, ボット(Nightbot等)
 // order: first_seen | kana | message_count
 func (us *UserService) GetUserListSnapshotWithOrder(ctx context.Context, videoID string, order string) ([]*entity.User, error) {
-    userList, err := us.GetUserList(ctx, videoID)
-    if err != nil {
-        return nil, err
-    }
+	userList, err := us.GetUserList(ctx, videoID)
+	if err != nil {
+		return nil, err
+	}
 
-    raw := userList.GetUsers()
-    // 既定フィルタ適用
-    filtered := make([]*entity.User, 0, len(raw))
-    for _, u := range raw {
-        if shouldExcludeUser(u) {
-            continue
-        }
-        filtered = append(filtered, u)
-    }
+	raw := userList.GetUsers()
+	// 既定フィルタ適用
+	filtered := make([]*entity.User, 0, len(raw))
+	for _, u := range raw {
+		if shouldExcludeUser(u) {
+			continue
+		}
+		filtered = append(filtered, u)
+	}
 
-    // 並び替え
-    switch strings.ToLower(strings.TrimSpace(order)) {
-    case "kana":
-        sort.SliceStable(filtered, func(i, j int) bool {
-            return lessJapanese(filtered[i].DisplayName, filtered[j].DisplayName)
-        })
-    case "message_count":
-        sort.SliceStable(filtered, func(i, j int) bool {
-            if filtered[i].MessageCount == filtered[j].MessageCount {
-                return lessJapanese(filtered[i].DisplayName, filtered[j].DisplayName)
-            }
-            return filtered[i].MessageCount > filtered[j].MessageCount
-        })
-    default: // first_seen
-        sort.SliceStable(filtered, func(i, j int) bool {
-            if filtered[i].FirstSeen.Equal(filtered[j].FirstSeen) {
-                return lessJapanese(filtered[i].DisplayName, filtered[j].DisplayName)
-            }
-            return filtered[i].FirstSeen.Before(filtered[j].FirstSeen)
-        })
-    }
+	// 並び替え
+	switch strings.ToLower(strings.TrimSpace(order)) {
+	case "kana":
+		sort.SliceStable(filtered, func(i, j int) bool {
+			return lessJapanese(filtered[i].DisplayName, filtered[j].DisplayName)
+		})
+	case "message_count":
+		sort.SliceStable(filtered, func(i, j int) bool {
+			if filtered[i].MessageCount == filtered[j].MessageCount {
+				return lessJapanese(filtered[i].DisplayName, filtered[j].DisplayName)
+			}
+			return filtered[i].MessageCount > filtered[j].MessageCount
+		})
+	default: // first_seen
+		sort.SliceStable(filtered, func(i, j int) bool {
+			if filtered[i].FirstSeen.Equal(filtered[j].FirstSeen) {
+				return lessJapanese(filtered[i].DisplayName, filtered[j].DisplayName)
+			}
+			return filtered[i].FirstSeen.Before(filtered[j].FirstSeen)
+		})
+	}
 
-    return filtered, nil
+	return filtered, nil
 }
 
 // lessJapanese は日本語の簡易的な「あいうえお」順になるよう正規化して比較します
@@ -181,12 +181,12 @@ func (us *UserService) GetUserListSnapshotWithOrder(ctx context.Context, videoID
 // この簡易実装は一般的なケースで「あ→い→う…」の順序感を満たすことを目的とし、
 // 厳密な辞書順や漢字の読みには対応しません。
 func lessJapanese(a, b string) bool {
-    na := normalizeJapanese(a)
-    nb := normalizeJapanese(b)
-    if na == nb {
-        return a < b
-    }
-    return na < nb
+	na := normalizeJapanese(a)
+	nb := normalizeJapanese(b)
+	if na == nb {
+		return a < b
+	}
+	return na < nb
 }
 
 func normalizeJapanese(s string) string {
@@ -210,32 +210,32 @@ func normalizeJapanese(s string) string {
 // - モデレーター
 // - 既知/推定ボット
 func shouldExcludeUser(u *entity.User) bool {
-    if u == nil {
-        return true
-    }
-    if u.IsChatOwner || u.IsModerator {
-        return true
-    }
-    name := strings.ToLower(strings.TrimSpace(u.DisplayName))
-    if name == "" {
-        return false
-    }
-    if isBotDisplayName(name) {
-        return true
-    }
-    return false
+	if u == nil {
+		return true
+	}
+	if u.IsChatOwner || u.IsModerator {
+		return true
+	}
+	name := strings.ToLower(strings.TrimSpace(u.DisplayName))
+	if name == "" {
+		return false
+	}
+	if isBotDisplayName(name) {
+		return true
+	}
+	return false
 }
 
 func isBotDisplayName(name string) bool {
-    // 代表例: Nightbot, StreamElements, Streamlabs 等
-    if strings.Contains(name, "bot") {
-        return true
-    }
-    known := []string{"nightbot", "streamelements", "streamlabs"}
-    for _, k := range known {
-        if strings.Contains(name, k) {
-            return true
-        }
-    }
-    return false
+	// 代表例: Nightbot, StreamElements, Streamlabs 等
+	if strings.Contains(name, "bot") {
+		return true
+	}
+	known := []string{"nightbot", "streamelements", "streamlabs"}
+	for _, k := range known {
+		if strings.Contains(name, k) {
+			return true
+		}
+	}
+	return false
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
@@ -19,6 +20,11 @@ type PollingService struct {
 	chatRepo      repository.ChatRepository
 	logger        repository.Logger
 	eventPub      repository.EventPublisher
+
+	videoService *VideoService
+	// autoEndEnabled: videoID -> enabled
+	autoEndEnabled map[string]bool
+	autoMu         sync.RWMutex
 }
 
 // NewPollingService 新しいPollingServiceを作成します
@@ -27,12 +33,15 @@ func NewPollingService(
 	chatRepo repository.ChatRepository,
 	logger repository.Logger,
 	eventPub repository.EventPublisher,
+	videoService *VideoService,
 ) *PollingService {
 	return &PollingService{
-		youtubeClient: youtubeClient,
-		chatRepo:      chatRepo,
-		logger:        logger,
-		eventPub:      eventPub,
+		youtubeClient:  youtubeClient,
+		chatRepo:       chatRepo,
+		logger:         logger,
+		eventPub:       eventPub,
+		videoService:   videoService,
+		autoEndEnabled: make(map[string]bool),
 	}
 }
 
@@ -63,11 +72,18 @@ func (ps *PollingService) StartPolling(ctx context.Context, liveChatID string, v
 		default:
 		}
 
-		// ライブ配信の状態をチェック（簡易実装）
+		// ライブ配信の状態をチェック（自動終了検知が有効な場合）
 		if !ps.isLiveStreamActive(ctx, videoID, correlationID) {
-			ps.logger.LogPoller("INFO", "Live stream is no longer active", videoID, correlationID, map[string]interface{}{
+			ps.logger.LogPoller("INFO", "Live stream is no longer active (auto-end)", videoID, correlationID, map[string]interface{}{
 				"operation": "check_stream_status",
 			})
+			// メッセージチャンネルをクローズして下流へ通知
+			// 注意: StartPolling の所有下でのみ close する
+			defer func() {
+				// recoverで二重closeを回避
+				defer func() { _ = recover() }()
+				close(messagesChan)
+			}()
 			return fmt.Errorf("live stream is no longer active")
 		}
 
@@ -174,14 +190,41 @@ func (ps *PollingService) StartPolling(ctx context.Context, liveChatID string, v
 	}
 }
 
-// isLiveStreamActive ライブ配信がアクティブかどうかをチェックします
+// isLiveStreamActive ライブ配信がアクティブかをチェック（自動終了検知が有効なときのみ）
 func (ps *PollingService) isLiveStreamActive(ctx context.Context, videoID, correlationID string) bool {
-	// 未使用パラメータの警告回避のため一度参照
-	_ = ctx
-	_ = videoID
-	_ = correlationID
-	// 簡易実装: 常に true を返す（将来的に実装を差し替えてください）
-	return true
+	if !ps.IsAutoEndEnabled(videoID) {
+		return true
+	}
+	if ps.videoService == nil {
+		// フォールバック: 無効扱いにしない
+		return true
+	}
+	status, err := ps.videoService.GetLiveStreamStatus(ctx, videoID)
+	if err != nil {
+		ps.logger.LogError("WARN", "Failed to get live stream status (auto-end check)", videoID, correlationID, err, nil)
+		return true // ステータス取得失敗時は継続
+	}
+	// アクティブは "live" のみと判定
+	return status == "live"
+}
+
+// SetAutoEndEnabled 自動終了検知の有効/無効を設定
+func (ps *PollingService) SetAutoEndEnabled(videoID string, enabled bool) {
+	ps.autoMu.Lock()
+	ps.autoEndEnabled[videoID] = enabled
+	ps.autoMu.Unlock()
+}
+
+// IsAutoEndEnabled 自動終了検知の状態を取得
+func (ps *PollingService) IsAutoEndEnabled(videoID string) bool {
+	ps.autoMu.RLock()
+	enabled, ok := ps.autoEndEnabled[videoID]
+	ps.autoMu.RUnlock()
+	if !ok {
+		// 既定: 有効
+		return true
+	}
+	return enabled
 }
 
 // pollMessages チャットメッセージをポーリングします

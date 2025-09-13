@@ -133,6 +133,9 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 		"maxUsers": maxUsers,
 	})
 
+	// 既定で自動終了検知を有効化
+	uc.pollingService.SetAutoEndEnabled(videoID, true)
+
 	// バックグラウンドでポーリングを開始
 	go uc.runPolling(sessionCtx, videoInfo.LiveStreamingDetails.ActiveLiveChatID, videoID, messagesChan, correlationID)
 
@@ -195,12 +198,35 @@ func (uc *ChatMonitoringUseCase) GetActiveVideoID() (string, bool, bool) {
 
 // GetUserList 指定された動画のユーザーリストを返します
 func (uc *ChatMonitoringUseCase) GetUserList(ctx context.Context, videoID string) ([]*entity.User, error) {
-    return uc.userService.GetUserListSnapshot(ctx, videoID)
+	return uc.userService.GetUserListSnapshot(ctx, videoID)
 }
 
 // GetUserListOrdered 指定順序でユーザーリストを返します
 func (uc *ChatMonitoringUseCase) GetUserListOrdered(ctx context.Context, videoID string, order string) ([]*entity.User, error) {
-    return uc.userService.GetUserListSnapshotWithOrder(ctx, videoID, order)
+	return uc.userService.GetUserListSnapshotWithOrder(ctx, videoID, order)
+}
+
+// SetAutoEndEnabled 自動終了検知のON/OFFを切り替える（アクティブセッション対象）
+func (uc *ChatMonitoringUseCase) SetAutoEndEnabled(enabled bool) (string, error) {
+	uc.mu.RLock()
+	session := uc.currentSession
+	uc.mu.RUnlock()
+	if session == nil {
+		return "", fmt.Errorf("no active monitoring session")
+	}
+	uc.pollingService.SetAutoEndEnabled(session.VideoID, enabled)
+	return session.VideoID, nil
+}
+
+// IsAutoEndEnabled 現在の自動終了検知状態を返す
+func (uc *ChatMonitoringUseCase) IsAutoEndEnabled() (string, bool, error) {
+	uc.mu.RLock()
+	session := uc.currentSession
+	uc.mu.RUnlock()
+	if session == nil {
+		return "", false, fmt.Errorf("no active monitoring session")
+	}
+	return session.VideoID, uc.pollingService.IsAutoEndEnabled(session.VideoID), nil
 }
 
 // runPolling 動画のポーリングループを処理します
@@ -211,6 +237,10 @@ func (uc *ChatMonitoringUseCase) runPolling(ctx context.Context, liveChatID, vid
 			uc.logger.LogStructured("INFO", "monitoring", "polling_stopped", "Polling stopped normally", videoID, correlationID, map[string]interface{}{
 				"reason": err.Error(),
 			})
+			return
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "no longer active") {
+			uc.logger.LogStructured("INFO", "monitoring", "polling_auto_end", "Polling stopped (stream ended)", videoID, correlationID, nil)
 			return
 		}
 		uc.logger.LogError("ERROR", "Polling ended with error", videoID, correlationID, err, nil)

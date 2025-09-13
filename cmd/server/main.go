@@ -156,22 +156,24 @@ func buildContainer(apiKey string) *ApplicationContainer {
 	container.EventPublisher = events.NewSimplePublisher(container.Logger)
 
 	// ドメインサービス
+	// 先に VideoService を作成（PollingService から利用）
+	container.VideoService = service.NewVideoService(
+		container.YouTubeClient,
+		container.Logger,
+	)
+
 	container.PollingService = service.NewPollingService(
 		container.YouTubeClient,
 		container.ChatRepository,
 		container.Logger,
 		container.EventPublisher,
+		container.VideoService,
 	)
 
 	container.UserService = service.NewUserService(
 		container.UserRepository,
 		container.Logger,
 		container.EventPublisher,
-	)
-
-	container.VideoService = service.NewVideoService(
-		container.YouTubeClient,
-		container.Logger,
 	)
 
 	container.ChatMonitoringUC = usecase.NewChatMonitoringUseCase(
@@ -275,15 +277,14 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 		r.Route("/monitoring", func(r chi.Router) {
 			r.Post("/start", container.MonitoringHandler.StartMonitoring)
 			r.Delete("/stop", container.MonitoringHandler.StopMonitoring)
-			// 新規: アクティブセッションのユーザー一覧を直接返す
-			r.Get("/users", container.MonitoringHandler.GetActiveUserList)
-			r.Get("/{videoId}/users", container.MonitoringHandler.GetUserList)
 			r.Get("/{videoId}/status", container.MonitoringHandler.GetVideoStatus)
+			// 自動終了検知の切替/取得
+			r.Get("/auto-end", container.MonitoringHandler.GetAutoEndSetting)
+			r.Post("/auto-end", container.MonitoringHandler.SetAutoEndSetting)
 		})
 
 		// SSEエンドポイント
 		r.Route("/sse", func(r chi.Router) {
-			r.Get("/{videoId}", container.SSEHandler.StreamMessages)
 			r.Get("/{videoId}/users", container.SSEHandler.StreamUserList)
 		})
 
