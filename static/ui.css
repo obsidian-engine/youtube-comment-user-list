@@ -131,7 +131,7 @@ td { padding: 8px 10px; font-size: 13px; vertical-align: top; }
 .muted { color: var(--subtext); font-size: 12px; margin-top: 10px; }
 
 /* Icons (任意: material symbols 等) */
-.material-symbols-outlined { vertical-align: middle; font-size: 18px; }
+.material-symbols-outlined { display: none !important; }
 
 /* Responsive */
 @media (max-width: 760px) {

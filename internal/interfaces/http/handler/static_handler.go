@@ -33,7 +33,6 @@ func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Home - YouTube Live Chat Monitor</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;700" rel="stylesheet" />
 <link rel="stylesheet" href="/static/ui.css">
 <script src="/static/app.js"></script>
 </head>
@@ -175,54 +174,8 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User List - YouTube Live Chat Monitor</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;700" rel="stylesheet" />
-    <style>
-        :root{
-            --md-sys-color-primary:#90caf9; --md-sys-color-secondary:#80cbc4; --md-sys-color-surface:#121212; --md-sys-color-background:#0e1116; --md-sys-color-on-surface:#e2e7ee; --md-sys-color-outline:#2a2f3a; --md-sys-color-error:#ffb4ab;
-            --row:#0f141b; --row-alt:#0d131a;
-        }
-        *{box-sizing:border-box}
-        body{margin:0;background:var(--md-sys-color-background);color:var(--md-sys-color-on-surface);font-family: Roboto, ui-sans-serif, system-ui, -apple-system, Segoe UI, "Helvetica Neue", Arial}
-        a{color:var(--md-sys-color-primary);text-decoration:none}
-        a:hover{text-decoration:underline}
-        .appbar{position:sticky;top:0;background:#1d252f;border-bottom:1px solid var(--md-sys-color-outline);box-shadow:0 2px 6px rgba(0,0,0,.35);padding:12px 16px;margin-bottom:16px}
-        .row{display:flex;align-items:center;gap:12px}
-        .title{font-size:20px;font-weight:700}
-        .sub{opacity:.75;font-size:13px}
-        .wrap{max-width:1100px;margin:0 auto 24px auto;padding:0 16px}
-        .card{background:linear-gradient(180deg,#161b22,#12161c);border:1px solid var(--md-sys-color-outline);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
-        .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--md-sys-color-outline)}
-        .left, .right{display:flex;gap:12px;align-items:center}
-        .controls input[type="text"], .controls select{background:#0f141b;border:1px solid var(--md-sys-color-outline);border-radius:8px;color:var(--md-sys-color-on-surface);padding:10px 12px}
-        .status{padding:10px 12px;border-radius:8px;font-size:13px}
-        .status.online{background:rgba(144,202,249,.12);color:#cfe8ff;border:1px solid rgba(144,202,249,.28)}
-        .status.offline{background:rgba(244,63,94,.08);color:#fda4af;border:1px solid rgba(253,164,175,.25)}
-        .meta{opacity:.75;font-size:12px}
-        .content{padding:12px 16px}
-        table{width:100%;border-collapse:separate;border-spacing:0 8px}
-        thead th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;opacity:.75;text-align:left;padding:0 10px}
-        tbody tr{background:var(--row);border:1px solid var(--md-sys-color-outline)}
-        tbody tr:nth-child(even){background:var(--row-alt)}
-        td{padding:12px 10px;vertical-align:middle}
-        .idx{opacity:.7;width:56px}
-        .name{display:flex;align-items:center;gap:10px}
-        .pill{font-size:12px;color:#cfe8ff;background:rgba(144,202,249,.12);border:1px solid rgba(144,202,249,.28);padding:4px 10px;border-radius:999px}
-        .actions button{background:#0f141b;border:1px solid var(--md-sys-color-outline);color:var(--md-sys-color-on-surface);border-radius:8px;padding:6px 10px;cursor:pointer}
-        .empty{padding:24px;text-align:center;opacity:.75}
-        .footer{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--md-sys-color-outline)}
-        .md-btn{--elev:0 2px 4px rgba(0,0,0,.35);--elevH:0 6px 16px rgba(0,0,0,.45);display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,#2196f3,#1976d2);color:#e8f2ff;font-weight:600;letter-spacing:.3px;cursor:pointer;box-shadow:var(--elev);transition:box-shadow .25s,transform .1s,filter .2s}
-        .md-btn:hover{box-shadow:var(--elevH);filter:saturate(1.05)}
-        .md-btn:active{transform:translateY(1px)}
-        .md-btn.outlined{background:transparent;border:1px solid var(--md-sys-color-outline);color:var(--md-sys-color-primary)}
-        @media (max-width:720px){
-            thead{display:none}
-            table, tbody, tr, td{display:block;width:100%}
-            tbody tr{margin:8px 0;border-radius:10px}
-            td{padding:8px 12px}
-            .idx{display:none}
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/ui.css">
 </head>
 <body>
     <div class="appbar">
@@ -232,7 +185,6 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
                 <div class="title">ユーザーリスト</div>
                 <div class="sub">YouTube Live Chat 参加者</div>
                 <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-                    <span id="appbarMon" class="pill" style="display:none;align-items:center;gap:6px"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">sensors</span> 監視中 <button id="appbarStop" class="md-btn outlined" style="padding:4px 8px;font-size:12px;line-height:1.2;margin-left:6px"><span class="material-symbols-outlined" style="font-size:16px">stop_circle</span> 停止</button></span>
                     <a href="/" class="md-btn outlined"><span class="material-symbols-outlined" style="font-size:18px">home</span> ホーム</a>
                 </div>
             </div>
@@ -249,7 +201,7 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
                       <option value="kana">五十音順</option>
                       <option value="message_count">発言数</option>
                     </select>
-                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input id="autoEnd" type="checkbox"> 自動終了検知</label>
+                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input id="autoEnd" type="checkbox" checked> 自動終了検知</label>
                     <button class="md-btn" onclick="manualRefresh()"><span class="material-symbols-outlined" style="font-size:18px">sync</span> 即時更新</button>
                     <button class="md-btn outlined" onclick="stopMonitoring()"><span class="material-symbols-outlined" style="font-size:18px">stop_circle</span> 監視停止</button>
                 </div>
@@ -257,7 +209,7 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
                     <div id="status" class="status">初回取得中...</div>
                 </div>
             </div>
-            <div id="warn" style="display:none;padding:10px 16px;color:#fecaca;border-top:1px solid var(--md-sys-color-outline);background:rgba(244,63,94,.08)">警告: LIVEが inactive の可能性。監視は起動中です。</div>
+            <div id="warn" style="display:none;padding:10px 16px;color:#fecaca;border-top:1px solid var(--line);background:rgba(244,63,94,.08)">警告: LIVEが inactive の可能性。監視は起動中です。</div>
             <div class="content">
                 <div class="meta" style="margin-bottom:8px">
                     <span id="count">0</span> 名 <span id="updated"></span>
@@ -271,21 +223,6 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
                 <div class="meta">ChannelをクリックするとYouTubeチャンネルを開きます</div>
                 <div><a href="/" class="md-btn outlined"><span class="material-symbols-outlined" style="font-size:18px">home</span> ホーム</a></div>
             </div>
-        </div>
-    </div>
-
-    <style id="activeBannerStyles">
-        .active-banner{position:fixed;left:0;right:0;bottom:0;background:#7f1d1d;color:#fee2e2;border-top:2px solid #ef4444;z-index:9999;box-shadow:0 -8px 30px rgba(0,0,0,.45)}
-        .active-banner .ab-wrap{max-width:1100px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:12px}
-        .md-btn.danger{background:linear-gradient(180deg,#ef4444,#b91c1c);color:#fff;border-color:rgba(255,255,255,.08)}
-        @keyframes abPulse{0%{filter:saturate(1)}50%{filter:saturate(1.25)}100%{filter:saturate(1)}}
-        .active-banner{animation:abPulse 2.5s ease-in-out infinite}
-    </style>
-    <div id="activeBanner" class="active-banner" style="display:none" role="alert" aria-live="assertive">
-        <div class="ab-wrap">
-            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
-            <div class="ab-text"><strong>監視実行中</strong> — 作業後は必ず停止してください</div>
-            <button id="abStop" class="md-btn danger" style="margin-left:auto"><span class="material-symbols-outlined" style="font-size:18px">stop_circle</span> 停止する</button>
         </div>
     </div>
 
@@ -306,9 +243,6 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
         window.addEventListener('DOMContentLoaded', () => {
             initialLoad();
             loadAutoEnd();
-            updateAppbarMon(); setInterval(updateAppbarMon,30000);
-            const btn=document.getElementById('appbarStop'); if(btn) btn.addEventListener('click', stopFromAppbar);
-            const ab=document.getElementById('abStop'); if(ab) ab.addEventListener('click', stopFromBanner);
         });
         window.addEventListener('beforeunload', () => { if (refreshTimer) clearInterval(refreshTimer); });
 
@@ -483,15 +417,7 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
         function loadAutoEnd(){ const cb=document.getElementById('autoEnd'); if(!cb) return; fetch('/api/monitoring/auto-end').then(r=>r.json()).then(d=>{ if(d.success){ cb.checked=!!d.enabled; } }).catch(()=>{}); cb.addEventListener('change', ()=>{ fetch('/api/monitoring/auto-end',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:cb.checked})}).catch(()=>{ cb.checked=!cb.checked; }); }); }
 
 
-        // Appbar active pill & stop
-        async function updateAppbarMon(){ const pill=document.getElementById('appbarMon'); try{ const res=await fetch('/api/monitoring/active'); if(!res.ok){ if(pill) pill.style.display='none'; return; } const data=await res.json(); const active=(data.data&&typeof data.data.isActive!=='undefined')?data.data.isActive:data.isActive; if(pill){ pill.style.display=active?'inline-flex':'none'; } }catch(_){ if(pill) pill.style.display='none'; } }
-        async function stopFromAppbar(){ if(!confirm('監視を停止しますか？')) return; try{ const res=await fetch('/api/monitoring/stop',{method:'DELETE'}); const data=await res.json(); if(data.success){ try{ localStorage.removeItem('currentVideoId'); }catch(_){} alert('監視を停止しました'); const pill=document.getElementById('appbarMon'); if(pill) pill.style.display='none'; } else { alert('エラー: '+(data.error||'unknown')); } }catch(e){ alert('通信エラー: '+e.message); } }
-        async function stopFromBanner(){ if(!confirm('監視を停止しますか？')) return; try{ const res=await fetch('/api/monitoring/stop',{method:'DELETE'}); const data=await res.json(); if(data.success){ try{ localStorage.removeItem('currentVideoId'); }catch(_){} alert('監視を停止しました'); document.getElementById('activeBanner').style.display='none'; } else { alert('エラー: '+(data.error||'unknown')); } }catch(e){ alert('通信エラー: '+e.message); } }
         async function stopMonitoring(){ if(!confirm('監視を停止しますか？')) return; try{ const res=await fetch('/api/monitoring/stop',{method:'DELETE'}); const data=await res.json(); if(data.success){ try{ localStorage.removeItem('currentVideoId'); }catch(_){} alert('監視を停止しました。ホームに戻ります。'); window.location.href='/'; } else { alert('エラー: '+(data.error||'unknown')); } }catch(e){ alert('通信エラー: '+e.message); } }
-
-        // Active banner 定期更新
-        async function updateActiveBanner(){ const el=document.getElementById('activeBanner'); try{ const res=await fetch('/api/monitoring/active'); if(!res.ok){ el.style.display='none'; return; } const data=await res.json(); const active=(data.data&&typeof data.data.isActive!=='undefined')?data.data.isActive:data.isActive; el.style.display=active?'block':'none'; }catch(_){ el.style.display='none'; } }
-        document.addEventListener('DOMContentLoaded',()=>{ updateActiveBanner(); setInterval(updateActiveBanner,10000); });
     </script>
 </body>
 </html>`
@@ -509,7 +435,7 @@ func (h *StaticHandler) ServeLogsPage(w http.ResponseWriter, r *http.Request) {
 
 	// Avoid JS template literals inside Go raw string to prevent syntax issues
     html := `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>System Logs</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;700" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/ui.css">
 <script src="/static/app.js"></script>
 </head><body>
