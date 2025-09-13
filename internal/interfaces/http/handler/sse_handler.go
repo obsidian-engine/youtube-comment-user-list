@@ -16,35 +16,40 @@ import (
 
 // SSEHandler リアルタイム更新用のServer-Sent Eventsを処理します
 type SSEHandler struct {
-	chatMonitoringUC *usecase.ChatMonitoringUseCase
-	logger           repository.Logger
+    chatMonitoringUC *usecase.ChatMonitoringUseCase
+    logger           repository.Logger
+    idleTouch        func()
 }
 
 // NewSSEHandler 新しいSSEハンドラーを作成します
 func NewSSEHandler(
-	chatMonitoringUC *usecase.ChatMonitoringUseCase,
-	logger repository.Logger,
+    chatMonitoringUC *usecase.ChatMonitoringUseCase,
+    logger repository.Logger,
 ) *SSEHandler {
-	return &SSEHandler{
-		chatMonitoringUC: chatMonitoringUC,
-		logger:           logger,
-	}
+    return &SSEHandler{
+        chatMonitoringUC: chatMonitoringUC,
+        logger:           logger,
+    }
 }
+
+// SetIdleTouch SSE送出時に呼び出すアイドル更新関数を設定
+func (h *SSEHandler) SetIdleTouch(fn func()) { h.idleTouch = fn }
 
 // チャット本文ストリーム機能は未使用のため削除しました
 
 // sendSSEMessage SSEメッセージ送信
 func (h *SSEHandler) sendSSEMessage(w http.ResponseWriter, eventType string, data interface{}, videoID string) {
 	jsonData, err := json.Marshal(data)
-	if err != nil {
-		h.logger.LogError("ERROR", "Failed to marshal SSE message", videoID, "", err, nil)
-		return
-	}
+    if err != nil {
+        h.logger.LogError(constants.LogLevelError, "Failed to marshal SSE message", videoID, "", err, nil)
+        return
+    }
 
 	message := fmt.Sprintf("event: %s\ndata: %s\n\n", eventType, string(jsonData))
-	if _, err := w.Write([]byte(message)); err != nil {
-		h.logger.LogError("ERROR", "Failed to write SSE message", videoID, "", err, nil)
-	}
+    if _, err := w.Write([]byte(message)); err != nil {
+        h.logger.LogError(constants.LogLevelError, "Failed to write SSE message", videoID, "", err, nil)
+    }
+    if h.idleTouch != nil { h.idleTouch() }
 }
 
 // StreamUserList GET /api/sse/{videoId}/users を処理します
@@ -57,7 +62,7 @@ func (h *SSEHandler) StreamUserList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logger.LogAPI("INFO", "SSE user list stream request received", videoID, correlationID, map[string]interface{}{
+    h.logger.LogAPI(constants.LogLevelInfo, "SSE user list stream request received", videoID, correlationID, map[string]interface{}{
 		"userAgent":  r.Header.Get("User-Agent"),
 		"remoteAddr": r.RemoteAddr,
 	})
@@ -71,13 +76,13 @@ func (h *SSEHandler) StreamUserList(w http.ResponseWriter, r *http.Request) {
 
 	// 監視セッションを取得
 	_, exists := h.chatMonitoringUC.GetMonitoringSession(videoID)
-	if !exists {
-		h.logger.LogError("ERROR", "No active monitoring session found", videoID, correlationID, nil, nil)
-		h.sendSSEMessage(w, "error", map[string]string{
-			"message": "No active monitoring session for this video",
-		}, videoID)
-		return
-	}
+    if !exists {
+        h.logger.LogError(constants.LogLevelError, "No active monitoring session found", videoID, correlationID, nil, nil)
+        h.sendSSEMessage(w, "error", map[string]string{
+            "message": "No active monitoring session for this video",
+        }, videoID)
+        return
+    }
 
 	// 初期接続メッセージを送信
 	h.sendSSEMessage(w, "connected", map[string]interface{}{
@@ -93,7 +98,7 @@ func (h *SSEHandler) StreamUserList(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 
-	h.logger.LogAPI("INFO", "SSE user list stream established", videoID, correlationID, nil)
+    h.logger.LogAPI(constants.LogLevelInfo, "SSE user list stream established", videoID, correlationID, nil)
 
 	// クライアント切断時にキャンセルされるコンテキストを作成
 	ctx, cancel := context.WithCancel(r.Context())
@@ -109,7 +114,7 @@ func (h *SSEHandler) StreamUserList(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-ctx.Done():
-			h.logger.LogAPI("INFO", "SSE user list client disconnected", videoID, correlationID, nil)
+            h.logger.LogAPI(constants.LogLevelInfo, "SSE user list client disconnected", videoID, correlationID, nil)
 			return
 
 		case <-updateTicker.C:
@@ -131,7 +136,7 @@ func (h *SSEHandler) StreamUserList(w http.ResponseWriter, r *http.Request) {
 
 		case <-time.After(constants.SSEConnectionTimeout):
 			// タイムアウト - リソースリークを防ぐため接続を閉じる
-			h.logger.LogAPI("INFO", "SSE user list connection timeout", videoID, correlationID, nil)
+            h.logger.LogAPI(constants.LogLevelInfo, "SSE user list connection timeout", videoID, correlationID, nil)
 			h.sendSSEMessage(w, "timeout", map[string]string{
 				"message": "Connection timeout",
 			}, videoID)
@@ -145,13 +150,13 @@ func (h *SSEHandler) StreamUserList(w http.ResponseWriter, r *http.Request) {
 // sendCurrentUserList 現在のユーザーリスト送信
 func (h *SSEHandler) sendCurrentUserList(w http.ResponseWriter, videoID, correlationID string) {
 	users, err := h.chatMonitoringUC.GetUserList(context.Background(), videoID)
-	if err != nil {
-		h.logger.LogError("ERROR", "Failed to get user list for SSE", videoID, correlationID, err, nil)
-		h.sendSSEMessage(w, "error", map[string]string{
-			"message": "Failed to retrieve user list",
-		}, videoID)
-		return
-	}
+    if err != nil {
+        h.logger.LogError(constants.LogLevelError, "Failed to get user list for SSE", videoID, correlationID, err, nil)
+        h.sendSSEMessage(w, "error", map[string]string{
+            "message": "Failed to retrieve user list",
+        }, videoID)
+        return
+    }
 
 	userListData := map[string]interface{}{
 		"videoId":   videoID,
@@ -167,9 +172,9 @@ func (h *SSEHandler) sendCurrentUserList(w http.ResponseWriter, videoID, correla
 func (h *SSEHandler) writeJSONError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"error": message,
-	}); err != nil {
-		h.logger.LogError("ERROR", "Failed to encode JSON error response", "", "", err, nil)
-	}
+    if err := json.NewEncoder(w).Encode(map[string]interface{}{
+        "error": message,
+    }); err != nil {
+        h.logger.LogError(constants.LogLevelError, "Failed to encode JSON error response", "", "", err, nil)
+    }
 }

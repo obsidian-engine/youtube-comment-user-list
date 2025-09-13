@@ -62,17 +62,17 @@ func NewLogHandler(
 func (h *LogHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 	correlationID := fmt.Sprintf("logs-%s", r.Header.Get("requestId"))
 
-	h.logger.LogAPI("INFO", "Get logs request received", "", correlationID, nil)
+    h.logger.LogAPI(constants.LogLevelInfo, "Get logs request received", "", correlationID, nil)
 
 	// フィルタリング用のクエリパラメータを解析
 	filters := h.parseLogFilters(r)
 
 	logs, err := h.logManagementUC.GetRecentLogs(r.Context(), filters)
-	if err != nil {
-		h.logger.LogError("ERROR", "Failed to get logs", "", correlationID, err, nil)
-		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
-		return
-	}
+    if err != nil {
+        h.logger.LogError(constants.LogLevelError, "Failed to get logs", "", correlationID, err, nil)
+        response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
+        return
+    }
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
@@ -86,24 +86,24 @@ func (h *LogHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 func (h *LogHandler) GetLogStats(w http.ResponseWriter, r *http.Request) {
 	correlationID := fmt.Sprintf("logs-stats-%s", r.Header.Get("requestId"))
 
-	h.logger.LogAPI("INFO", "Get log stats request received", "", correlationID, nil)
+    h.logger.LogAPI(constants.LogLevelInfo, "Get log stats request received", "", correlationID, nil)
 
 	stats, err := h.logManagementUC.GetLogStats(r.Context())
-	if err != nil {
-		h.logger.LogError("ERROR", "Failed to get log stats", "", correlationID, err, nil)
-		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
-		return
-	}
+    if err != nil {
+        h.logger.LogError(constants.LogLevelError, "Failed to get log stats", "", correlationID, err, nil)
+        response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
+        return
+    }
 
 	// マップから値を抽出
 	totalEntries, _ := stats["totalEntries"].(int)
 	levelCounts, _ := stats["levelCounts"].(map[string]int)
 
 	var errorCount, warningCount int
-	if levelCounts != nil {
-		errorCount = levelCounts["ERROR"]
-		warningCount = levelCounts["WARNING"]
-	}
+    if levelCounts != nil {
+        errorCount = levelCounts[constants.LogLevelError]
+        warningCount = levelCounts[constants.LogLevelWarning]
+    }
 
 	h.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success":  true,
@@ -117,14 +117,14 @@ func (h *LogHandler) GetLogStats(w http.ResponseWriter, r *http.Request) {
 func (h *LogHandler) ClearLogs(w http.ResponseWriter, r *http.Request) {
 	correlationID := fmt.Sprintf("logs-clear-%s", r.Header.Get("requestId"))
 
-	h.logger.LogAPI("INFO", "Clear logs request received", "", correlationID, nil)
+    h.logger.LogAPI(constants.LogLevelInfo, "Clear logs request received", "", correlationID, nil)
 
 	err := h.logManagementUC.ClearLogs(r.Context())
-	if err != nil {
-		h.logger.LogError("ERROR", "Failed to clear logs", "", correlationID, err, nil)
-		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
-		return
-	}
+    if err != nil {
+        h.logger.LogError(constants.LogLevelError, "Failed to clear logs", "", correlationID, err, nil)
+        response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
+        return
+    }
 
 	h.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
@@ -136,25 +136,25 @@ func (h *LogHandler) ClearLogs(w http.ResponseWriter, r *http.Request) {
 func (h *LogHandler) ExportLogs(w http.ResponseWriter, r *http.Request) {
 	correlationID := fmt.Sprintf("logs-export-%s", r.Header.Get("requestId"))
 
-	h.logger.LogAPI("INFO", "Export logs request received", "", correlationID, nil)
+    h.logger.LogAPI(constants.LogLevelInfo, "Export logs request received", "", correlationID, nil)
 
 	// フィルタリング用のクエリパラメータを解析
 	filters := h.parseLogFilters(r)
 
 	exportData, err := h.logManagementUC.ExportLogs(r.Context(), filters)
-	if err != nil {
-		h.logger.LogError("ERROR", "Failed to export logs", "", correlationID, err, nil)
-		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
-		return
-	}
+    if err != nil {
+        h.logger.LogError(constants.LogLevelError, "Failed to export logs", "", correlationID, err, nil)
+        response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
+        return
+    }
 
 	// ファイルダウンロード用のヘッダーを設定
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Disposition", "attachment; filename=\"logs_export.json\"")
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write([]byte(exportData)); err != nil {
-		h.logger.LogError("ERROR", "Failed to write export data", "", "", err, nil)
-	}
+    if _, err := w.Write([]byte(exportData)); err != nil {
+        h.logger.LogError(constants.LogLevelError, "Failed to write export data", "", "", err, nil)
+    }
 }
 
 // parseLogFilters HTTPリクエストからクエリパラメータを解析してログフィルターを作成します

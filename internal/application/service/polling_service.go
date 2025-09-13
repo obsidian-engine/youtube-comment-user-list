@@ -49,7 +49,7 @@ func NewPollingService(
 // 実装を簡素化し、1つのループでメッセージ取得、送信、保存、バックオフを行います。
 func (ps *PollingService) StartPolling(ctx context.Context, liveChatID string, videoID string, messagesChan chan<- entity.ChatMessage) error {
 	correlationID := fmt.Sprintf("poll-%s", videoID)
-	ps.logger.LogPoller("INFO", "Starting chat polling", videoID, correlationID, map[string]interface{}{
+    ps.logger.LogPoller(constants.LogLevelInfo, "Starting chat polling", videoID, correlationID, map[string]interface{}{
 		"liveChatID": liveChatID,
 		"operation":  "start_polling",
 	})
@@ -63,7 +63,7 @@ func (ps *PollingService) StartPolling(ctx context.Context, liveChatID string, v
 		// キャンセル優先
 		select {
 		case <-ctx.Done():
-			ps.logger.LogPoller("INFO", "Polling stopped by context", videoID, correlationID, map[string]interface{}{
+            ps.logger.LogPoller(constants.LogLevelInfo, "Polling stopped by context", videoID, correlationID, map[string]interface{}{
 				"operation": "stop_polling",
 				"reason":    ctx.Err(),
 			})
@@ -73,10 +73,10 @@ func (ps *PollingService) StartPolling(ctx context.Context, liveChatID string, v
 		}
 
 		// ライブ配信の状態をチェック（自動終了検知が有効な場合）
-		if !ps.isLiveStreamActive(ctx, videoID, correlationID) {
-			ps.logger.LogPoller("INFO", "Live stream is no longer active (auto-end)", videoID, correlationID, map[string]interface{}{
-				"operation": "check_stream_status",
-			})
+        if !ps.isLiveStreamActive(ctx, videoID, correlationID) {
+            ps.logger.LogPoller(constants.LogLevelInfo, "Live stream is no longer active (auto-end)", videoID, correlationID, map[string]interface{}{
+                "operation": "check_stream_status",
+            })
 			// メッセージチャンネルをクローズして下流へ通知
 			// 注意: StartPolling の所有下でのみ close する
 			defer func() {
@@ -91,36 +91,36 @@ func (ps *PollingService) StartPolling(ctx context.Context, liveChatID string, v
 		messages, newPageToken, pollingInterval, err := ps.pollMessages(ctx, liveChatID, nextPageToken, videoID, correlationID)
 		if err != nil {
 			// コンテキスト由来のエラーは正常終了扱い
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
-				ps.logger.LogPoller("INFO", "Polling stopped (context closed)", videoID, correlationID, map[string]interface{}{
-					"operation": "stop_polling",
-					"reason":    err.Error(),
-				})
-				return nil
-			}
+            if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
+                ps.logger.LogPoller(constants.LogLevelInfo, "Polling stopped (context closed)", videoID, correlationID, map[string]interface{}{
+                    "operation": "stop_polling",
+                    "reason":    err.Error(),
+                })
+                return nil
+            }
 
-			consecutiveErrors++
-			ps.logger.LogError("ERROR", fmt.Sprintf("Polling error (attempt %d/%d): %v", consecutiveErrors, maxErrors, err), videoID, correlationID, err, map[string]interface{}{
-				"operation":         "poll_messages",
-				"consecutiveErrors": consecutiveErrors,
-			})
+            consecutiveErrors++
+            ps.logger.LogError(constants.LogLevelError, fmt.Sprintf("Polling error (attempt %d/%d): %v", consecutiveErrors, maxErrors, err), videoID, correlationID, err, map[string]interface{}{
+                "operation":         "poll_messages",
+                "consecutiveErrors": consecutiveErrors,
+            })
 
-			if consecutiveErrors >= maxErrors {
-				ps.logger.LogPoller("ERROR", "Max consecutive errors reached, stopping polling", videoID, correlationID, map[string]interface{}{
-					"operation":         "stop_polling",
-					"consecutiveErrors": consecutiveErrors,
-					"maxErrors":         maxErrors,
-				})
-				return fmt.Errorf("max consecutive polling errors reached: %w", err)
-			}
+            if consecutiveErrors >= maxErrors {
+                ps.logger.LogPoller(constants.LogLevelError, "Max consecutive errors reached, stopping polling", videoID, correlationID, map[string]interface{}{
+                    "operation":         "stop_polling",
+                    "consecutiveErrors": consecutiveErrors,
+                    "maxErrors":         maxErrors,
+                })
+                return fmt.Errorf("max consecutive polling errors reached: %w", err)
+            }
 
-			// バックオフしてリトライ
-			backoffTime := ps.calculateBackoffTime(consecutiveErrors)
-			ps.logger.LogPoller("WARN", fmt.Sprintf("Backing off for %v before retry", backoffTime), videoID, correlationID, map[string]interface{}{
-				"operation":    "backoff",
-				"backoffTime":  backoffTime.String(),
-				"errorAttempt": consecutiveErrors,
-			})
+            // バックオフしてリトライ
+            backoffTime := ps.calculateBackoffTime(consecutiveErrors)
+            ps.logger.LogPoller(constants.LogLevelWarning, fmt.Sprintf("Backing off for %v before retry", backoffTime), videoID, correlationID, map[string]interface{}{
+                "operation":    "backoff",
+                "backoffTime":  backoffTime.String(),
+                "errorAttempt": consecutiveErrors,
+            })
 
 			select {
 			case <-ctx.Done():
@@ -136,12 +136,12 @@ func (ps *PollingService) StartPolling(ctx context.Context, liveChatID string, v
 		if pollingInterval > 0 {
 			// 下限強制（過剰ポーリングによるQuota超過防止）
 			if pollingInterval < constants.MinPollingIntervalMs {
-				ps.logger.LogPoller("DEBUG", "Adjust polling interval to minimum threshold", videoID, correlationID, map[string]interface{}{
-					"operation":             "adjust_polling_interval",
-					"requestedIntervalMs":   pollingInterval,
-					"appliedIntervalMs":     constants.MinPollingIntervalMs,
-					"minIntervalEnforcedMs": constants.MinPollingIntervalMs,
-				})
+            ps.logger.LogPoller(constants.LogLevelDebug, "Adjust polling interval to minimum threshold", videoID, correlationID, map[string]interface{}{
+                "operation":             "adjust_polling_interval",
+                "requestedIntervalMs":   pollingInterval,
+                "appliedIntervalMs":     constants.MinPollingIntervalMs,
+                "minIntervalEnforcedMs": constants.MinPollingIntervalMs,
+            })
 				pollingIntervalMs = constants.MinPollingIntervalMs
 			} else {
 				pollingIntervalMs = pollingInterval
@@ -158,28 +158,28 @@ func (ps *PollingService) StartPolling(ctx context.Context, liveChatID string, v
 				return ctx.Err()
 			}
 
-			if err := ps.eventPub.PublishChatMessage(ctx, message); err != nil {
-				ps.logger.LogError("WARN", "Failed to publish chat message event", videoID, correlationID, err, map[string]interface{}{
-					"operation": "publish_event",
-					"messageID": message.ID,
-				})
-			}
+        if err := ps.eventPub.PublishChatMessage(ctx, message); err != nil {
+            ps.logger.LogError(constants.LogLevelWarning, "Failed to publish chat message event", videoID, correlationID, err, map[string]interface{}{
+                "operation": "publish_event",
+                "messageID": message.ID,
+            })
+        }
 		}
 
 		if len(messages) > 0 {
-			if err := ps.chatRepo.SaveChatMessages(ctx, messages); err != nil {
-				ps.logger.LogError("WARN", "Failed to save chat messages", videoID, correlationID, err, map[string]interface{}{
-					"operation":    "save_messages",
-					"messageCount": len(messages),
-				})
-			}
-		}
+            if err := ps.chatRepo.SaveChatMessages(ctx, messages); err != nil {
+                ps.logger.LogError(constants.LogLevelWarning, "Failed to save chat messages", videoID, correlationID, err, map[string]interface{}{
+                    "operation":    "save_messages",
+                    "messageCount": len(messages),
+                })
+            }
+        }
 
-		ps.logger.LogPoller("DEBUG", "Polling cycle completed", videoID, correlationID, map[string]interface{}{
-			"operation":       "poll_cycle",
-			"messageCount":    len(messages),
-			"pollingInterval": pollingIntervalMs,
-		})
+        ps.logger.LogPoller(constants.LogLevelDebug, "Polling cycle completed", videoID, correlationID, map[string]interface{}{
+            "operation":       "poll_cycle",
+            "messageCount":    len(messages),
+            "pollingInterval": pollingIntervalMs,
+        })
 
 		// 固定間隔で待機（APIが返す間隔を尊重）
 		select {
@@ -199,11 +199,11 @@ func (ps *PollingService) isLiveStreamActive(ctx context.Context, videoID, corre
 		// フォールバック: 無効扱いにしない
 		return true
 	}
-	status, err := ps.videoService.GetLiveStreamStatus(ctx, videoID)
-	if err != nil {
-		ps.logger.LogError("WARN", "Failed to get live stream status (auto-end check)", videoID, correlationID, err, nil)
-		return true // ステータス取得失敗時は継続
-	}
+    status, err := ps.videoService.GetLiveStreamStatus(ctx, videoID)
+    if err != nil {
+        ps.logger.LogError(constants.LogLevelWarning, "Failed to get live stream status (auto-end check)", videoID, correlationID, err, nil)
+        return true // ステータス取得失敗時は継続
+    }
 	// アクティブは "live" のみと判定
 	return status == "live"
 }
@@ -229,11 +229,11 @@ func (ps *PollingService) IsAutoEndEnabled(videoID string) bool {
 
 // pollMessages チャットメッセージをポーリングします
 func (ps *PollingService) pollMessages(ctx context.Context, liveChatID, pageToken, videoID, correlationID string) ([]entity.ChatMessage, string, int, error) {
-	ps.logger.LogPoller("DEBUG", "Polling messages", videoID, correlationID, map[string]interface{}{
-		"operation":  "poll_messages",
-		"liveChatID": liveChatID,
-		"pageToken":  pageToken,
-	})
+    ps.logger.LogPoller(constants.LogLevelDebug, "Polling messages", videoID, correlationID, map[string]interface{}{
+        "operation":  "poll_messages",
+        "liveChatID": liveChatID,
+        "pageToken":  pageToken,
+    })
 
 	result, err := ps.youtubeClient.FetchLiveChat(ctx, liveChatID, pageToken)
 	if err != nil {
@@ -244,12 +244,12 @@ func (ps *PollingService) pollMessages(ctx context.Context, liveChatID, pageToke
 		return nil, "", constants.DefaultPollingIntervalMs, result.Error
 	}
 
-	ps.logger.LogPoller("DEBUG", "Messages fetched successfully", videoID, correlationID, map[string]interface{}{
-		"operation":         "poll_messages",
-		"messageCount":      len(result.Messages),
-		"nextPageToken":     result.NextPageToken,
-		"pollingIntervalMs": result.PollingIntervalMs,
-	})
+    ps.logger.LogPoller(constants.LogLevelDebug, "Messages fetched successfully", videoID, correlationID, map[string]interface{}{
+        "operation":         "poll_messages",
+        "messageCount":      len(result.Messages),
+        "nextPageToken":     result.NextPageToken,
+        "pollingIntervalMs": result.PollingIntervalMs,
+    })
 
 	return result.Messages, result.NextPageToken, result.PollingIntervalMs, nil
 }

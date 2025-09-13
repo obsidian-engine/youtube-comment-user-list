@@ -1,9 +1,10 @@
 package handler
 
 import (
-	"net/http"
+    "net/http"
 
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
 )
 
 // StaticHandler 静的ファイル配信とHTMLページを処理します
@@ -20,7 +21,7 @@ func NewStaticHandler(logger repository.Logger) *StaticHandler {
 
 // ServeHome GET / を処理します
 func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
-	h.logger.LogAPI("INFO", "Home page request", "", "", map[string]interface{}{
+    h.logger.LogAPI(constants.LogLevelInfo, "Home page request", "", "", map[string]interface{}{
 		"userAgent":  r.Header.Get("User-Agent"),
 		"remoteAddr": r.RemoteAddr,
 	})
@@ -174,7 +175,7 @@ input[type=text],input[type=number]{background:#0f141b;border:1px solid var(--md
 
 // ServeUserListPage GET /users を処理します
 func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request) {
-	h.logger.LogAPI("INFO", "User list page request", "", "", map[string]interface{}{
+    h.logger.LogAPI(constants.LogLevelInfo, "User list page request", "", "", map[string]interface{}{
 		"userAgent":  r.Header.Get("User-Agent"),
 		"remoteAddr": r.RemoteAddr,
 	})
@@ -223,7 +224,7 @@ window.addEventListener('DOMContentLoaded',()=>{initUserList();updateAppbar();lo
 
 // ServeLogsPage GET /logs を処理します
 func (h *StaticHandler) ServeLogsPage(w http.ResponseWriter, r *http.Request) {
-	h.logger.LogAPI("INFO", "Logs page request", "", "", map[string]interface{}{"userAgent": r.Header.Get("User-Agent"), "remoteAddr": r.RemoteAddr})
+    h.logger.LogAPI(constants.LogLevelInfo, "Logs page request", "", "", map[string]interface{}{"userAgent": r.Header.Get("User-Agent"), "remoteAddr": r.RemoteAddr})
 
 	// Avoid JS template literals inside Go raw string to prevent syntax issues
 	html := `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>System Logs</title>
@@ -235,8 +236,8 @@ func (h *StaticHandler) ServeLogsPage(w http.ResponseWriter, r *http.Request) {
 <div class="appbar"><div class="wrap"><div class="row"><span class="material-symbols-outlined">list</span><div class="title">システムログ</div><div class="sub">アプリケーションイベント</div><div style="margin-left:auto"><a href="/" class="md-btn outlined"><span class="material-symbols-outlined" style="font-size:18px">home</span> ホーム</a></div></div></div></div>
 <div class="wrap"><div class="card"><div class="toolbar"><div class="controls" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><select id="level"><option value="">全レベル</option><option value="INFO">INFO</option><option value="WARNING">WARNING</option><option value="ERROR">ERROR</option></select><input id="component" type="text" placeholder="component で絞り込み"/><input id="video" type="text" placeholder="video_id で絞り込み"/><select id="limit"><option value="100">100件</option><option value="300" selected>300件</option><option value="1000">1000件</option></select><button class="md-btn" onclick="loadLogs()"><span class="material-symbols-outlined" style="font-size:18px">sync</span> 更新</button><button class="md-btn outlined" onclick="clearLogs()"><span class="material-symbols-outlined" style="font-size:18px">delete</span> 全クリア</button><button class="md-btn outlined" onclick="exportLogs()"><span class="material-symbols-outlined" style="font-size:18px">download</span> エクスポート</button></div><div class="status"><label style="display:inline-flex;align-items:center;gap:6px"><input id="auto" type="checkbox" checked onchange="toggleAuto()"> 自動更新</label><select id="interval" onchange="resetAuto()"><option value="10000" selected>10秒</option><option value="30000">30秒</option></select></div></div><div class="content" style="padding:14px 16px"><div class="muted" id="meta">読み込み中…</div><div id="logTable" style="margin-top:12px"></div><div class="muted" id="stats"></div></div></div></div>
 <script>
-var autoTimer=null;function q(p){var sp=new URLSearchParams(p);return sp.toString()?('?'+sp.toString()):'';}function badge(l){l=(l||'').toUpperCase();var cls=l==='ERROR'?'lvl-error':(l==='WARNING'?'lvl-warn':'lvl-info');return '<span class="badge '+cls+'">'+l+'</span>';}function esc(s){return (s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;',">":"&gt;","\"":"&quot;","'":"&#039;"}[c];});}
-function loadStats(params){fetch('/api/logs'+q(Object.assign({},params,{stats:1}))).then(r=>r.json()).then(d=>{if(d.success){document.getElementById('stats').textContent='統計: 総数 '+d.total+' / エラー '+d.errors+' / 警告 '+d.warnings;}}).catch(()=>{});}
+var autoTimer=null;
+function loadStats(params){fetch('/api/logs'+q(Object.assign({},params,{stats:1}))).then(r=>r.json()).then(d=>{if(d.success){document.getElementById('stats').textContent='統計: 総数 '+d.total+' / エラー '+d.errors+' / 警告 '+d.warnings;}}).catch(()=>{});} 
 function loadLogs(){const meta=document.getElementById('meta');const table=document.getElementById('logTable');var params={};var lv=document.getElementById('level').value;if(lv)params.level=lv;var comp=document.getElementById('component').value.trim();if(comp)params.component=comp;var vid=document.getElementById('video').value.trim();if(vid)params.video_id=vid;params.limit=document.getElementById('limit').value||'300';fetch('/api/logs'+q(params)).then(r=>r.json()).then(d=>{if(d.success){var logs=Array.isArray(d.logs)?d.logs:[];meta.textContent='件数: '+logs.length+'（更新: '+new Date().toLocaleTimeString()+'）';if(!logs.length){table.innerHTML='<div class="muted">ログがありません</div>';}else{table.innerHTML='<table><thead><tr><th>時刻</th><th>Level</th><th>メッセージ</th><th>component</th><th>video_id</th><th>correlation</th></tr></thead><tbody>'+logs.map(l=>'<tr><td>'+esc(l.timestamp||'')+'</td><td>'+badge(l.level||'')+'</td><td>'+esc(l.message||'')+'</td><td>'+esc(l.component||'')+'</td><td>'+esc(l.video_id||'')+'</td><td>'+esc(l.correlation_id||'')+'</td></tr>').join('')+'</tbody></table>';}}else meta.textContent='エラー: '+(d.error||'unknown');loadStats(params);}).catch(e=>{meta.textContent='通信エラー: '+e.message;});}
 function startAuto(){stopAuto();if(!document.getElementById('auto').checked)return;var ms=parseInt(document.getElementById('interval').value||'10000',10);autoTimer=setInterval(loadLogs,ms);}function stopAuto(){if(autoTimer){clearInterval(autoTimer);autoTimer=null;}}function resetAuto(){stopAuto();startAuto();}function toggleAuto(){document.getElementById('auto').checked?startAuto():stopAuto();}
 function clearLogs(){if(!confirm('すべてのログをクリアしますか？'))return;fetch('/api/logs',{method:'DELETE'}).then(r=>r.json()).then(d=>{if(d.success){loadLogs();}else alert('エラー: '+(d.error||'unknown'));}).catch(e=>alert('通信エラー: '+e.message));}

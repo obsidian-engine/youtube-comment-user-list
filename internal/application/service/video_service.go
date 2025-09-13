@@ -2,14 +2,15 @@
 package service
 
 import (
-	"context"
-	"fmt"
-	"strings"
-	"sync"
-	"time"
+    "context"
+    "fmt"
+    "strings"
+    "sync"
+    "time"
 
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 )
 
 const (
@@ -106,7 +107,7 @@ func (vs *VideoService) ExtractVideoIDFromURL(inputURL string) (string, error) {
 // ValidateLiveStreamAndGetInfo ライブ配信を検証し、同時に VideoInfo を返します（1回の取得で完了）
 func (vs *VideoService) ValidateLiveStreamAndGetInfo(ctx context.Context, videoID string) (*entity.VideoInfo, error) {
 	correlationID := fmt.Sprintf("validate-%s", videoID)
-	vs.logger.LogStructured("INFO", "video", "validate_live_stream", "Starting live stream validation", videoID, correlationID, map[string]interface{}{
+    vs.logger.LogStructured(constants.LogLevelInfo, "video", "validate_live_stream", "Starting live stream validation", videoID, correlationID, map[string]interface{}{
 		"operation": "validate_live_stream",
 	})
 
@@ -116,20 +117,20 @@ func (vs *VideoService) ValidateLiveStreamAndGetInfo(ctx context.Context, videoI
 		low := strings.ToLower(err.Error())
 		if strings.Contains(low, "quotaexceeded") || strings.Contains(low, "quota exceeded") {
 			msg := "YouTube API のクォータを超過しています。しばらく（15分程度）待ってから再試行してください。"
-			vs.logger.LogError("ERROR", "Quota exceeded when validating live stream", videoID, correlationID, err, map[string]interface{}{
+            vs.logger.LogError(constants.LogLevelError, "Quota exceeded when validating live stream", videoID, correlationID, err, map[string]interface{}{
 				"operation":    "validate_live_stream",
 				"user_message": msg,
 			})
 			return nil, fmt.Errorf(msg+": %w", err)
 		}
-		vs.logger.LogError("ERROR", "Failed to get video info for validation", videoID, correlationID, err, map[string]interface{}{
+        vs.logger.LogError(constants.LogLevelError, "Failed to get video info for validation", videoID, correlationID, err, map[string]interface{}{
 			"operation": "validate_live_stream",
 		})
 		return nil, fmt.Errorf("failed to get video info: %w", err)
 	}
 
 	if !vs.isLiveStreamSupported(videoInfo.LiveBroadcastContent) {
-		vs.logger.LogStructured("ERROR", "video", "validate_live_stream", "Not a live stream", videoID, correlationID, map[string]interface{}{
+        vs.logger.LogStructured(constants.LogLevelError, "video", "validate_live_stream", "Not a live stream", videoID, correlationID, map[string]interface{}{
 			"operation":     "validate_live_stream",
 			"broadcastType": videoInfo.LiveBroadcastContent,
 		})
@@ -137,13 +138,13 @@ func (vs *VideoService) ValidateLiveStreamAndGetInfo(ctx context.Context, videoI
 	}
 
 	if videoInfo.LiveStreamingDetails.ActiveLiveChatID == "" {
-		vs.logger.LogStructured("ERROR", "video", "validate_live_stream", "No active live chat", videoID, correlationID, map[string]interface{}{
+        vs.logger.LogStructured(constants.LogLevelError, "video", "validate_live_stream", "No active live chat", videoID, correlationID, map[string]interface{}{
 			"operation": "validate_live_stream",
 		})
 		return nil, fmt.Errorf("live chat is not available for this stream")
 	}
 
-	vs.logger.LogStructured("INFO", "video", "validate_live_stream", "Live stream validation successful", videoID, correlationID, map[string]interface{}{
+    vs.logger.LogStructured(constants.LogLevelInfo, "video", "validate_live_stream", "Live stream validation successful", videoID, correlationID, map[string]interface{}{
 		"operation":     "validate_live_stream",
 		"liveChatID":    videoInfo.LiveStreamingDetails.ActiveLiveChatID,
 		"broadcastType": videoInfo.LiveBroadcastContent,

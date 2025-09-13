@@ -2,14 +2,15 @@
 package service
 
 import (
-	"context"
-	"fmt"
-	"sort"
-	"strings"
-	"unicode"
+    "context"
+    "fmt"
+    "sort"
+    "strings"
+    "unicode"
 
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/domain/entity"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
 )
 
 // UserService チャットユーザーを管理するサービスです
@@ -37,10 +38,10 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 	correlationID := fmt.Sprintf("user-%s-%s", message.VideoID, message.ID)
 
 	userList, err := us.userRepo.GetUserList(ctx, message.VideoID)
-	if err != nil {
-		us.logger.LogError("ERROR", "Failed to get user list", message.VideoID, correlationID, err, nil)
-		return fmt.Errorf("failed to get user list: %w", err)
-	}
+    if err != nil {
+        us.logger.LogError(constants.LogLevelError, "Failed to get user list", message.VideoID, correlationID, err, nil)
+        return fmt.Errorf("failed to get user list: %w", err)
+    }
 
 	existedBefore := userList.HasUser(message.AuthorDetails.ChannelID)
 	added := userList.UpsertFromMessage(message)
@@ -48,7 +49,7 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 	// 追加 or 更新 の判定
 	if added {
 		u := userList.Users[message.AuthorDetails.ChannelID]
-		us.logger.LogUser("INFO", "New user added", message.VideoID, correlationID, map[string]interface{}{
+        us.logger.LogUser(constants.LogLevelInfo, "New user added", message.VideoID, correlationID, map[string]interface{}{
 			"channelId":    u.ChannelID,
 			"displayName":  u.DisplayName,
 			"userCount":    userList.Count(),
@@ -57,13 +58,13 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 		})
 
 		if err := us.userRepo.UpdateUserList(ctx, message.VideoID, userList); err != nil {
-			us.logger.LogError("ERROR", "Failed to update user list (add)", message.VideoID, correlationID, err, nil)
-			return fmt.Errorf("failed to update user list: %w", err)
-		}
+            us.logger.LogError(constants.LogLevelError, "Failed to update user list (add)", message.VideoID, correlationID, err, nil)
+            return fmt.Errorf("failed to update user list: %w", err)
+        }
 
 		if err := us.eventPub.PublishUserAdded(ctx, *u, message.VideoID); err != nil {
-			us.logger.LogError("ERROR", "Failed to publish user added event", message.VideoID, correlationID, err, nil)
-		}
+            us.logger.LogError(constants.LogLevelError, "Failed to publish user added event", message.VideoID, correlationID, err, nil)
+        }
 		return nil
 	}
 
@@ -71,7 +72,7 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 	if existedBefore {
 		u := userList.Users[message.AuthorDetails.ChannelID]
 		// 更新ログ（DEBUG）
-		us.logger.LogUser("DEBUG", "User updated", message.VideoID, correlationID, map[string]interface{}{
+        us.logger.LogUser(constants.LogLevelDebug, "User updated", message.VideoID, correlationID, map[string]interface{}{
 			"channelId":    u.ChannelID,
 			"displayName":  u.DisplayName,
 			"messageCount": u.MessageCount,
@@ -79,18 +80,18 @@ func (us *UserService) ProcessChatMessage(ctx context.Context, message entity.Ch
 		})
 		// 保存（メモリなので参照更新だが一貫性のため）
 		if err := us.userRepo.UpdateUserList(ctx, message.VideoID, userList); err != nil {
-			us.logger.LogError("ERROR", "Failed to persist updated user list", message.VideoID, correlationID, err, nil)
-			return fmt.Errorf("failed to update user list: %w", err)
-		}
-	} else {
-		// 追加できず（満杯）
-		us.logger.LogUser("WARN", "User list full - user skipped", message.VideoID, correlationID, map[string]interface{}{
-			"channelId":   message.AuthorDetails.ChannelID,
-			"displayName": message.AuthorDetails.DisplayName,
-			"userCount":   userList.Count(),
-			"maxUsers":    userList.MaxUsers,
-		})
-	}
+            us.logger.LogError(constants.LogLevelError, "Failed to persist updated user list", message.VideoID, correlationID, err, nil)
+            return fmt.Errorf("failed to update user list: %w", err)
+        }
+    } else {
+        // 追加できず（満杯）
+        us.logger.LogUser(constants.LogLevelWarning, "User list full - user skipped", message.VideoID, correlationID, map[string]interface{}{
+            "channelId":   message.AuthorDetails.ChannelID,
+            "displayName": message.AuthorDetails.DisplayName,
+            "userCount":   userList.Count(),
+            "maxUsers":    userList.MaxUsers,
+        })
+    }
 	return nil
 }
 
@@ -103,22 +104,22 @@ func (us *UserService) GetUserList(ctx context.Context, videoID string) (*entity
 func (us *UserService) CreateUserList(ctx context.Context, videoID string, maxUsers int) (*entity.UserList, error) {
 	correlationID := fmt.Sprintf("create-userlist-%s", videoID)
 
-	us.logger.LogUser("INFO", "Creating new user list", videoID, correlationID, map[string]interface{}{
-		"operation": "create_user_list",
-		"maxUsers":  maxUsers,
-	})
+    us.logger.LogUser(constants.LogLevelInfo, "Creating new user list", videoID, correlationID, map[string]interface{}{
+        "operation": "create_user_list",
+        "maxUsers":  maxUsers,
+    })
 
 	userList := entity.NewUserList(maxUsers)
 
-	if err := us.userRepo.UpdateUserList(ctx, videoID, userList); err != nil {
-		us.logger.LogError("ERROR", "Failed to create user list", videoID, correlationID, err, nil)
-		return nil, fmt.Errorf("failed to create user list: %w", err)
-	}
+    if err := us.userRepo.UpdateUserList(ctx, videoID, userList); err != nil {
+        us.logger.LogError(constants.LogLevelError, "Failed to create user list", videoID, correlationID, err, nil)
+        return nil, fmt.Errorf("failed to create user list: %w", err)
+    }
 
-	us.logger.LogUser("INFO", "User list created successfully", videoID, correlationID, map[string]interface{}{
-		"operation": "create_user_list",
-		"maxUsers":  maxUsers,
-	})
+    us.logger.LogUser(constants.LogLevelInfo, "User list created successfully", videoID, correlationID, map[string]interface{}{
+        "operation": "create_user_list",
+        "maxUsers":  maxUsers,
+    })
 
 	return userList, nil
 }

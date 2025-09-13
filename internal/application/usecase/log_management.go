@@ -1,14 +1,15 @@
 package usecase
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"sync"
-	"time"
+    "context"
+    "encoding/json"
+    "fmt"
+    "sync"
+    "time"
+    "strings"
 
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
-	"github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
+    "github.com/obsidian-engine/youtube-comment-user-list/internal/domain/repository"
 )
 
 // LogEntry 詳細情報を含む構造化ログエントリを表します
@@ -51,21 +52,33 @@ func NewLogManagementUseCase(logger repository.Logger, maxLogEntries int) *LogMa
 
 // AddLogEntry 新しいログエントリをバッファに追加します
 func (uc *LogManagementUseCase) AddLogEntry(level, component, event, message, videoID, correlationID string, context map[string]interface{}) {
-	entry := LogEntry{
-		Timestamp:     time.Now().Format(constants.TimeFormatLog),
-		Level:         level,
-		Component:     component,
-		Event:         event,
-		Message:       message,
-		VideoID:       videoID,
-		CorrelationID: correlationID,
-		Context:       context,
-	}
+    // レベル名を統一（WARN→WARNING など）
+    var lvl string
+    switch strings.ToUpper(level) {
+    case "WARN", constants.LogLevelWarning:
+        lvl = constants.LogLevelWarning
+    case constants.LogLevelError:
+        lvl = constants.LogLevelError
+    case constants.LogLevelDebug:
+        lvl = constants.LogLevelDebug
+    default:
+        lvl = constants.LogLevelInfo
+    }
+
+    entry := LogEntry{
+        Timestamp:     time.Now().Format(constants.TimeFormatLog),
+        Level:         lvl,
+        Component:     component,
+        Event:         event,
+        Message:       message,
+        VideoID:       videoID,
+        CorrelationID: correlationID,
+        Context:       context,
+    }
 
 	uc.logBuffer.add(entry)
 
-	// 基盤のロガーにもログ出力
-	uc.logger.LogStructured(level, component, event, message, videoID, correlationID, context)
+    // ここでは基盤ロガーへは再出力しない（循環呼び出しを防止）
 }
 
 // GetRecentLogs オプションのフィルタリング付きで最近のログエントリを返します
@@ -159,7 +172,7 @@ func (uc *LogManagementUseCase) ClearLogs(ctx context.Context) error {
 	uc.logBuffer.current = 0
 
 	// クリアアクションをログに記録
-	uc.AddLogEntry("INFO", "log_management", "logs_cleared", "Log buffer cleared by user request", "", "", nil)
+    uc.AddLogEntry(constants.LogLevelInfo, "log_management", "logs_cleared", "Log buffer cleared by user request", "", "", nil)
 
 	return nil
 }

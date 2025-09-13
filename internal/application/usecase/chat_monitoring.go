@@ -58,8 +58,8 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 
 	// 動画IDを抽出して検証
 	videoID, err := uc.videoService.ExtractVideoIDFromURL(videoInput)
-	if err != nil {
-		uc.logger.LogError("ERROR", "Failed to extract video ID", videoInput, correlationID, err, map[string]interface{}{
+    if err != nil {
+        uc.logger.LogError(constants.LogLevelError, "Failed to extract video ID", videoInput, correlationID, err, map[string]interface{}{
 			"input": videoInput,
 		})
 		return nil, fmt.Errorf("failed to extract video ID: %w", err)
@@ -76,13 +76,13 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 			break
 		}
 		if !isRetryableValidationError(lastErr) || attempt == maxAttempts || ctx.Err() != nil {
-			uc.logger.LogError("ERROR", "Live stream validation failed", videoID, correlationID, lastErr, map[string]interface{}{
+            uc.logger.LogError(constants.LogLevelError, "Live stream validation failed", videoID, correlationID, lastErr, map[string]interface{}{
 				"attempt":     attempt,
 				"maxAttempts": maxAttempts,
 			})
 			return nil, fmt.Errorf("live stream validation failed: %w", lastErr)
 		}
-		uc.logger.LogStructured("WARN", "validation", "retry", "Retrying live stream validation", videoID, correlationID, map[string]interface{}{
+        uc.logger.LogStructured(constants.LogLevelWarning, "validation", "retry", "Retrying live stream validation", videoID, correlationID, map[string]interface{}{
 			"attempt": attempt,
 			"backoff": backoff.String(),
 		})
@@ -101,11 +101,11 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 	defer uc.mu.Unlock()
 
 	// 既に監視中の場合は停止
-	if uc.currentSession != nil {
-		uc.logger.LogStructured("INFO", "monitoring", "stopping_previous", "Stopping previous monitoring session", uc.currentSession.VideoID, correlationID, nil)
-		uc.currentSession.Cancel()
-		uc.currentSession = nil
-	}
+    if uc.currentSession != nil {
+        uc.logger.LogStructured(constants.LogLevelInfo, "monitoring", "stopping_previous", "Stopping previous monitoring session", uc.currentSession.VideoID, correlationID, nil)
+        uc.currentSession.Cancel()
+        uc.currentSession = nil
+    }
 
 	// 新しい監視セッションを作成（バックグラウンドタスク用の独立したコンテキスト）
 	sessionCtx, cancel := context.WithCancel(context.Background())
@@ -129,9 +129,9 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 	// 最後に監視したVideoIDを保存
 	uc.lastVideoID = videoID
 
-	uc.logger.LogStructured("INFO", "monitoring", "session_started", "Started new monitoring session", videoID, correlationID, map[string]interface{}{
-		"maxUsers": maxUsers,
-	})
+    uc.logger.LogStructured(constants.LogLevelInfo, "monitoring", "session_started", "Started new monitoring session", videoID, correlationID, map[string]interface{}{
+        "maxUsers": maxUsers,
+    })
 
 	// 既定で自動終了検知を有効化
 	uc.pollingService.SetAutoEndEnabled(videoID, true)
@@ -162,7 +162,7 @@ func (uc *ChatMonitoringUseCase) StopMonitoring() error {
 	uc.currentSession.Cancel()
 	uc.currentSession = nil
 
-	uc.logger.LogStructured("INFO", "monitoring", "session_stopped", "Stopped monitoring session", videoID, correlationID, nil)
+    uc.logger.LogStructured(constants.LogLevelInfo, "monitoring", "session_stopped", "Stopped monitoring session", videoID, correlationID, nil)
 	return nil
 }
 
@@ -233,18 +233,18 @@ func (uc *ChatMonitoringUseCase) IsAutoEndEnabled() (string, bool, error) {
 func (uc *ChatMonitoringUseCase) runPolling(ctx context.Context, liveChatID, videoID string, messagesChan chan<- entity.ChatMessage, correlationID string) {
 	if err := uc.pollingService.StartPolling(ctx, liveChatID, videoID, messagesChan); err != nil {
 		// コンテキストキャンセル/タイムアウトは正常停止として扱う
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
-			uc.logger.LogStructured("INFO", "monitoring", "polling_stopped", "Polling stopped normally", videoID, correlationID, map[string]interface{}{
-				"reason": err.Error(),
-			})
-			return
-		}
-		if strings.Contains(strings.ToLower(err.Error()), "no longer active") {
-			uc.logger.LogStructured("INFO", "monitoring", "polling_auto_end", "Polling stopped (stream ended)", videoID, correlationID, nil)
-			return
-		}
-		uc.logger.LogError("ERROR", "Polling ended with error", videoID, correlationID, err, nil)
-	}
+        if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
+            uc.logger.LogStructured(constants.LogLevelInfo, "monitoring", "polling_stopped", "Polling stopped normally", videoID, correlationID, map[string]interface{}{
+                "reason": err.Error(),
+            })
+            return
+        }
+        if strings.Contains(strings.ToLower(err.Error()), "no longer active") {
+            uc.logger.LogStructured(constants.LogLevelInfo, "monitoring", "polling_auto_end", "Polling stopped (stream ended)", videoID, correlationID, nil)
+            return
+        }
+        uc.logger.LogError(constants.LogLevelError, "Polling ended with error", videoID, correlationID, err, nil)
+    }
 }
 
 // processMessages 受信したチャットメッセージを処理します
@@ -260,13 +260,13 @@ func (uc *ChatMonitoringUseCase) processMessages(ctx context.Context, videoID st
 			}
 
 			// ユーザーサービス経由でメッセージを処理
-			if err := uc.userService.ProcessChatMessage(ctx, message); err != nil {
-				uc.logger.LogError("ERROR", "Failed to process chat message", videoID, correlationID, err, map[string]interface{}{
-					"messageId":   message.ID,
-					"channelId":   message.AuthorDetails.ChannelID,
-					"displayName": message.AuthorDetails.DisplayName,
-				})
-			}
+            if err := uc.userService.ProcessChatMessage(ctx, message); err != nil {
+                uc.logger.LogError(constants.LogLevelError, "Failed to process chat message", videoID, correlationID, err, map[string]interface{}{
+                    "messageId":   message.ID,
+                    "channelId":   message.AuthorDetails.ChannelID,
+                    "displayName": message.AuthorDetails.DisplayName,
+                })
+            }
 		}
 	}
 }

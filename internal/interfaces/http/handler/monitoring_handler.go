@@ -43,14 +43,14 @@ func (h *MonitoringHandler) StartMonitoring(w http.ResponseWriter, r *http.Reque
 		correlationID = fmt.Sprintf("http-%s", r.Header.Get("requestId"))
 	}
 
-	h.logger.LogAPI("INFO", "Start monitoring request received", "", correlationID, map[string]interface{}{
+    h.logger.LogAPI(constants.LogLevelInfo, "Start monitoring request received", "", correlationID, map[string]interface{}{
 		"method": r.Method,
 		"path":   r.URL.Path,
 	})
 
 	var req StartMonitoringRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.LogError("ERROR", "Invalid request body", "", correlationID, err, nil)
+        h.logger.LogError(constants.LogLevelError, "Invalid request body", "", correlationID, err, nil)
 		response.RenderErrorWithCorrelation(w, r, http.StatusBadRequest, "Invalid request body", correlationID)
 		return
 	}
@@ -67,13 +67,13 @@ func (h *MonitoringHandler) StartMonitoring(w http.ResponseWriter, r *http.Reque
 
 	// 監視を開始
 	session, err := h.chatMonitoringUC.StartMonitoring(r.Context(), req.VideoInput, req.MaxUsers)
-	if err != nil {
-		h.logger.LogError("ERROR", "Failed to start monitoring", req.VideoInput, correlationID, err, nil)
-		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
-		return
-	}
+    if err != nil {
+        h.logger.LogError(constants.LogLevelError, "Failed to start monitoring", req.VideoInput, correlationID, err, nil)
+        response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
+        return
+    }
 
-	h.logger.LogAPI("INFO", "Start monitoring response", session.VideoID, correlationID, map[string]interface{}{
+    h.logger.LogAPI(constants.LogLevelInfo, "Start monitoring response", session.VideoID, correlationID, map[string]interface{}{
 		"success": true,
 		"videoID": session.VideoID,
 	})
@@ -85,7 +85,7 @@ func (h *MonitoringHandler) StartMonitoring(w http.ResponseWriter, r *http.Reque
 func (h *MonitoringHandler) StopMonitoring(w http.ResponseWriter, r *http.Request) {
 	correlationID := fmt.Sprintf("http-%s", r.Header.Get("requestId"))
 
-	h.logger.LogAPI("INFO", "Stop monitoring request received", "", correlationID, map[string]interface{}{
+    h.logger.LogAPI(constants.LogLevelInfo, "Stop monitoring request received", "", correlationID, map[string]interface{}{
 		"method": r.Method,
 		"path":   r.URL.Path,
 	})
@@ -94,7 +94,7 @@ func (h *MonitoringHandler) StopMonitoring(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		// 既に停止済みの場合は正常レスポンスを返す
 		if err.Error() == "no active monitoring session" {
-			h.logger.LogAPI("INFO", "Monitoring already stopped", "", correlationID, nil)
+            h.logger.LogAPI(constants.LogLevelInfo, "Monitoring already stopped", "", correlationID, nil)
 			response.RenderSuccessWithCorrelation(w, r, map[string]string{
 				"message": "Monitoring already stopped",
 			}, correlationID)
@@ -102,7 +102,7 @@ func (h *MonitoringHandler) StopMonitoring(w http.ResponseWriter, r *http.Reques
 		}
 
 		// その他のエラーの場合はエラーレスポンス
-		h.logger.LogError("ERROR", "Failed to stop monitoring", "", correlationID, err, nil)
+        h.logger.LogError(constants.LogLevelError, "Failed to stop monitoring", "", correlationID, err, nil)
 		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
 		return
 	}
@@ -122,12 +122,12 @@ func (h *MonitoringHandler) GetActiveVideoID(w http.ResponseWriter, r *http.Requ
 
 	videoID, isActive, exists := h.chatMonitoringUC.GetActiveVideoID()
 	if !exists {
-		h.logger.LogAPI("INFO", "No monitoring session found", "", correlationID, nil)
+    h.logger.LogAPI(constants.LogLevelInfo, "No monitoring session found", "", correlationID, nil)
 		response.RenderErrorWithCorrelation(w, r, http.StatusNotFound, "No monitoring session found", correlationID)
 		return
 	}
 
-	h.logger.LogAPI("INFO", "Video ID retrieved", videoID, correlationID, map[string]interface{}{
+    h.logger.LogAPI(constants.LogLevelInfo, "Video ID retrieved", videoID, correlationID, map[string]interface{}{
 		"isActive": isActive,
 	})
 
@@ -147,14 +147,14 @@ func (h *MonitoringHandler) GetVideoStatus(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	h.logger.LogAPI("INFO", "Get video status request received", videoID, correlationID, nil)
+    h.logger.LogAPI(constants.LogLevelInfo, "Get video status request received", videoID, correlationID, nil)
 
 	status, err := h.chatMonitoringUC.GetVideoStatus(r.Context(), videoID)
-	if err != nil {
-		h.logger.LogError("ERROR", "Failed to get video status", videoID, correlationID, err, nil)
-		response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
-		return
-	}
+    if err != nil {
+        h.logger.LogError(constants.LogLevelError, "Failed to get video status", videoID, correlationID, err, nil)
+        response.RenderErrorWithCorrelation(w, r, http.StatusInternalServerError, err.Error(), correlationID)
+        return
+    }
 
 	response.RenderSuccess(w, r, map[string]interface{}{
 		"videoID": videoID,
