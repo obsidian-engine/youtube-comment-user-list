@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -97,6 +98,7 @@ type ApplicationContainer struct {
 	SSEHandler        *handler.SSEHandler
 	LogHandler        *handler.LogHandler
 	StaticHandler     *handler.StaticHandler
+	HealthHandler     *handler.HealthHandler
 }
 
 func main() {
@@ -146,7 +148,11 @@ func buildContainer(apiKey string) *ApplicationContainer {
 	container.Logger = logging.NewSlogLogger() // slog対応ロガーに変更
 	container.YouTubeClient = youtube.NewClient(apiKey)
 	container.UserRepository = memory.NewUserRepository()
-	container.ChatRepository = memory.NewChatRepository(constants.DefaultMaxChatMessages)
+	// Cloud Run用のメモリ制限設定を環境変数から取得
+	maxChatMessages := getEnvAsInt("MAX_CHAT_MESSAGES", 500) // デフォルト500（無料枠向け）
+	maxUsers := getEnvAsInt("MAX_USERS", 100)                // デフォルト100（無料枠向け）
+	
+	container.ChatRepository = memory.NewChatRepository(maxChatMessages)
 	// 最大10,000メッセージ/動画
 	container.EventPublisher = events.NewSimplePublisher(container.Logger)
 
@@ -205,6 +211,22 @@ func buildContainer(apiKey string) *ApplicationContainer {
 	return container
 }
 
+	// ヘルスチェックハンドラー
+	container.HealthHandler = handler.NewHealthHandler(container.ChatMonitoringUC)
+	
+	return container
+}
+
+// getEnvAsInt 環境変数を整数として取得（デフォルト値付き）
+func getEnvAsInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
+}
+
 // setupHTTPServer はHTTPサーバーを設定して返す
 func setupHTTPServer(container *ApplicationContainer) *http.Server {
 	// Chiルーターを初期化
@@ -239,6 +261,10 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 		})
 	})
 
+	// ヘルスチェックエンドポイント（Cloud Run用）
+	r.Get("/health", container.HealthHandler.Health)
+	r.Get("/ready", container.HealthHandler.Ready)
+	
 	// 静的ページ
 	r.Get("/", container.StaticHandler.ServeHome)
 	r.Get("/users", container.StaticHandler.ServeUserListPage)
