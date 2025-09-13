@@ -5,7 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/application/service"
 	"github.com/obsidian-engine/youtube-comment-user-list/internal/constants"
@@ -63,11 +65,36 @@ func (uc *ChatMonitoringUseCase) StartMonitoring(ctx context.Context, videoInput
 		return nil, fmt.Errorf("failed to extract video ID: %w", err)
 	}
 
-	// ライブ配信を検証し、同時に動画情報を取得（1回のAPI呼び出しで完了）
-	videoInfo, err := uc.videoService.ValidateLiveStreamAndGetInfo(ctx, videoID)
-	if err != nil {
-		uc.logger.LogError("ERROR", "Live stream validation failed", videoID, correlationID, err, nil)
-		return nil, fmt.Errorf("live stream validation failed: %w", err)
+	// Validation with retry/backoff (transient errors only)
+	var videoInfo *entity.VideoInfo
+	var lastErr error
+	maxAttempts := 5
+	backoff := 500 * time.Millisecond
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		videoInfo, lastErr = uc.videoService.ValidateLiveStreamAndGetInfo(ctx, videoID)
+		if lastErr == nil {
+			break
+		}
+		if !isRetryableValidationError(lastErr) || attempt == maxAttempts || ctx.Err() != nil {
+			uc.logger.LogError("ERROR", "Live stream validation failed", videoID, correlationID, lastErr, map[string]interface{}{
+				"attempt":     attempt,
+				"maxAttempts": maxAttempts,
+			})
+			return nil, fmt.Errorf("live stream validation failed: %w", lastErr)
+		}
+		uc.logger.LogStructured("WARN", "validation", "retry", "Retrying live stream validation", videoID, correlationID, map[string]interface{}{
+			"attempt": attempt,
+			"backoff": backoff.String(),
+		})
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(backoff):
+		}
+		backoff *= 2
+		if backoff > 8*time.Second {
+			backoff = 8 * time.Second
+		}
 	}
 
 	uc.mu.Lock()
@@ -237,4 +264,28 @@ func (uc *ChatMonitoringUseCase) GetVideoStatus(ctx context.Context, videoID str
 	}
 
 	return videoStatus, nil
+}
+
+// isRetryableValidationError 判定: 一時的なエラーなら true
+func isRetryableValidationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	// 非リトライキーワード
+	nonRetry := []string{"quotaexceeded", "quota exceeded", "dailylimitexceeded", "daily limit", "invalid", "forbidden", "not live", "video is not a live"}
+	for _, k := range nonRetry {
+		if strings.Contains(msg, k) {
+			return false
+		}
+	}
+	// ネットワーク/内部/timeout系はリトライ許容
+	retryHints := []string{"timeout", "internal", "backend", "temporarily", "try again"}
+	for _, k := range retryHints {
+		if strings.Contains(msg, k) {
+			return true
+		}
+	}
+	// デフォルトは非リトライとする（過剰リトライ回避）
+	return false
 }

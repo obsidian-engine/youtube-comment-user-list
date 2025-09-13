@@ -58,7 +58,7 @@ input[type=text],input[type=number]{background:#0f141b;border:1px solid var(--md
     <form id="monitoringForm" class="section">
       <div><label for="videoInput">YouTube Video ID</label><input type="text" id="videoInput" name="videoInput" placeholder="例: VIDEO_ID" required></div>
       <div><label for="maxUsers">最大ユーザー数 (デフォルト: 1000)</label><input type="number" id="maxUsers" name="maxUsers" value="1000" min="1" max="10000"></div>
-      <div><button type="submit" class="md-btn"><span class="material-symbols-outlined" style="font-size:18px">play_circle</span> 監視を開始</button><span class="sub" style="margin-left:8px">開始後はユーザー一覧に遷移します</span></div>
+      <div><button id="startBtn" type="submit" class="md-btn"><span class="material-symbols-outlined" style="font-size:18px">play_circle</span> 監視を開始</button><span class="sub" style="margin-left:8px">開始後はユーザー一覧に遷移します</span></div>
     </form>
     <div id="message" class="sub" style="min-height:22px;margin-top:6px"></div>
   </div></div>
@@ -66,24 +66,101 @@ input[type=text],input[type=number]{background:#0f141b;border:1px solid var(--md
 <script>
 (function(){
  const form=document.getElementById('monitoringForm');
- form.addEventListener('submit',async(e)=>{
-  e.preventDefault();
-  const fd=new FormData(form);
-  const video=fd.get('videoInput');
-  localStorage.setItem('currentVideoId',video);
-  const maxUsers=parseInt(fd.get('maxUsers'))||1000;
-  const msg=document.getElementById('message');
-  msg.textContent='メンバーリスト取得を開始しています...';
-  try{
-    const res=await fetch('/api/monitoring/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({video_input:video,max_users:maxUsers})});
-    const data=await res.json();
-    if(data.success){msg.innerHTML='<span style="color:#86efac">開始しました。遷移します…</span>';setTimeout(()=>location.href='/users',700);} else {msg.innerHTML='<span style="color:#fda4af">エラー: '+(data.error||'unknown')+'</span>';}
-  }catch(err){msg.innerHTML='<span style="color:#fda4af">通信エラー: '+err.message+'</span>';}
+ const startBtn=document.getElementById('startBtn');
+ const msg=document.getElementById('message');
+ const videoInput=document.getElementById('videoInput');
+ const runBanner=document.getElementById('runBanner');
+ const runInfo=document.getElementById('runInfo');
+ let activeVideoId=null; let activeStatus=false; let submitting=false; let detectTimer=null; let detecting=false;
+
+ // Configurable via query params (?detectInterval=30000&detectTimeout=2500)
+ const qs=new URLSearchParams(location.search);
+ const DETECT_INTERVAL_MS = Math.max(5000, parseInt(qs.get('detectInterval')||'60000',10));
+ const DETECT_TIMEOUT_MS  = Math.max(500,  parseInt(qs.get('detectTimeout') ||'2500',10));
+
+ function setBtnState(disabled, text){
+   if(!startBtn) return;
+   startBtn.disabled=disabled;
+   if(text){ startBtn.dataset.origText = startBtn.dataset.origText || startBtn.innerHTML; startBtn.innerHTML=text; }
+   else if(!disabled && startBtn.dataset.origText){ startBtn.innerHTML=startBtn.dataset.origText; }
+ }
+
+ const detect = (videoId) => new Promise(resolve => {
+   if(!videoId){ return resolve(false); }
+   if(detecting) { // simple guard to avoid piling
+     return resolve(activeStatus && activeVideoId===videoId);
+   }
+   detecting=true;
+   try {
+     const es = new EventSource('/api/sse/'+encodeURIComponent(videoId)+'/users');
+     let decided=false;
+     const finish = (val) => { if(decided) return; decided=true; es.close(); detecting=false; resolve(val); };
+     const timeout = setTimeout(() => finish(false), DETECT_TIMEOUT_MS);
+     es.addEventListener('connected', () => { clearTimeout(timeout); finish(true); });
+     es.addEventListener('user_list', () => { clearTimeout(timeout); finish(true); });
+     es.addEventListener('error', () => { clearTimeout(timeout); finish(false); });
+   } catch { detecting=false; resolve(false); }
  });
- const detect=videoId=>new Promise(r=>{if(!videoId)return r(false);try{const es=new EventSource('/api/sse/'+encodeURIComponent(videoId)+'/users');let decided=false;const done=v=>{if(decided)return;decided=true;es.close();r(v)};const to=setTimeout(()=>done(false),2500);es.addEventListener('connected',()=>{clearTimeout(to);done(true)});es.addEventListener('user_list',()=>{clearTimeout(to);done(true)});es.addEventListener('error',()=>{clearTimeout(to);done(false)});}catch{r(false)}});
- async function refresh(){const banner=document.getElementById('runBanner');const info=document.getElementById('runInfo');const vid=localStorage.getItem('currentVideoId')||'';if(!vid){banner.style.display='none';return;}const active=await detect(vid);if(active){banner.style.display='block';info.textContent='videoId: '+vid+' / 状態: 起動中';}else{banner.style.display='none';}}
- document.addEventListener('DOMContentLoaded',refresh);
- document.getElementById('statusRefreshBtn').addEventListener('click',refresh);
+
+ async function refreshExisting(){
+   const stored=localStorage.getItem('currentVideoId')||'';
+   if(!stored){
+     activeVideoId=null; activeStatus=false;
+     runBanner.style.display='none';
+     return;
+   }
+   const active=await detect(stored);
+   if(active){
+     activeVideoId=stored; activeStatus=true;
+     msg.innerHTML='<span style="color:#86efac">現在監視中: '+stored+' <a href="/users" style="color:#90caf9">ユーザー一覧へ移動</a></span>';
+     if(videoInput && !videoInput.value) videoInput.value=stored;
+     runInfo.textContent='videoId: '+stored+' / 状態: 起動中';
+     runBanner.style.display='block';
+   } else {
+     if(activeStatus){ // transitioned to inactive
+       msg.innerHTML='<span style="color:#fda4af">前回の監視は停止しました</span>';
+     }
+     activeVideoId=null; activeStatus=false;
+     runBanner.style.display='none';
+   }
+ }
+
+ function startDetectLoop(){
+   if(detectTimer) clearInterval(detectTimer);
+   detectTimer=setInterval(refreshExisting, DETECT_INTERVAL_MS);
+ }
+
+ form.addEventListener('submit',async(e)=>{
+   e.preventDefault();
+   if(submitting) return; // 二重送信防止
+   const fd=new FormData(form);
+   const video=(fd.get('videoInput')||'').trim();
+   if(!video){ msg.textContent='Video ID を入力してください'; return; }
+   if(activeStatus && activeVideoId===video){
+      msg.innerHTML='<span style="color:#86efac">既に監視中です。遷移します…</span>';
+      setTimeout(()=>location.href='/users',400);
+      return;
+   }
+   submitting=true; setBtnState(true,'開始中…'); msg.textContent='バリデーション中...';
+   const maxUsers=parseInt(fd.get('maxUsers'))||1000;
+   try{
+     const res=await fetch('/api/monitoring/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({video_input:video,max_users:maxUsers})});
+     const data=await res.json().catch(()=>({success:false,error:'invalid json'}));
+     if(data.success){
+       localStorage.setItem('currentVideoId', video);
+       msg.innerHTML='<span style="color:#86efac">開始しました。遷移します…</span>';
+       runInfo.textContent='videoId: '+video+' / 状態: 起動中';
+       runBanner.style.display='block';
+       setTimeout(()=>location.href='/users',600);
+     } else {
+       submitting=false; setBtnState(false); msg.innerHTML='<span style="color:#fda4af">エラー: '+(data.error||'unknown')+'</span>';
+     }
+   }catch(err){ submitting=false; setBtnState(false); msg.innerHTML='<span style="color:#fda4af">通信エラー: '+err.message+'</span>'; }
+ });
+
+ document.addEventListener('DOMContentLoaded', ()=>{ refreshExisting().then(startDetectLoop); });
+ document.getElementById('statusRefreshBtn').addEventListener('click', refreshExisting);
+ window.addEventListener('beforeunload', ()=>{ if(detectTimer) clearInterval(detectTimer); });
 })();
 </script>
 </body>
