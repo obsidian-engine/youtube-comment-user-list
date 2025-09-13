@@ -150,7 +150,7 @@ func buildContainer(apiKey string) *ApplicationContainer {
 	container.UserRepository = memory.NewUserRepository()
 	// Cloud Run用のメモリ制限設定を環境変数から取得
 	maxChatMessages := getEnvAsInt("MAX_CHAT_MESSAGES", 500) // デフォルト500（無料枠向け）
-	
+
 	container.ChatRepository = memory.NewChatRepository(maxChatMessages)
 	// 最大メッセージ数/動画（環境変数で調整可能）
 	container.EventPublisher = events.NewSimplePublisher(container.Logger)
@@ -209,7 +209,7 @@ func buildContainer(apiKey string) *ApplicationContainer {
 
 	// ヘルスチェックハンドラー
 	container.HealthHandler = handler.NewHealthHandler(container.ChatMonitoringUC)
-	
+
 	return container
 }
 
@@ -260,7 +260,7 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 	// ヘルスチェックエンドポイント（Cloud Run用）
 	r.Get("/health", container.HealthHandler.Health)
 	r.Get("/ready", container.HealthHandler.Ready)
-	
+
 	// 静的ページ
 	r.Get("/", container.StaticHandler.ServeHome)
 	r.Get("/users", container.StaticHandler.ServeUserListPage)

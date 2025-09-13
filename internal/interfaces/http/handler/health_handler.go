@@ -25,11 +25,11 @@ func NewHealthHandler(chatMonitoringUC *usecase.ChatMonitoringUseCase) *HealthHa
 
 // HealthStatus ヘルスチェックのレスポンス
 type HealthStatus struct {
-	Status      string            `json:"status"`
-	Uptime      string            `json:"uptime"`
-	MemoryUsage MemoryStats       `json:"memory_usage"`
-	Monitoring  MonitoringStatus  `json:"monitoring"`
-	Timestamp   string            `json:"timestamp"`
+	Status      string           `json:"status"`
+	Uptime      string           `json:"uptime"`
+	MemoryUsage MemoryStats      `json:"memory_usage"`
+	Monitoring  MonitoringStatus `json:"monitoring"`
+	Timestamp   string           `json:"timestamp"`
 }
 
 // MemoryStats メモリ使用状況
@@ -42,9 +42,9 @@ type MemoryStats struct {
 
 // MonitoringStatus 監視状況
 type MonitoringStatus struct {
-	Active      bool   `json:"active"`
-	VideoID     string `json:"video_id,omitempty"`
-	UserCount   int    `json:"user_count"`
+	Active    bool   `json:"active"`
+	VideoID   string `json:"video_id,omitempty"`
+	UserCount int    `json:"user_count"`
 }
 
 // Health ヘルスチェックエンドポイント
@@ -65,8 +65,8 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := HealthStatus{
-		Status:    "healthy",
-		Uptime:    time.Since(h.startTime).String(),
+		Status: "healthy",
+		Uptime: time.Since(h.startTime).String(),
 		MemoryUsage: MemoryStats{
 			AllocMB:      float64(m.Alloc) / 1024 / 1024,
 			TotalAllocMB: float64(m.TotalAlloc) / 1024 / 1024,
@@ -79,7 +79,10 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(status)
+	err := json.NewEncoder(w).Encode(status)
+	if err != nil {
+		http.Error(w, "Failed to encode health status", http.StatusInternalServerError)
+	}
 }
 
 // Ready レディネスチェックエンドポイント（Cloud Run用）
@@ -87,7 +90,10 @@ func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	// アプリケーションが準備完了状態かチェック
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	err := json.NewEncoder(w).Encode(map[string]string{
 		"status": "ready",
 	})
+	if err != nil {
+		http.Error(w, "Failed to encode readiness response", http.StatusInternalServerError)
+	}
 }
