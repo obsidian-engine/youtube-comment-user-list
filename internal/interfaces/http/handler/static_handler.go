@@ -32,20 +32,19 @@ func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Home - YouTube Live Chat Monitor</title>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;700" rel="stylesheet" />
-<link rel="stylesheet" href="/static/material.css">
+<link rel="stylesheet" href="/static/ui.css">
 <script src="/static/app.js"></script>
 </head>
 <body>
-<div class="appbar"><div class="wrap"><div class="row"><span class="material-symbols-outlined" aria-hidden="true">home</span><div class="title">YouTube Live Chat Monitor</div><div class="sub">チャット参加者をリアルタイム収集</div><div style="margin-left:auto;display:flex;gap:8px;align-items:center"><span id="appbarMon" class="pill" style="display:none;align-items:center;gap:6px"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">sensors</span> 監視中 <button id="appbarStop" class="md-btn outlined" style="padding:4px 8px;font-size:12px;margin-left:6px"><span class="material-symbols-outlined" style="font-size:16px">stop_circle</span> 停止</button></span><a href="/users" class="md-btn outlined"><span class="material-symbols-outlined" style="font-size:18px">group</span> ユーザー一覧</a><a href="/logs" class="md-btn outlined"><span class="material-symbols-outlined" style="font-size:18px">list</span> ログ</a><button id="uiSettingsToggle" class="md-btn outlined" title="表示設定"><span class="material-symbols-outlined" style="font-size:18px">tune</span></button></div></div></div></div>
-<div id="uiSettingsPanel" class="settings-panel" role="dialog" aria-modal="false" aria-labelledby="uiSettingsTitle"><h3 id="uiSettingsTitle">表示設定</h3><div class="section"><label>テーマ<select id="uiTheme"><option value="dark">ダーク</option><option value="light">ライト</option></select></label><label>プライマリカラー<select id="uiPrimary"><option value="blue">Blue</option><option value="indigo">Indigo</option><option value="teal">Teal</option><option value="green">Green</option><option value="orange">Orange</option><option value="pink">Pink</option><option value="purple">Purple</option></select></label><label>角丸<select id="uiRadius"><option value="sm">小</option><option value="md" selected>中</option><option value="lg">大</option></select></label><label>密度<select id="uiDensity"><option value="compact">コンパクト</option><option value="comfortable" selected>標準</option><option value="loose">ゆったり</option></select></label></div></div>
+<div class="appbar"><div class="wrap"><div class="row"><span class="material-symbols-outlined" aria-hidden="true">home</span><div class="title">YouTube Live Chat Monitor</div><div class="sub">チャット参加者をリアルタイム収集</div><div style="margin-left:auto;display:flex;gap:8px;align-items:center"><span id="appbarMon" class="pill" style="display:none;align-items:center;gap:6px"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">sensors</span> 監視中 <button id="appbarStop" class="md-btn outlined" style="padding:4px 8px;font-size:12px;margin-left:6px"><span class="material-symbols-outlined" style="font-size:16px">stop_circle</span> 停止</button></span><a href="/users" class="md-btn outlined"><span class="material-symbols-outlined" style="font-size:18px">group</span> ユーザー一覧</a><a href="/logs" class="md-btn outlined"><span class="material-symbols-outlined" style="font-size:18px">list</span> ログ</a></div></div></div></div>
 <div class="wrap">
   <div id="runBanner" class="card" style="margin-bottom:14px;display:none"><div class="content" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="pill"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px">sensors</span> 監視中</span><span id="runInfo" class="sub"></span><a class="md-btn" style="margin-left:auto" href="/users"><span class="material-symbols-outlined" style="font-size:18px">group</span> ユーザー一覧を見る</a><button id="statusRefreshBtn" class="md-btn outlined" type="button" style="margin-left:4px;padding:8px 10px;font-size:12px"><span class="material-symbols-outlined" style="font-size:16px">refresh</span> ステータス更新</button></div></div>
   <div class="card"><div class="content">
     <form id="monitoringForm" class="section">
       <div><label for="videoInput">YouTube Video ID</label><input type="text" id="videoInput" name="videoInput" placeholder="例: VIDEO_ID" required></div>
-      <div><label for="maxUsers">最大ユーザー数 (デフォルト: 1000)</label><input type="number" id="maxUsers" name="maxUsers" value="1000" min="1" max="10000"></div>
+      <div><label for="maxUsers">最大ユーザー数 (未指定時は 200)</label><input type="number" id="maxUsers" name="maxUsers" placeholder="未指定時は 200" min="1" max="10000"></div>
       <div><button id="startBtn" type="submit" class="md-btn"><span class="material-symbols-outlined" style="font-size:18px">play_circle</span> 監視を開始</button><span class="sub" style="margin-left:8px">開始後はユーザー一覧に遷移します</span></div>
     </form>
     <div id="message" class="sub" style="min-height:22px;margin-top:6px"></div>
@@ -130,9 +129,11 @@ func (h *StaticHandler) ServeHome(w http.ResponseWriter, r *http.Request) {
       return;
    }
    submitting=true; setBtnState(true,'開始中…'); msg.textContent='バリデーション中...';
-   const maxUsers=parseInt(fd.get('maxUsers'))||1000;
+   const maxStr = (fd.get('maxUsers')||'').trim();
    try{
-     const res=await fetch('/api/monitoring/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({video_input:video,max_users:maxUsers})});
+     const payload = { video_input: video };
+     if (maxStr) payload.max_users = Number(maxStr);
+     const res=await fetch('/api/monitoring/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
      const data=await res.json().catch(()=>({success:false,error:'invalid json'}));
      if(data.success){
        localStorage.setItem('currentVideoId', video);
@@ -250,7 +251,6 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
                     </select>
                     <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input id="autoEnd" type="checkbox"> 自動終了検知</label>
                     <button class="md-btn" onclick="manualRefresh()"><span class="material-symbols-outlined" style="font-size:18px">sync</span> 即時更新</button>
-                    <button class="md-btn outlined" onclick="freezeAndStop()"><span class="material-symbols-outlined" style="font-size:18px">task_alt</span> 終了して固定</button>
                     <button class="md-btn outlined" onclick="stopMonitoring()"><span class="material-symbols-outlined" style="font-size:18px">stop_circle</span> 監視停止</button>
                 </div>
                 <div class="right">
@@ -482,8 +482,6 @@ func (h *StaticHandler) ServeUserListPage(w http.ResponseWriter, r *http.Request
         // 自動終了フラグ
         function loadAutoEnd(){ const cb=document.getElementById('autoEnd'); if(!cb) return; fetch('/api/monitoring/auto-end').then(r=>r.json()).then(d=>{ if(d.success){ cb.checked=!!d.enabled; } }).catch(()=>{}); cb.addEventListener('change', ()=>{ fetch('/api/monitoring/auto-end',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:cb.checked})}).catch(()=>{ cb.checked=!cb.checked; }); }); }
 
-        // 固定表示して停止
-        function freezeAndStop(){ if(!confirm('現在のリストで固定表示します。監視を停止しますか？')) return; try{ frozen=true; if(refreshTimer){ clearInterval(refreshTimer); refreshTimer=null; } const st=document.getElementById('status'); st.className='status offline'; st.textContent='固定表示（監視停止済み）'; try{ localStorage.removeItem('currentVideoId'); }catch(_){} fetch('/api/monitoring/stop',{method:'DELETE'}).catch(()=>{}); }catch(_){} }
 
         // Appbar active pill & stop
         async function updateAppbarMon(){ const pill=document.getElementById('appbarMon'); try{ const res=await fetch('/api/monitoring/active'); if(!res.ok){ if(pill) pill.style.display='none'; return; } const data=await res.json(); const active=(data.data&&typeof data.data.isActive!=='undefined')?data.data.isActive:data.isActive; if(pill){ pill.style.display=active?'inline-flex':'none'; } }catch(_){ if(pill) pill.style.display='none'; } }
@@ -511,12 +509,11 @@ func (h *StaticHandler) ServeLogsPage(w http.ResponseWriter, r *http.Request) {
 
 	// Avoid JS template literals inside Go raw string to prevent syntax issues
     html := `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>System Logs</title>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;700" rel="stylesheet" />
-<link rel="stylesheet" href="/static/material.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;700" rel="stylesheet" />
+<link rel="stylesheet" href="/static/ui.css">
 <script src="/static/app.js"></script>
 </head><body>
-<div class="appbar"><div class="wrap"><div class="row"><span class="material-symbols-outlined">list</span><div class="title">システムログ</div><div class="sub">アプリケーションイベント</div><div style="margin-left:auto;display:flex;gap:8px;align-items:center"><a href="/" class="md-btn outlined"><span class="material-symbols-outlined" style="font-size:18px">home</span> ホーム</a><button id="uiSettingsToggle" class="md-btn outlined" title="表示設定"><span class="material-symbols-outlined" style="font-size:18px">tune</span></button></div></div></div></div>
-<div id="uiSettingsPanel" class="settings-panel" role="dialog" aria-modal="false" aria-labelledby="uiSettingsTitle"><h3 id="uiSettingsTitle">表示設定</h3><div class="section"><label>テーマ<select id="uiTheme"><option value="dark">ダーク</option><option value="light">ライト</option></select></label><label>プライマリカラー<select id="uiPrimary"><option value="blue">Blue</option><option value="indigo">Indigo</option><option value="teal">Teal</option><option value="green">Green</option><option value="orange">Orange</option><option value="pink">Pink</option><option value="purple">Purple</option></select></label><label>角丸<select id="uiRadius"><option value="sm">小</option><option value="md" selected>中</option><option value="lg">大</option></select></label><label>密度<select id="uiDensity"><option value="compact">コンパクト</option><option value="comfortable" selected>標準</option><option value="loose">ゆったり</option></select></label></div></div>
+<div class="appbar"><div class="wrap"><div class="row"><span class="material-symbols-outlined">list</span><div class="title">システムログ</div><div class="sub">アプリケーションイベント</div><div style="margin-left:auto;display:flex;gap:8px;align-items:center"><a href="/" class="md-btn outlined"><span class="material-symbols-outlined" style="font-size:18px">home</span> ホーム</a></div></div></div></div>
 <div class="wrap"><div class="card"><div class="toolbar"><div class="controls" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><select id="level"><option value="">全レベル</option><option value="INFO">INFO</option><option value="WARNING">WARNING</option><option value="ERROR">ERROR</option></select><input id="component" type="text" placeholder="component で絞り込み"/><input id="video" type="text" placeholder="video_id で絞り込み"/><select id="limit"><option value="100">100件</option><option value="300" selected>300件</option><option value="1000">1000件</option></select><button class="md-btn" onclick="loadLogs()"><span class="material-symbols-outlined" style="font-size:18px">sync</span> 更新</button><button class="md-btn outlined" onclick="clearLogs()"><span class="material-symbols-outlined" style="font-size:18px">delete</span> 全クリア</button><button class="md-btn outlined" onclick="exportLogs()"><span class="material-symbols-outlined" style="font-size:18px">download</span> エクスポート</button></div><div class="status"><label style="display:inline-flex;align-items:center;gap:6px"><input id="auto" type="checkbox" checked onchange="toggleAuto()"> 自動更新</label><select id="interval" onchange="resetAuto()"><option value="10000" selected>10秒</option><option value="30000">30秒</option></select></div></div><div class="content" style="padding:14px 16px"><div class="muted" id="meta">読み込み中…</div><div id="logTable" style="margin-top:12px"></div><div class="muted" id="stats"></div></div></div></div>
 <script>
 var autoTimer=null;
