@@ -154,8 +154,9 @@ func (uc *ChatMonitoringUseCase) StopMonitoring() error {
 	}
 
 	videoID := uc.currentSession.VideoID
+	// Cancel the context to stop background operations. Do not close the channel here;
+	// the sender or context-driven shutdown will ensure goroutines exit safely.
 	uc.currentSession.Cancel()
-	close(uc.currentSession.MessagesChan)
 	uc.currentSession = nil
 
 	uc.logger.LogStructured("INFO", "monitoring", "session_stopped", "Stopped monitoring session", videoID, correlationID, nil)
@@ -164,9 +165,6 @@ func (uc *ChatMonitoringUseCase) StopMonitoring() error {
 
 // GetMonitoringSession 動画の現在の監視セッションを返します
 func (uc *ChatMonitoringUseCase) GetMonitoringSession(videoID string) (*MonitoringSession, bool) {
-	uc.mu.RLock()
-	defer uc.mu.RUnlock()
-
 	uc.mu.RLock()
 	defer uc.mu.RUnlock()
 

@@ -80,8 +80,9 @@ func (vs *VideoService) getVideoInfoCached(ctx context.Context, videoID string, 
 	defer vs.mu.Unlock()
 	entry := &cachedVideo{info: info, err: err, fetchedAt: time.Now()}
 	if err != nil {
-		// quotaExceeded 判別
-		if strings.Contains(strings.ToLower(err.Error()), "quotaexceeded") {
+		// quotaExceeded 判別（表記ゆれ吸収）
+		low := strings.ToLower(err.Error())
+		if strings.Contains(low, "quotaexceeded") || strings.Contains(low, "quota exceeded") {
 			entry.quotaExceededUntil = time.Now().Add(backoffOnQuota)
 			// 既存成功データがあれば温存
 			if ok && cv != nil && cv.info != nil && cv.err == nil {

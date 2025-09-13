@@ -81,7 +81,7 @@ func (h *MonitoringHandler) StartMonitoring(w http.ResponseWriter, r *http.Reque
 	response.RenderStartMonitoring(w, r, session.VideoID, "Monitoring started successfully")
 }
 
-// StopMonitoring POST /api/monitoring/stop を処理します
+// StopMonitoring DELETE /api/monitoring/stop（または POST 互換）を処理します
 func (h *MonitoringHandler) StopMonitoring(w http.ResponseWriter, r *http.Request) {
 	correlationID := fmt.Sprintf("http-%s", r.Header.Get("requestId"))
 

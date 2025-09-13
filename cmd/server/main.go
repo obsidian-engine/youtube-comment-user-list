@@ -266,6 +266,9 @@ func setupHTTPServer(container *ApplicationContainer) *http.Server {
 	r.Get("/users", container.StaticHandler.ServeUserListPage)
 	r.Get("/logs", container.StaticHandler.ServeLogsPage)
 
+	// 静的アセット
+	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+
 	// APIエンドポイント
 	r.Route("/api", func(r chi.Router) {
 		// 監視エンドポイント
