@@ -53,15 +53,14 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	runtime.ReadMemStats(&m)
 
 	// 監視状況を取得
-	session := h.chatMonitoringUC.GetMonitoringSession()
+	videoID, isActive, exists := h.chatMonitoringUC.GetActiveVideoID()
 	monitoring := MonitoringStatus{
-		Active: session != nil,
+		Active: isActive,
 	}
-	
-	if session != nil {
-		monitoring.VideoID = session.VideoID
-		if users := h.chatMonitoringUC.GetUserList(); users != nil {
-			monitoring.UserCount = users.Count()
+	if exists {
+		monitoring.VideoID = videoID
+		if users, err := h.chatMonitoringUC.GetUserList(r.Context(), videoID); err == nil && users != nil {
+			monitoring.UserCount = len(users)
 		}
 	}
 
