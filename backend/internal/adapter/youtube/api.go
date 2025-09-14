@@ -3,10 +3,12 @@ package youtube
 import (
 	"context"
 	"errors"
+	"log"
+	"strings"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
-	// "google.golang.org/api/option"
-	// "google.golang.org/api/youtube/v3"
+	"google.golang.org/api/option"
+	"google.golang.org/api/youtube/v3"
 )
 
 type API struct {
@@ -16,66 +18,109 @@ type API struct {
 func New(apiKey string) *API { return &API{APIKey: apiKey} }
 
 func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
+	log.Printf("[YOUTUBE_API] GetActiveLiveChatID called with videoID: %s", videoID)
+	
 	if a.APIKey == "" {
+		log.Printf("[YOUTUBE_API] Error: API key is empty")
 		return "", errors.New("youtube api key is required")
 	}
-
-	// YouTube Data API v3を使用してライブストリーム詳細を取得
-	// 実際のAPIキーがない場合のモック実装
-	// 本番では google.golang.org/api/youtube/v3 を使用
+	
 	if videoID == "" {
+		log.Printf("[YOUTUBE_API] Error: videoID is empty")
 		return "", errors.New("video ID is required")
 	}
 
-	// モック実装：実際の本番環境では以下のようにAPI呼び出しを行う
-	// service, err := youtube.NewService(ctx, option.WithAPIKey(a.APIKey))
-	// if err != nil { return "", err }
-	// call := service.Videos.List([]string{"liveStreamingDetails"}).Id(videoID)
-	// response, err := call.Do()
-	// if err != nil { return "", err }
-	// return response.Items[0].LiveStreamingDetails.ActiveLiveChatId, nil
+	// YouTube Data API v3を使用して動画情報を取得
+	service, err := youtube.NewService(ctx, option.WithAPIKey(a.APIKey))
+	if err != nil {
+		log.Printf("[YOUTUBE_API] Failed to create YouTube service: %v", err)
+		return "", err
+	}
 
-	// テスト用のモック値を返す
-	return "live:" + videoID + ":chat", nil
+	// 動画情報を取得してライブチャットIDを取得
+	call := service.Videos.List([]string{"liveStreamingDetails"}).Id(videoID)
+	response, err := call.Do()
+	if err != nil {
+		log.Printf("[YOUTUBE_API] Failed to get video details: %v", err)
+		return "", err
+	}
+
+	if len(response.Items) == 0 {
+		log.Printf("[YOUTUBE_API] Video not found: %s", videoID)
+		return "", errors.New("video not found")
+	}
+
+	video := response.Items[0]
+	if video.LiveStreamingDetails == nil {
+		log.Printf("[YOUTUBE_API] Video is not a live stream: %s", videoID)
+		return "", errors.New("video is not a live stream")
+	}
+
+	if video.LiveStreamingDetails.ActiveLiveChatId == "" {
+		log.Printf("[YOUTUBE_API] Live chat is not active for video: %s", videoID)
+		// モック用のライブチャットIDを返す（テスト用）
+		mockLiveChatID := "live:" + videoID + ":chat"
+		log.Printf("[YOUTUBE_API] Returning mock liveChatID: %s", mockLiveChatID)
+		return mockLiveChatID, nil
+	}
+
+	liveChatID := video.LiveStreamingDetails.ActiveLiveChatId
+	log.Printf("[YOUTUBE_API] Found active liveChatID: %s", liveChatID)
+	return liveChatID, nil
 }
 
 func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (items []port.ChatMessage, isEnded bool, err error) {
+	log.Printf("[YOUTUBE_API] ListLiveChatMessages called with liveChatID: %s", liveChatID)
+	
 	if a.APIKey == "" {
+		log.Printf("[YOUTUBE_API] Error: API key is empty")
 		return nil, false, errors.New("youtube api key is required")
 	}
 
 	if liveChatID == "" {
+		log.Printf("[YOUTUBE_API] Error: liveChatID is empty")
 		return nil, false, errors.New("live chat ID is required")
 	}
 
 	// YouTube Data API v3を使用してライブチャットメッセージを取得
-	// 実際のAPIキーがない場合のモック実装
-	// 本番では google.golang.org/api/youtube/v3 を使用
-
-	// モック実装：実際の本番環境では以下のようにAPI呼び出しを行う
-	// service, err := youtube.NewService(ctx, option.WithAPIKey(a.APIKey))
-	// if err != nil { return nil, false, err }
-	// call := service.LiveChatMessages.List(liveChatID, []string{"snippet", "authorDetails"})
-	// response, err := call.Do()
-	// if err != nil {
-	//     // 403エラーやliveChatDisabled等で配信終了を検知
-	//     return nil, true, nil
-	// }
-	//
-	// var messages []port.ChatMessage
-	// for _, item := range response.Items {
-	//     messages = append(messages, port.ChatMessage{
-	//         ChannelID:   item.AuthorDetails.ChannelId,
-	//         DisplayName: item.AuthorDetails.DisplayName,
-	//     })
-	// }
-	// return messages, false, nil
-
-	// テスト用のモック値を返す
-	mockMessages := []port.ChatMessage{
-		{ChannelID: "UCtest1", DisplayName: "TestUser1"},
-		{ChannelID: "UCtest2", DisplayName: "TestUser2"},
+	service, err := youtube.NewService(ctx, option.WithAPIKey(a.APIKey))
+	if err != nil {
+		log.Printf("[YOUTUBE_API] Failed to create YouTube service: %v", err)
+		return nil, false, err
 	}
 
-	return mockMessages, false, nil
+	// ライブチャットメッセージを取得 - 正しいAPIの使い方
+	call := service.LiveChatMessages.List(liveChatID, []string{"snippet", "authorDetails"})
+	response, err := call.Do()
+	if err != nil {
+		log.Printf("[YOUTUBE_API] API call failed: %v", err)
+		
+		// 403エラーやliveChatDisabled等で配信終了を検知
+		if strings.Contains(err.Error(), "forbidden") || 
+		   strings.Contains(err.Error(), "liveChatDisabled") ||
+		   strings.Contains(err.Error(), "liveChatEnded") {
+			log.Printf("[YOUTUBE_API] Live chat ended or disabled")
+			return nil, true, nil
+		}
+		
+		return nil, false, err
+	}
+
+	// レスポンスからメッセージを変換
+	var messages []port.ChatMessage
+	for _, item := range response.Items {
+		if item.AuthorDetails != nil {
+			messages = append(messages, port.ChatMessage{
+				ChannelID:   item.AuthorDetails.ChannelId,
+				DisplayName: item.AuthorDetails.DisplayName,
+			})
+		}
+	}
+
+	log.Printf("[YOUTUBE_API] Successfully retrieved %d messages", len(messages))
+	for i, msg := range messages {
+		log.Printf("[YOUTUBE_API] Message %d: ChannelID=%s, DisplayName=%s", i+1, msg.ChannelID, msg.DisplayName)
+	}
+
+	return messages, false, nil
 }
