@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>YouTube Live — 参加ユーザー</title>
+
+    <!-- デモ用 Tailwind CDN（本番はVite/Tailwindのビルドに置換） -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { canvas: { light: '#f5f6f7', dark: '#0b0d10' } },
+                    boxShadow: { subtle: '0 1px 2px 0 rgba(0,0,0,.05)' }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root { color-scheme: light dark; }
+        body { font-feature-settings:"rlig"1,"calt"1,"ss01"1; font-kerning:normal; }
+
+        /* 明るめグレーの放射グラデ（ニュートラル） */
+        .bg-field{
+            background:
+                    radial-gradient(900px 540px at 15% -10%, rgba(148,163,184,.12), transparent 60%),
+                    radial-gradient(700px 450px at 85% -15%, rgba(203,213,225,.16), transparent 55%),
+                    linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,252,.92));
+        }
+        @media (prefers-color-scheme: dark){
+            .bg-field{
+                background:
+                        radial-gradient(1100px 640px at 20% -10%, rgba(148,163,184,.18), transparent 60%),
+                        radial-gradient(820px 520px at 80% -15%, rgba(203,213,225,.18), transparent 55%),
+                        linear-gradient(180deg, rgba(13,16,21,.9), rgba(13,16,21,.86));
+            }
+        }
+
+        .truncate-1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+    </style>
+</head>
+
+<body class="min-h-screen antialiased text-slate-900 dark:text-slate-100 bg-canvas-light dark:bg-canvas-dark">
+<div class="fixed inset-0 -z-10 bg-field"></div>
+
+<main class="mx-auto max-w-4xl px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
+    <!-- ヒーロー（明るめグレー、ニュートラル） -->
+    <section class="relative overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur">
+        <div class="p-5 md:p-7">
+            <div class="grid md:grid-cols-12 gap-6 items-end">
+                <div class="md:col-span-7 space-y-1.5">
+                    <h1 class="text-lg md:text-xl font-semibold tracking-[-0.01em]">
+                        YouTube Live — <span class="bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">参加ユーザー</span>
+                    </h1>
+                    <p class="text-xs md:text-sm text-slate-600 dark:text-slate-300/90">
+                        配信中に参加したユーザーを収集し、終了時点で全員が表示されることを目指します。
+                    </p>
+                    <div class="flex flex-wrap gap-3 pt-1 text-[12px] md:text-[13px]">
+              <span id="badge"
+                    class="inline-flex items-center gap-2 rounded-md border border-black/10 dark:border-white/15 px-2.5 py-1 bg-white/60 dark:bg-white/5">
+                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,.15)]"></span>
+                <span id="stateText" class="tracking-wide">ACTIVE</span>
+              </span>
+                        <span class="text-slate-600 dark:text-slate-300/90">最終更新: <span id="lastUpdated">--:--:--</span></span>
+                    </div>
+                </div>
+
+                <!-- 参加者数（ニュートラルで強調） -->
+                <div class="md:col-span-5">
+                    <div class="rounded-lg ring-1 ring-black/5 dark:ring-white/10 bg-white/70 dark:bg-white/5 backdrop-blur px-5 py-5 md:px-6 md:py-6 flex items-end justify-between">
+                        <div class="space-y-0.5">
+                            <div class="text-[11px] md:text-xs text-slate-500 dark:text-slate-400 tracking-wide">参加者</div>
+                            <div id="count"
+                                 class="text-3xl md:text-4xl font-semibold tabular-nums tracking-tight bg-gradient-to-br from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                                0
+                            </div>
+                        </div>
+                        <div class="h-10 w-px bg-slate-300/50 dark:bg-white/10"></div>
+                        <div class="text-[11px] md:text-xs text-slate-500 dark:text-slate-400">
+                            状態: <span id="stateSmall" class="font-medium text-slate-700 dark:text-slate-200">ACTIVE</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- コントロール（グレー基調/小さめ） -->
+    <section class="rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur">
+        <div class="p-5 md:p-6">
+            <div class="grid gap-3 md:grid-cols-12 items-center">
+                <div class="md:col-span-8 flex gap-2.5">
+                    <input id="videoId"
+                           class="flex-1 px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]"
+                           placeholder="videoId を入力" />
+                    <button id="btnSwitch"
+                            class="px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]">
+                        切替
+                    </button>
+                </div>
+                <div class="md:col-span-4 flex gap-2.5 justify-start md:justify-end">
+                    <button id="btnPull"
+                            class="px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]">
+                        今すぐ取得
+                    </button>
+                    <button id="btnReset"
+                            class="px-3.5 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 transition text-[14px]">
+                        リセット
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-4 grid gap-3 md:grid-cols-12">
+                <div class="md:col-span-3">
+                    <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">自動間隔</label>
+                    <select id="interval"
+                            class="w-full px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 text-[14px]">
+                        <option value="0">停止</option>
+                        <option value="10">10s</option>
+                        <option value="30" selected>30s</option>
+                        <option value="60">60s</option>
+                    </select>
+                </div>
+                <!-- フィルタは削除済み -->
+            </div>
+        </div>
+    </section>
+
+    <!-- リスト（1人=1行 + 番号／明るめグレー） -->
+    <section class="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur">
+        <table class="w-full table-auto text-[14px] leading-7">
+            <thead class="bg-slate-100/90 dark:bg-white/5 text-slate-600 dark:text-slate-300">
+            <tr>
+                <th class="text-left px-4 py-2.5 w-[72px] font-normal">#</th>
+                <th class="text-left px-4 py-2.5 font-normal">名前</th>
+            </tr>
+            </thead>
+            <tbody id="tbody" class="divide-y divide-slate-200/80 dark:divide-white/10">
+            <!-- rows -->
+            </tbody>
+        </table>
+        <p id="emptyText" class="px-4 py-5 text-[13px] text-slate-500 dark:text-slate-400">ユーザーがいません。</p>
+    </section>
+</main>
+
+<script>
+    // デモ（APIは呼びません）
+    const $ = (id)=>document.getElementById(id);
+    const state = { users: seed(), intervalSec: 30, active: true };
+
+    function seed(){
+        return ["Alice","Bob","Charlie","Daphne","Eve","Frank","Grace","はなこ","たろう","👾 PixelCat","🍣 sushi-lover-0123456789","VeryVeryLongUserName_ABCDEFGHIJKLMNOPQRSTUVWX"];
+    }
+
+    function render(){
+        const list = state.users.slice();
+        $("count").textContent = String(list.length);
+        $("stateText").textContent = state.active ? "ACTIVE" : "WAITING";
+        $("stateSmall").textContent = state.active ? "ACTIVE" : "WAITING";
+        $("badge").className =
+            "inline-flex items-center gap-2 rounded-md border px-2.5 py-1 " +
+            (state.active
+                ? "border-black/10 dark:border-white/15 bg-white/60 dark:bg-white/5"
+                : "border-amber-500/30 bg-amber-400/10 text-amber-800 dark:text-amber-300");
+
+        $("emptyText").classList.toggle("hidden", list.length>0);
+
+        const tbody = $("tbody");
+        tbody.innerHTML = "";
+        list.forEach((name, i)=>{
+            const tr = document.createElement("tr");
+            tr.className = "hover:bg-neutral-50/80 dark:hover:bg-white/5 transition";
+            tr.innerHTML = `
+          <td class="px-4 py-2.5 tabular-nums text-slate-600 dark:text-slate-300">${String(i+1).padStart(2,'0')}</td>
+          <td class="px-4 py-2.5 truncate-1">${name}</td>
+        `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function updateClock(){
+        const d=new Date(), pad=n=>String(n).padStart(2,'0');
+        document.getElementById("lastUpdated").textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    // 操作（デモ）
+    document.getElementById("btnPull").addEventListener("click", ()=>{ maybeAdd(); updateClock(); render(); });
+    document.getElementById("btnReset").addEventListener("click", ()=>{ state.users=[]; state.active=false; updateClock(); render(); });
+    document.getElementById("btnSwitch").addEventListener("click", ()=>{ state.users=seed(); state.active=true; updateClock(); render(); });
+    document.getElementById("interval").addEventListener("change", e=>{ state.intervalSec=Number(e.target.value); restart(); });
+
+    function maybeAdd(){
+        const pool=["Neo","Trinity","Morpheus","🦊 Kitsune","さくら","🍵 matcha","ナナシ"];
+        if(Math.random()>0.55){
+            const n=pool[Math.floor(Math.random()*pool.length)];
+            if(!state.users.includes(n)) state.users.push(n);
+        }
+    }
+
+    let timer=null;
+    function restart(){
+        if(timer) clearInterval(timer);
+        if(state.intervalSec>0){
+            timer = setInterval(()=>{ maybeAdd(); updateClock(); render(); }, state.intervalSec*1000);
+        }
+    }
+
+    // 初期
+    updateClock(); render(); restart();
+</script>
+</body>
+</html>
