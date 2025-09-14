@@ -2,6 +2,7 @@ package http
 
 import (
     "encoding/json"
+    "log"
     stdhttp "net/http"
 
     "github.com/go-chi/chi/v5"
@@ -21,30 +22,20 @@ type Handlers struct {
 func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
     r := chi.NewRouter()
 
-    // シンプル CORS（厳密実装は別途ミドルウェアで）
-    r.Use(func(next stdhttp.Handler) stdhttp.Handler {
-        return stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-            if frontendOrigin != "" {
-                w.Header().Set("Access-Control-Allow-Origin", frontendOrigin)
-                w.Header().Set("Vary", "Origin")
-            }
-            if r.Method == stdhttp.MethodOptions {
-                w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-                w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-                w.WriteHeader(StatusNoContent)
-                return
-            }
-            next.ServeHTTP(w, r)
-        })
-    })
+    // ミドルウェアの設定
+    r.Use(LoggingMiddleware)
+    r.Use(CORSMiddleware(frontendOrigin))
 
     r.Get("/status", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+        log.Printf("[STATUS] Getting current status")
         out, err := h.Status.Execute(r.Context())
         if err != nil {
-            render.Status(r, StatusInternalServerError)
-            render.PlainText(w, r, "internal error")
+            log.Printf("[STATUS] Error: %v", err)
+            renderInternalError(w, r, "Failed to get status")
             return
         }
+
+        log.Printf("[STATUS] Current status: %s, Users: %d", out.Status, out.Count)
         response := map[string]interface{}{
             "status":    string(out.Status),
             "count":     out.Count,
@@ -56,69 +47,77 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
     })
 
     r.Get("/users.json", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-        users := h.Users.ListDisplayNames()
-        render.JSON(w, r, users)
-    })
+		log.Printf("[USERS] Getting user list")
+		users := h.Users.ListDisplayNames()
+		log.Printf("[USERS] Returning %d users", len(users))
+		render.JSON(w, r, users)
+	})
 
     r.Post("/switch-video", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-        var req struct {
-            VideoID string `json:"videoId"`
-        }
-        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-            render.Status(r, StatusBadRequest)
-            render.PlainText(w, r, "invalid JSON")
-            return
-        }
+		log.Printf("[SWITCH_VIDEO] Processing video switch request")
+		var req struct {
+			VideoID string `json:"videoId"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Printf("[SWITCH_VIDEO] Invalid JSON: %v", err)
+			renderBadRequest(w, r, "Invalid JSON format")
+			return
+		}
 
-        if req.VideoID == "" {
-            render.Status(r, StatusBadRequest)
-            render.PlainText(w, r, "videoId is required")
-            return
-        }
+		if req.VideoID == "" {
+			log.Printf("[SWITCH_VIDEO] Missing videoId")
+			renderBadRequest(w, r, "videoId is required")
+			return
+		}
 
-        out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: req.VideoID})
-        if err != nil {
-            render.Status(r, StatusBadGateway)
-            render.PlainText(w, r, "backend error")
-            return
-        }
-
-        response := map[string]interface{}{
-            "status":     string(out.State.Status),
-            "videoId":    out.State.VideoID,
-            "liveChatId": out.State.LiveChatID,
-            "startedAt":  out.State.StartedAt,
-        }
-        render.JSON(w, r, response)
+		log.Printf("[SWITCH_VIDEO] Switching to video: %s", req.VideoID)
+		out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: req.VideoID})
+		if err != nil {
+			log.Printf("[SWITCH_VIDEO] Execute error: %v", err)
+			renderBadGateway(w, r, "Failed to switch video: "+err.Error())
+			return
+		}
+		
+		log.Printf("[SWITCH_VIDEO] Successfully switched to video %s, status: %s", out.State.VideoID, out.State.Status)
+		response := map[string]interface{}{
+			"status":      string(out.State.Status),
+			"videoId":     out.State.VideoID,
+			"liveChatId":  out.State.LiveChatID,
+			"startedAt":   out.State.StartedAt,
+		}
+		render.JSON(w, r, response)
     })
     r.Post("/pull", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-        out, err := h.Pull.Execute(r.Context())
-        if err != nil {
-            render.Status(r, StatusInternalServerError)
-            render.PlainText(w, r, "internal error")
-            return
-        }
+		log.Printf("[PULL] Processing pull request")
+		out, err := h.Pull.Execute(r.Context())
+		if err != nil {
+			log.Printf("[PULL] Execute error: %v", err)
+			renderInternalError(w, r, "Failed to pull messages: "+err.Error())
+			return
+		}
 
-        response := map[string]interface{}{
-            "addedCount": out.AddedCount,
-            "autoReset":  out.AutoReset,
-        }
-        render.JSON(w, r, response)
+		log.Printf("[PULL] Successfully pulled %d messages, autoReset: %v", out.AddedCount, out.AutoReset)
+		response := map[string]interface{}{
+			"addedCount": out.AddedCount,
+			"autoReset":  out.AutoReset,
+		}
+		render.JSON(w, r, response)
     })
     r.Post("/reset", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-        out, err := h.Reset.Execute(r.Context())
-        if err != nil {
-            render.Status(r, StatusInternalServerError)
-            render.PlainText(w, r, "internal error")
-            return
-        }
+		log.Printf("[RESET] Processing reset request")
+		out, err := h.Reset.Execute(r.Context())
+		if err != nil {
+			log.Printf("[RESET] Execute error: %v", err)
+			renderInternalError(w, r, "Failed to reset: "+err.Error())
+			return
+		}
 
-        response := map[string]interface{}{
-            "status": string(out.State.Status),
-        }
-        render.JSON(w, r, response)
+		log.Printf("[RESET] Successfully reset, status: %s", out.State.Status)
+		response := map[string]interface{}{
+			"status": string(out.State.Status),
+		}
+		render.JSON(w, r, response)
     })
 
     return r
 }
-
