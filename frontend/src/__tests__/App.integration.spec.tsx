@@ -31,7 +31,8 @@ describe('App Integration (MSW)', () => {
     render(<App />)
 
     // 初期は WAITING / 0 人
-    expect(await screen.findByText('WAITING')).toBeInTheDocument()
+    const waitingEls = await screen.findAllByText('WAITING')
+    expect(waitingEls[0]).toBeInTheDocument()
     expect(screen.getByTestId('counter')).toHaveTextContent('0')
 
     // videoId 未入力でエラー
@@ -42,7 +43,10 @@ describe('App Integration (MSW)', () => {
     const input = screen.getByLabelText('videoId') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'VID123' } })
     fireEvent.click(screen.getByRole('button', { name: '切替' }))
-    await waitFor(() => expect(screen.getByText('ACTIVE')).toBeInTheDocument())
+    await waitFor(async () => {
+      const activeEls = await screen.findAllByText('ACTIVE')
+      expect(activeEls[0]).toBeInTheDocument()
+    })
 
     // 今すぐ取得 → 人数 1
     fireEvent.click(screen.getByRole('button', { name: '今すぐ取得' }))
