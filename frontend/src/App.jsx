@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { getStatus, getUsers, postPull, postReset, postSwitchVideo } from './utils/api'
+import { useAutoRefresh } from './hooks/useAutoRefresh'
 
 function seed() {
   return [
@@ -7,9 +9,9 @@ function seed() {
 }
 
 export default function App() {
-  const [active, setActive] = useState(true) // ACTIVE / WAITING
-  const [users, setUsers] = useState(seed())
-  const [videoId, setVideoId] = useState('')
+  const [active, setActive] = useState(false) // ACTIVE / WAITING
+  const [users, setUsers] = useState([])
+  const [videoId, setVideoId] = useState(() => localStorage.getItem('videoId') || '')
   const [intervalSec, setIntervalSec] = useState(30)
   const [lastUpdated, setLastUpdated] = useState('--:--:--')
   const timerRef = useRef(null)
@@ -21,23 +23,35 @@ export default function App() {
     setLastUpdated(`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`)
   }
 
-  const maybeAdd = () => {
-    const pool = ['Neo','Trinity','Morpheus','🦊 Kitsune','さくら','🍵 matcha','ナナシ']
-    if (Math.random() > 0.55) {
-      const n = pool[Math.floor(Math.random() * pool.length)]
-      setUsers((prev) => (prev.includes(n) ? prev : [...prev, n]))
+  const refresh = async () => {
+    try {
+      const ac = new AbortController()
+      const [st, us] = await Promise.all([
+        getStatus(ac.signal),
+        getUsers(ac.signal),
+      ])
+      const status = st.status || st.Status || 'WAITING'
+      setActive(status === 'ACTIVE')
+      setUsers(Array.isArray(us) ? us : [])
+      setErrorMsg('')
+    } catch (e) {
+      setErrorMsg('更新に失敗しました。しばらくしてから再試行してください。')
+    } finally {
+      updateClock()
     }
   }
 
   const restart = () => {
     if (timerRef.current) clearInterval(timerRef.current)
     if (intervalSec > 0) {
-      timerRef.current = setInterval(() => { maybeAdd(); updateClock() }, intervalSec * 1000)
+      timerRef.current = setInterval(() => { refresh() }, intervalSec * 1000)
     }
   }
 
   useEffect(() => { restart(); return () => timerRef.current && clearInterval(timerRef.current) }, [intervalSec])
-  useEffect(() => { updateClock() }, [])
+  useEffect(() => { refresh() }, [])
+
+  useAutoRefresh(intervalSec, refresh)
 
   return (
     <div className="min-h-screen bg-canvas-light dark:bg-canvas-dark text-slate-900 dark:text-slate-100">
@@ -91,11 +105,11 @@ export default function App() {
               <div className="md:col-span-8 flex gap-2.5">
                 <label htmlFor="videoId" className="sr-only">videoId</label>
                 <input id="videoId" aria-label="videoId" value={videoId} onChange={(e)=>setVideoId(e.target.value)} placeholder="videoId を入力" className="flex-1 px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]" />
-                <button aria-label="切替" onClick={()=>{ if(!videoId){ setErrorMsg('videoId を入力してください。'); return } setUsers(seed()); setActive(true); setErrorMsg(''); updateClock(); }} className="px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]">切替</button>
+                <button aria-label="切替" onClick={async ()=>{ if(!videoId){ setErrorMsg('videoId を入力してください。'); return } try { await postSwitchVideo(videoId); localStorage.setItem('videoId', videoId); setErrorMsg(''); await refresh(); } catch(e) { setErrorMsg('切替に失敗しました。配信開始後に再度お試しください。') } }} className="px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]">切替</button>
               </div>
               <div className="md:col-span-4 flex gap-2.5 justify-start md:justify-end">
-                <button aria-label="今すぐ取得" onClick={()=>{ maybeAdd(); setErrorMsg(''); updateClock(); }} className="px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]">今すぐ取得</button>
-                <button aria-label="リセット" onClick={()=>{ setUsers([]); setActive(false); setErrorMsg(''); updateClock(); }} className="px-3.5 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 transition text-[14px]">リセット</button>
+                <button aria-label="今すぐ取得" onClick={async ()=>{ try { await postPull(); setErrorMsg(''); await refresh(); } catch(e) { setErrorMsg('取得に失敗しました。') } }} className="px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]">今すぐ取得</button>
+                <button aria-label="リセット" onClick={async ()=>{ try { await postReset(); setErrorMsg(''); await refresh(); } catch(e) { setErrorMsg('リセットに失敗しました。') } }} className="px-3.5 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 transition text-[14px]">リセット</button>
               </div>
             </div>
 
