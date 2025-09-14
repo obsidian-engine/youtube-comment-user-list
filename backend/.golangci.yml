@@ -1,0 +1,38 @@
+version: "2"
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - unused
+    - ineffassign
+    - gosec
+    - misspell
+    - gocyclo
+    - dupl
+    - goconst
+    - unconvert
+    - unparam
+
+run:
+  timeout: 5m
+  go: "1.23"
+  skip-dirs:
+    - vendor
+    - bin
+    - .serena
+    - .idea
+  skip-files:
+    - '.*\.gen\.go'
+    - '.*\.pb\.go'
+    - '.*\.pb\.gw\.go'
+    - '.*mock.*\.go'
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-use-default: false
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
