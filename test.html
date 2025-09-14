@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>YouTube Live ユーザー一覧（シンプルモダン）</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>.truncate-1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}</style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen">
+<div class="max-w-4xl mx-auto p-4 md:p-6">
+    <!-- ヘッダー（落ち着いた単色） -->
+    <header class="rounded-md p-4 bg-slate-800 text-white shadow-sm">
+        <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <h1 class="text-base md:text-lg font-semibold tracking-tight">YouTube Live ユーザー一覧</h1>
+            <div class="flex items-center gap-4 flex-wrap text-sm">
+          <span id="badge"
+                class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md border border-white/20">
+            <span class="text-[10px]">●</span><span id="stateText">ACTIVE</span>
+          </span>
+                <span>参加者: <b id="count" class="font-semibold">0</b></span>
+                <span class="opacity-90">最終更新: <span id="lastUpdated">--:--:--</span></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 操作バー（シンプルカード） -->
+    <section class="mt-4 p-4 rounded-md bg-white/80 dark:bg-slate-800/60 shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-700/50">
+        <div class="grid gap-3 md:grid-cols-12">
+            <div class="md:col-span-7 flex gap-2">
+                <input id="videoId"
+                       class="flex-1 px-3 py-2 rounded-md bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-400"
+                       placeholder="videoId を入力" />
+                <button id="btnSwitch"
+                        class="px-3.5 py-2 rounded-md text-white bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200 transition">
+                    切替
+                </button>
+            </div>
+            <div class="md:col-span-5 flex gap-2 justify-start md:justify-end">
+                <button id="btnPull"
+                        class="px-3.5 py-2 rounded-md text-white bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200 transition">
+                    今すぐ取得
+                </button>
+                <button id="btnReset"
+                        class="px-3.5 py-2 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100">
+                    リセット
+                </button>
+            </div>
+        </div>
+
+        <div class="mt-3 grid gap-3 md:grid-cols-12">
+            <div class="md:col-span-3">
+                <label class="text-xs text-slate-500 block mb-1">自動間隔</label>
+                <select id="interval"
+                        class="w-full px-3 py-2 rounded-md bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600">
+                    <option value="0">停止</option>
+                    <option value="10">10s</option>
+                    <option value="30" selected>30s</option>
+                    <option value="60">60s</option>
+                </select>
+            </div>
+            <div class="md:col-span-9">
+                <label class="text-xs text-slate-500 block mb-1">フィルタ（部分一致）</label>
+                <input id="filter"
+                       class="w-full px-3 py-2 rounded-md bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600"
+                       placeholder="名前で絞り込み" />
+            </div>
+        </div>
+    </section>
+
+    <!-- 一覧（1人=1行、番号付き） -->
+    <section class="mt-4 p-0 rounded-md bg-white/80 dark:bg-slate-800/60 shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-700/50 overflow-hidden">
+        <table class="w-full table-auto text-sm">
+            <thead class="bg-slate-100 dark:bg-slate-700/40 text-slate-600 dark:text-slate-200">
+            <tr>
+                <th class="text-left px-3 py-2 w-16">#</th>
+                <th class="text-left px-3 py-2">名前</th>
+            </tr>
+            </thead>
+            <tbody id="tbody" class="divide-y divide-slate-200 dark:divide-slate-700">
+            <!-- ここに行が入ります -->
+            </tbody>
+        </table>
+        <p id="emptyText" class="p-3 text-sm text-slate-500">ユーザーがいません。</p>
+    </section>
+</div>
+
+<script>
+    // --- デモ用ダミー（APIは呼びません） ---
+    const state = { users: demoUsers(), filter: '', intervalSec: 30, active: true };
+    const $ = (id) => document.getElementById(id);
+
+    function demoUsers() {
+        return [
+            "Alice","Bob","Charlie","Daphne","Eve","Frank","Grace",
+            "はなこ","たろう","👾 PixelCat","🍣 sushi-lover-0123456789",
+            "VeryVeryLongUserName_ABCDEFGHIJKLMNOPQRSTUVWX"
+        ];
+    }
+
+    function render() {
+        const filtered = state.users.filter(n => n.toLowerCase().includes((state.filter||'').toLowerCase()));
+        $("count").textContent = filtered.length;
+        $("stateText").textContent = state.active ? "ACTIVE" : "WAITING";
+        $("badge").className = "inline-flex items-center gap-2 px-2.5 py-1 rounded-md border " + (state.active
+            ? "bg-white/5 text-white border-white/20"
+            : "bg-yellow-400/20 text-white border-white/25");
+
+        $("emptyText").classList.toggle("hidden", filtered.length > 0);
+        const tbody = $("tbody");
+        tbody.innerHTML = "";
+        filtered.forEach((name, i) => {
+            const tr = document.createElement("tr");
+            tr.className = "hover:bg-slate-50/70 dark:hover:bg-slate-700/40";
+            tr.innerHTML = `
+          <td class="px-3 py-2 text-slate-600 dark:text-slate-300">${i + 1}</td>
+          <td class="px-3 py-2 truncate-1">${name}</td>
+        `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function updateClock() {
+        const d = new Date(); const pad = (n)=>String(n).padStart(2,"0");
+        $("lastUpdated").textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    // 操作
+    $("filter").addEventListener("input", e => { state.filter = e.target.value; render(); });
+    $("btnPull").addEventListener("click", () => { maybeAddRandom(); updateClock(); render(); });
+    $("btnReset").addEventListener("click", () => { state.users = []; state.active = false; updateClock(); render(); });
+    $("btnSwitch").addEventListener("click", () => { state.users = demoUsers(); state.active = true; updateClock(); render(); });
+    $("interval").addEventListener("change", e => { state.intervalSec = Number(e.target.value); restartAuto(); });
+
+    function maybeAddRandom() {
+        const pool = ["Neo","Trinity","Morpheus","🦊 Kitsune","さくら","🍵 matcha","ナナシ"];
+        if (Math.random() > 0.6) {
+            const n = pool[Math.floor(Math.random()*pool.length)];
+            if (!state.users.includes(n)) state.users.push(n);
+        }
+    }
+
+    let timer = null;
+    function restartAuto() {
+        if (timer) clearInterval(timer);
+        if (state.intervalSec > 0) {
+            timer = setInterval(() => { maybeAddRandom(); updateClock(); render(); }, state.intervalSec * 1000);
+        }
+    }
+
+    // 初期表示
+    updateClock(); render(); restartAuto();
+</script>
+</body>
+</html>
