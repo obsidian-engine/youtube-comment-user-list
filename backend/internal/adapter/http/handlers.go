@@ -31,7 +31,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
             if r.Method == stdhttp.MethodOptions {
                 w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
                 w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-                w.WriteHeader(204)
+                w.WriteHeader(StatusNoContent)
                 return
             }
             next.ServeHTTP(w, r)
@@ -41,7 +41,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
     r.Get("/status", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
         out, err := h.Status.Execute(r.Context())
         if err != nil {
-            render.Status(r, 500)
+            render.Status(r, StatusInternalServerError)
             render.PlainText(w, r, "internal error")
             return
         }
@@ -66,20 +66,20 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
             VideoID string `json:"videoId"`
         }
         if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-            render.Status(r, 400)
+            render.Status(r, StatusBadRequest)
             render.PlainText(w, r, "invalid JSON")
             return
         }
         
         if req.VideoID == "" {
-            render.Status(r, 400)
+            render.Status(r, StatusBadRequest)
             render.PlainText(w, r, "videoId is required")
             return
         }
         
         out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: req.VideoID})
         if err != nil {
-            render.Status(r, 502)
+            render.Status(r, StatusBadGateway)
             render.PlainText(w, r, "backend error")
             return
         }
@@ -95,7 +95,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
     r.Post("/pull", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
         out, err := h.Pull.Execute(r.Context())
         if err != nil {
-            render.Status(r, 500)
+            render.Status(r, StatusInternalServerError)
             render.PlainText(w, r, "internal error")
             return
         }
@@ -109,7 +109,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
     r.Post("/reset", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
         out, err := h.Reset.Execute(r.Context())
         if err != nil {
-            render.Status(r, 500)
+            render.Status(r, StatusInternalServerError)
             render.PlainText(w, r, "internal error")
             return
         }

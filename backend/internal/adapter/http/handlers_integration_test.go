@@ -39,8 +39,8 @@ func TestRoutes_WorkCorrectly(t *testing.T) {
     if err != nil { 
         t.Fatalf("request GET /status: %v", err) 
     }
-    if res.StatusCode != 200 {
-        t.Errorf("GET /status => %d want 200", res.StatusCode)
+    if res.StatusCode != stdhttp.StatusOK {
+        t.Errorf("GET /status => %d want %d", res.StatusCode, stdhttp.StatusOK)
     }
 
     // GET /users.json should return 200
@@ -49,8 +49,8 @@ func TestRoutes_WorkCorrectly(t *testing.T) {
     if err != nil { 
         t.Fatalf("request GET /users.json: %v", err) 
     }
-    if res.StatusCode != 200 {
-        t.Errorf("GET /users.json => %d want 200", res.StatusCode)
+    if res.StatusCode != stdhttp.StatusOK {
+        t.Errorf("GET /users.json => %d want %d", res.StatusCode, stdhttp.StatusOK)
     }
 
     // POST /reset should return 200
@@ -59,8 +59,8 @@ func TestRoutes_WorkCorrectly(t *testing.T) {
     if err != nil { 
         t.Fatalf("request POST /reset: %v", err) 
     }
-    if res.StatusCode != 200 {
-        t.Errorf("POST /reset => %d want 200", res.StatusCode)
+    if res.StatusCode != stdhttp.StatusOK {
+        t.Errorf("POST /reset => %d want %d", res.StatusCode, stdhttp.StatusOK)
     }
 
     // POST /pull should return 200
@@ -69,8 +69,8 @@ func TestRoutes_WorkCorrectly(t *testing.T) {
     if err != nil { 
         t.Fatalf("request POST /pull: %v", err) 
     }
-    if res.StatusCode != 200 {
-        t.Errorf("POST /pull => %d want 200", res.StatusCode)
+    if res.StatusCode != stdhttp.StatusOK {
+        t.Errorf("POST /pull => %d want %d", res.StatusCode, stdhttp.StatusOK)
     }
 }
 
@@ -86,8 +86,8 @@ func TestCORS_AllowsFrontendOrigin(t *testing.T) {
     if got := res.Header.Get("Access-Control-Allow-Origin"); got != origin {
         t.Fatalf("Allow-Origin=%q want %q", got, origin)
     }
-    if res.StatusCode != 204 {
-        t.Fatalf("preflight status=%d want 204", res.StatusCode)
+    if res.StatusCode != stdhttp.StatusNoContent {
+        t.Fatalf("preflight status=%d want %d", res.StatusCode, stdhttp.StatusNoContent)
     }
 }
 
