@@ -42,11 +42,12 @@ export function LoadingButton({
 }: Props) {
   const isDisabled = disabled || isLoading
   const label = isLoading && loadingText ? loadingText : children
+  const effectiveAriaLabel = isLoading && loadingText ? loadingText : ariaLabel
 
   return (
     <button
       type={type}
-      aria-label={ariaLabel}
+      aria-label={effectiveAriaLabel}
       aria-busy={isLoading}
       disabled={isDisabled}
       onClick={() => {
@@ -65,4 +66,3 @@ export function LoadingButton({
     </button>
   )
 }
-
