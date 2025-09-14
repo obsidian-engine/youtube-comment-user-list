@@ -34,7 +34,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
             renderInternalError(w, r, "Failed to get status")
             return
         }
-        
+
         log.Printf("[STATUS] Current status: %s, Users: %d", out.Status, out.Count)
         response := map[string]interface{}{
             "status":    string(out.Status),
@@ -63,20 +63,21 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			renderBadRequest(w, r, "Invalid JSON format")
 			return
 		}
-		
+
 		if req.VideoID == "" {
 			log.Printf("[SWITCH_VIDEO] Missing videoId")
 			renderBadRequest(w, r, "videoId is required")
 			return
 		}
-		
+
 		log.Printf("[SWITCH_VIDEO] Switching to video: %s", req.VideoID)
 		out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: req.VideoID})
 		if err != nil {
 			log.Printf("[SWITCH_VIDEO] Execute error: %v", err)
 			renderBadGateway(w, r, "Failed to switch video: "+err.Error())
 			return
-		}		
+		}
+		
 		log.Printf("[SWITCH_VIDEO] Successfully switched to video %s, status: %s", out.State.VideoID, out.State.Status)
 		response := map[string]interface{}{
 			"status":      string(out.State.Status),
@@ -94,7 +95,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			renderInternalError(w, r, "Failed to pull messages: "+err.Error())
 			return
 		}
-		
+
 		log.Printf("[PULL] Successfully pulled %d messages, autoReset: %v", out.AddedCount, out.AutoReset)
 		response := map[string]interface{}{
 			"addedCount": out.AddedCount,
@@ -110,7 +111,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			renderInternalError(w, r, "Failed to reset: "+err.Error())
 			return
 		}
-		
+
 		log.Printf("[RESET] Successfully reset, status: %s", out.State.Status)
 		response := map[string]interface{}{
 			"status": string(out.State.Status),
