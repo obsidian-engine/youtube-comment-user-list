@@ -15,7 +15,7 @@ func TestReset_ClearsUsersAndSetsWaiting(t *testing.T) {
 	users := memory.NewUserRepo()
 	_ = users.Upsert("ch1", "Alice")
 	_ = users.Upsert("ch2", "Bob")
-	
+
 	state := memory.NewStateRepo()
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v123"})
 

@@ -1,25 +1,25 @@
 package usecase
 
 import (
-    "context"
+	"context"
 
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 )
 
 type SwitchVideoInput struct {
-    VideoID string
+	VideoID string
 }
 
 type SwitchVideoOutput struct {
-    State domain.LiveState
+	State domain.LiveState
 }
 
 type SwitchVideo struct {
-    YT    port.YouTubePort
-    Users port.UserRepo
-    State port.StateRepo
-    Clock port.Clock
+	YT    port.YouTubePort
+	Users port.UserRepo
+	State port.StateRepo
+	Clock port.Clock
 }
 
 // Execute: videoId 切替、ユーザー初期化、State=ACTIVE に遷移。
@@ -41,7 +41,7 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 		LiveChatID: liveChatID,
 		StartedAt:  now,
 	}
-	
+
 	if err := uc.State.Set(ctx, newState); err != nil {
 		return SwitchVideoOutput{}, err
 	}

@@ -1,23 +1,23 @@
 package usecase_test
 
 import (
-    "context"
-    "testing"
-    "time"
+	"context"
+	"testing"
+	"time"
 
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/memory"
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/memory"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
 )
 
 type fakeYT struct{}
 
 func (f *fakeYT) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
-    return "live:abc", nil
+	return "live:abc", nil
 }
 func (f *fakeYT) ListLiveChatMessages(ctx context.Context, liveChatID string) ([]port.ChatMessage, bool, error) {
-    return nil, false, nil
+	return nil, false, nil
 }
 
 type fixedClock struct{ t time.Time }
@@ -66,4 +66,3 @@ func TestSwitchVideo_UsersClearedAndStateActive(t *testing.T) {
 		t.Errorf("Output.State.Status = %v, want %v", out.State.Status, domain.StatusActive)
 	}
 }
-
