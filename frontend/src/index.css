@@ -8,3 +8,22 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* デモ背景（明るめグレーの放射グラデ） */
+:root { color-scheme: light dark; }
+body { font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1; font-kerning: normal; }
+
+.bg-field{
+  background:
+    radial-gradient(900px 540px at 15% -10%, rgba(148,163,184,.12), transparent 60%),
+    radial-gradient(700px 450px at 85% -15%, rgba(203,213,225,.16), transparent 55%),
+    linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,252,.92));
+}
+@media (prefers-color-scheme: dark){
+  .bg-field{
+    background:
+      radial-gradient(1100px 640px at 20% -10%, rgba(148,163,184,.18), transparent 60%),
+      radial-gradient(820px 520px at 80% -15%, rgba(203,213,225,.18), transparent 55%),
+      linear-gradient(180deg, rgba(13,16,21,.9), rgba(13,16,21,.86));
+  }
+}
