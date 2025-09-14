@@ -1,4 +1,4 @@
-module github.com/obsidian-engine/youtube-comment-user-list
+module github.com/obsidian-engine/youtube-comment-user-list/backend
 
 go 1.24
 
