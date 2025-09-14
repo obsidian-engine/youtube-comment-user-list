@@ -25,22 +25,45 @@ type fixedClock struct{ t time.Time }
 func (c fixedClock) Now() time.Time { return c.t }
 
 func TestSwitchVideo_UsersClearedAndStateActive(t *testing.T) {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    users := memory.NewUserRepo()
-    _ = users.Upsert("ch1", "to-be-cleared")
-    state := memory.NewStateRepo()
-    yt := &fakeYT{}
+	users := memory.NewUserRepo()
+	_ = users.Upsert("ch1", "to-be-cleared")
+	state := memory.NewStateRepo()
+	yt := &fakeYT{}
+	clock := fixedClock{t: time.Unix(1000, 0)}
 
-    uc := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: fixedClock{t: time.Unix(1000,0)}}
+	uc := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock}
 
-    _, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "video123"})
-    if err == nil {
-        t.Fatalf("expected not implemented error (Red phase), got nil")
-    }
+	// Execute実行
+	out, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "video123"})
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
 
-    // 将来的に: Users がクリアされ、State が ACTIVE、VideoID/liveChatId/StartedAt が設定されることを検証
-    // この時点では Red を維持するため、厳密検証は実装後に追加予定。
-    _ = domain.StatusActive
+	// ユーザーがクリアされたか確認
+	if got := users.Count(); got != 0 {
+		t.Errorf("Users.Count() = %d, want 0 (should be cleared)", got)
+	}
+
+	// Stateが正しく設定されたか確認
+	currentState, _ := state.Get(ctx)
+	if currentState.Status != domain.StatusActive {
+		t.Errorf("State.Status = %v, want %v", currentState.Status, domain.StatusActive)
+	}
+	if currentState.VideoID != "video123" {
+		t.Errorf("State.VideoID = %v, want video123", currentState.VideoID)
+	}
+	if currentState.LiveChatID != "live:abc" {
+		t.Errorf("State.LiveChatID = %v, want live:abc", currentState.LiveChatID)
+	}
+	if !currentState.StartedAt.Equal(clock.t) {
+		t.Errorf("State.StartedAt = %v, want %v", currentState.StartedAt, clock.t)
+	}
+
+	// 返り値の確認
+	if out.State.Status != domain.StatusActive {
+		t.Errorf("Output.State.Status = %v, want %v", out.State.Status, domain.StatusActive)
+	}
 }
 
