@@ -23,30 +23,58 @@ func (f *fakeYTForPull) ListLiveChatMessages(ctx context.Context, liveChatID str
 }
 
 func TestPull_AddsUsers_NormalFlow(t *testing.T) {
-    ctx := context.Background()
-    users := memory.NewUserRepo()
-    state := memory.NewStateRepo()
-    _ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
-    yt := &fakeYTForPull{items: []port.ChatMessage{{ChannelID: "ch1", DisplayName: "Alice"}}, ended: false}
+	ctx := context.Background()
+	users := memory.NewUserRepo()
+	state := memory.NewStateRepo()
+	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
+	yt := &fakeYTForPull{items: []port.ChatMessage{{ChannelID: "ch1", DisplayName: "Alice"}}, ended: false}
 
-    uc := &usecase.Pull{YT: yt, Users: users, State: state}
-    _, err := uc.Execute(ctx)
-    if err == nil {
-        t.Fatalf("expected not implemented error (Red phase), got nil")
-    }
+	uc := &usecase.Pull{YT: yt, Users: users, State: state}
+	out, err := uc.Execute(ctx)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	// ユーザーが追加されたか確認
+	if out.AddedCount != 1 {
+		t.Errorf("AddedCount = %d, want 1", out.AddedCount)
+	}
+	if out.AutoReset {
+		t.Errorf("AutoReset = true, want false")
+	}
+	if users.Count() != 1 {
+		t.Errorf("Users.Count() = %d, want 1", users.Count())
+	}
 }
 
 func TestPull_Ended_AutoReset(t *testing.T) {
-    ctx := context.Background()
-    users := memory.NewUserRepo()
-    state := memory.NewStateRepo()
-    _ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
-    yt := &fakeYTForPull{items: nil, ended: true}
+	ctx := context.Background()
+	users := memory.NewUserRepo()
+	_ = users.Upsert("ch1", "Alice") // 事前にユーザーを追加
+	state := memory.NewStateRepo()
+	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
+	yt := &fakeYTForPull{items: nil, ended: true}
 
-    uc := &usecase.Pull{YT: yt, Users: users, State: state}
-    _, err := uc.Execute(ctx)
-    if err == nil {
-        t.Fatalf("expected not implemented error (Red phase), got nil")
-    }
+	uc := &usecase.Pull{YT: yt, Users: users, State: state}
+	out, err := uc.Execute(ctx)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	// AutoResetがtrueか確認
+	if !out.AutoReset {
+		t.Errorf("AutoReset = false, want true")
+	}
+	
+	// ユーザーがクリアされたか確認
+	if users.Count() != 0 {
+		t.Errorf("Users.Count() = %d, want 0", users.Count())
+	}
+
+	// StateがWAITINGに戻ったか確認
+	currentState, _ := state.Get(ctx)
+	if currentState.Status != domain.StatusWaiting {
+		t.Errorf("State.Status = %v, want %v", currentState.Status, domain.StatusWaiting)
+	}
 }
 

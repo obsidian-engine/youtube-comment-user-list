@@ -18,5 +18,17 @@ type Reset struct {
 
 // Execute: Users クリア、State=WAITING
 func (uc *Reset) Execute(ctx context.Context) (ResetOutput, error) {
-    return ResetOutput{}, ErrNotImplemented
+	// ユーザーをクリア
+	uc.Users.Clear()
+
+	// StateをWAITINGに戻す
+	newState := domain.LiveState{
+		Status: domain.StatusWaiting,
+	}
+	
+	if err := uc.State.Set(ctx, newState); err != nil {
+		return ResetOutput{}, err
+	}
+
+	return ResetOutput{State: newState}, nil
 }

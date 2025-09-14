@@ -22,5 +22,20 @@ type Status struct {
 }
 
 func (uc *Status) Execute(ctx context.Context) (StatusOutput, error) {
-    return StatusOutput{}, ErrNotImplemented
+	// 現在の状態を取得
+	state, err := uc.State.Get(ctx)
+	if err != nil {
+		return StatusOutput{}, err
+	}
+
+	// ユーザー数を取得
+	count := uc.Users.Count()
+
+	return StatusOutput{
+		Status:    state.Status,
+		Count:     count,
+		VideoID:   state.VideoID,
+		StartedAt: state.StartedAt,
+		EndedAt:   state.EndedAt,
+	}, nil
 }

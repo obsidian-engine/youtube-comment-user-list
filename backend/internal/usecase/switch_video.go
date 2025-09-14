@@ -2,7 +2,6 @@ package usecase
 
 import (
     "context"
-    "time"
 
     "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
     "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
@@ -25,7 +24,27 @@ type SwitchVideo struct {
 
 // Execute: videoId 切替、ユーザー初期化、State=ACTIVE に遷移。
 func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (SwitchVideoOutput, error) {
-    // 未実装: ここでは署名のみ（スケルトン）
-    _ = time.Now // 参照保持で未使用警告回避（Clock を使う実装想定）
-    return SwitchVideoOutput{}, ErrNotImplemented
+	// 1. YouTube APIでliveChatIDを取得
+	liveChatID, err := uc.YT.GetActiveLiveChatID(ctx, in.VideoID)
+	if err != nil {
+		return SwitchVideoOutput{}, err
+	}
+
+	// 2. ユーザーをクリア
+	uc.Users.Clear()
+
+	// 3. StateをACTIVEに更新
+	now := uc.Clock.Now()
+	newState := domain.LiveState{
+		Status:     domain.StatusActive,
+		VideoID:    in.VideoID,
+		LiveChatID: liveChatID,
+		StartedAt:  now,
+	}
+	
+	if err := uc.State.Set(ctx, newState); err != nil {
+		return SwitchVideoOutput{}, err
+	}
+
+	return SwitchVideoOutput{State: newState}, nil
 }
