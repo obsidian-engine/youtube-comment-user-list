@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getStatus, getUsers, postPull, postReset, postSwitchVideo } from './utils/api'
 import { useAutoRefresh } from './hooks/useAutoRefresh'
+import { LoadingButton } from './components/LoadingButton'
 
 function seed() {
   return [
@@ -120,8 +121,10 @@ export default function App() {
                   className="flex-1 px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]"
                   disabled={isSwitching || isRefreshing}
                 />
-                <button
-                  aria-label="切替"
+                <LoadingButton
+                  ariaLabel="切替"
+                  isLoading={isSwitching}
+                  loadingText="切替中…"
                   onClick={async ()=>{
                     if(!videoId){ setErrorMsg('videoId を入力してください。'); return }
                     try {
@@ -138,14 +141,13 @@ export default function App() {
                       setTimeout(()=>setInfoMsg(''), 2000)
                     }
                   }}
-                  className="px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]"
-                  disabled={isSwitching}
-                  aria-busy={isSwitching}
-                >{isSwitching ? '切替中…' : '切替'}</button>
+                >切替</LoadingButton>
               </div>
               <div className="md:col-span-4 flex gap-2.5 justify-start md:justify-end">
-                <button
-                  aria-label="今すぐ取得"
+                <LoadingButton
+                  ariaLabel="今すぐ取得"
+                  isLoading={isPulling}
+                  loadingText="取得中…"
                   onClick={async ()=>{
                     try {
                       setIsPulling(true)
@@ -160,12 +162,12 @@ export default function App() {
                       setTimeout(()=>setInfoMsg(''), 2000)
                     }
                   }}
-                  className="px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]"
-                  disabled={isPulling}
-                  aria-busy={isPulling}
-                >{isPulling ? '取得中…' : '今すぐ取得'}</button>
-                <button
-                  aria-label="リセット"
+                >今すぐ取得</LoadingButton>
+                <LoadingButton
+                  variant="outline"
+                  ariaLabel="リセット"
+                  isLoading={isResetting}
+                  loadingText="リセット中…"
                   onClick={async ()=>{
                     try {
                       setIsResetting(true)
@@ -180,10 +182,7 @@ export default function App() {
                       setTimeout(()=>setInfoMsg(''), 2000)
                     }
                   }}
-                  className="px-3.5 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 disabled:opacity-60 disabled:cursor-not-allowed transition text-[14px]"
-                  disabled={isResetting}
-                  aria-busy={isResetting}
-                >{isResetting ? 'リセット中…' : 'リセット'}</button>
+                >リセット</LoadingButton>
               </div>
             </div>
 
