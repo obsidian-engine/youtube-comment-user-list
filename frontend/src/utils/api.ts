@@ -1,21 +1,30 @@
 const BASE = import.meta.env.VITE_BACKEND_URL || ''
 
-async function json(res) {
+async function json<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+  return res.json() as Promise<T>
 }
 
-export async function getStatus(signal) {
+export type StatusResponse = {
+  status?: 'WAITING' | 'ACTIVE'
+  Status?: 'WAITING' | 'ACTIVE'
+  count?: number
+  videoId?: string
+  startedAt?: string
+  endedAt?: string
+}
+
+export async function getStatus(signal?: AbortSignal): Promise<StatusResponse> {
   const res = await fetch(`${BASE}/status`, { signal })
-  return json(res)
+  return json<StatusResponse>(res)
 }
 
-export async function getUsers(signal) {
+export async function getUsers(signal?: AbortSignal): Promise<string[]> {
   const res = await fetch(`${BASE}/users.json`, { signal })
-  return json(res)
+  return json<string[]>(res)
 }
 
-export async function postSwitchVideo(videoId) {
+export async function postSwitchVideo(videoId: string): Promise<void> {
   const res = await fetch(`${BASE}/switch-video`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -24,12 +33,12 @@ export async function postSwitchVideo(videoId) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }
 
-export async function postPull() {
+export async function postPull(): Promise<void> {
   const res = await fetch(`${BASE}/pull`, { method: 'POST' })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }
 
-export async function postReset() {
+export async function postReset(): Promise<void> {
   const res = await fetch(`${BASE}/reset`, { method: 'POST' })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }

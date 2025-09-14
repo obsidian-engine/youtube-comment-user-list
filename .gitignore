@@ -7,7 +7,8 @@ youtube-comment-user-list
 /.playwright-mcp/
 youtube-monitor
 server.log
-docs
+## docs は追跡対象に含める
+# docs
 AGENTS.md
 .cache
 /server
