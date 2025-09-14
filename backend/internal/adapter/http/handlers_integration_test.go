@@ -7,44 +7,70 @@ import (
 
     ahttp "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/http"
     "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/memory"
+    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/system"
+    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/youtube"
     "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
 )
 
 func newTestServer(frontend string) *httptest.Server {
     users := memory.NewUserRepo()
     state := memory.NewStateRepo()
+    yt := youtube.New("") // テスト用の空キー
+    clock := system.NewSystemClock()
+    
     h := &ahttp.Handlers{
         Status:      &usecase.Status{Users: users, State: state},
-        SwitchVideo: &usecase.SwitchVideo{Users: users, State: state},
-        Pull:        &usecase.Pull{Users: users, State: state},
+        SwitchVideo: &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock},
+        Pull:        &usecase.Pull{YT: yt, Users: users, State: state},
         Reset:       &usecase.Reset{Users: users, State: state},
+        Users:       users,
     }
     router := ahttp.NewRouter(h, frontend)
     return httptest.NewServer(router)
 }
 
-func TestRoutes_ExistAndReturn501_ForNow(t *testing.T) {
+func TestRoutes_WorkCorrectly(t *testing.T) {
     ts := newTestServer("http://example.com")
     defer ts.Close()
 
-    cases := []struct{
-        method string
-        path   string
-    }{
-        {stdhttp.MethodGet, "/status"},
-        {stdhttp.MethodGet, "/users.json"},
-        {stdhttp.MethodPost, "/switch-video"},
-        {stdhttp.MethodPost, "/pull"},
-        {stdhttp.MethodPost, "/reset"},
+    // GET /status should return 200
+    req, _ := stdhttp.NewRequest(stdhttp.MethodGet, ts.URL+"/status", nil)
+    res, err := stdhttp.DefaultClient.Do(req)
+    if err != nil { 
+        t.Fatalf("request GET /status: %v", err) 
+    }
+    if res.StatusCode != stdhttp.StatusOK {
+        t.Errorf("GET /status => %d want %d", res.StatusCode, stdhttp.StatusOK)
     }
 
-    for _, c := range cases {
-        req, _ := stdhttp.NewRequest(c.method, ts.URL+c.path, nil)
-        res, err := stdhttp.DefaultClient.Do(req)
-        if err != nil { t.Fatalf("request %s %s: %v", c.method, c.path, err) }
-        if res.StatusCode != 501 {
-            t.Fatalf("%s %s => %d want 501 (placeholder)", c.method, c.path, res.StatusCode)
-        }
+    // GET /users.json should return 200
+    req, _ = stdhttp.NewRequest(stdhttp.MethodGet, ts.URL+"/users.json", nil)
+    res, err = stdhttp.DefaultClient.Do(req)
+    if err != nil { 
+        t.Fatalf("request GET /users.json: %v", err) 
+    }
+    if res.StatusCode != stdhttp.StatusOK {
+        t.Errorf("GET /users.json => %d want %d", res.StatusCode, stdhttp.StatusOK)
+    }
+
+    // POST /reset should return 200
+    req, _ = stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/reset", nil)
+    res, err = stdhttp.DefaultClient.Do(req)
+    if err != nil { 
+        t.Fatalf("request POST /reset: %v", err) 
+    }
+    if res.StatusCode != stdhttp.StatusOK {
+        t.Errorf("POST /reset => %d want %d", res.StatusCode, stdhttp.StatusOK)
+    }
+
+    // POST /pull should return 200
+    req, _ = stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/pull", nil)
+    res, err = stdhttp.DefaultClient.Do(req)
+    if err != nil { 
+        t.Fatalf("request POST /pull: %v", err) 
+    }
+    if res.StatusCode != stdhttp.StatusOK {
+        t.Errorf("POST /pull => %d want %d", res.StatusCode, stdhttp.StatusOK)
     }
 }
 
@@ -60,8 +86,8 @@ func TestCORS_AllowsFrontendOrigin(t *testing.T) {
     if got := res.Header.Get("Access-Control-Allow-Origin"); got != origin {
         t.Fatalf("Allow-Origin=%q want %q", got, origin)
     }
-    if res.StatusCode != 204 {
-        t.Fatalf("preflight status=%d want 204", res.StatusCode)
+    if res.StatusCode != stdhttp.StatusNoContent {
+        t.Fatalf("preflight status=%d want %d", res.StatusCode, stdhttp.StatusNoContent)
     }
 }
 
