@@ -2,11 +2,12 @@ import { render, screen } from '@testing-library/react'
 import App from '../App.jsx'
 
 describe('Layout', () => {
-  test('長文ユーザー名に truncate-1 クラスが適用される（チップ表示）', async () => {
+  test('テーブル行に truncate-1 が含まれる', async () => {
     render(<App />)
-    // NOTE: デフォルトモックではユーザーが空なので、UI クラスの存在のみ簡易確認
-    // App のチップ要素は <span class="truncate-1" ...> として描画される
-    // 初期状態でユーザーがいないため、待機バナーの存在を確認しておく
-    expect(await screen.findByText('WAITING')).toBeInTheDocument()
+    // 見出しがあること
+    expect(await screen.findByText(/参加ユーザー/)).toBeInTheDocument()
+    // 名前セルに truncate-1 クラスが適用されていること
+    const nameCell = document.querySelector('td.truncate-1')
+    expect(nameCell).not.toBeNull()
   })
 })

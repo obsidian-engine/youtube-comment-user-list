@@ -13,6 +13,7 @@ export default function App() {
   const [intervalSec, setIntervalSec] = useState(30)
   const [lastUpdated, setLastUpdated] = useState('--:--:--')
   const timerRef = useRef(null)
+  const [errorMsg, setErrorMsg] = useState('')
 
   const updateClock = () => {
     const d = new Date();
@@ -43,7 +44,7 @@ export default function App() {
       <div className="fixed inset-0 -z-10 bg-field" />
       <main className="mx-auto max-w-4xl px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
         {/* Hero */}
-        <section className="relative overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur">
+        <section className="relative overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur" aria-label="ヘッダー">
           <div className="p-5 md:p-7">
             <div className="grid md:grid-cols-12 gap-6 items-end">
               <div className="md:col-span-7 space-y-1.5">
@@ -77,24 +78,31 @@ export default function App() {
           </div>
         </section>
 
+        {errorMsg && (
+          <div role="alert" aria-live="assertive" className="rounded-lg ring-1 ring-rose-300/60 bg-rose-50 text-rose-800 px-4 py-3">
+            {errorMsg}
+          </div>
+        )}
+
         {/* Controls */}
-        <section className="rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur">
+        <section className="rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur" aria-label="操作">
           <div className="p-5 md:p-6">
             <div className="grid gap-3 md:grid-cols-12 items-center">
               <div className="md:col-span-8 flex gap-2.5">
-                <input value={videoId} onChange={(e)=>setVideoId(e.target.value)} placeholder="videoId を入力" className="flex-1 px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]" />
-                <button onClick={()=>{ setUsers(seed()); setActive(true); updateClock(); }} className="px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]">切替</button>
+                <label htmlFor="videoId" className="sr-only">videoId</label>
+                <input id="videoId" aria-label="videoId" value={videoId} onChange={(e)=>setVideoId(e.target.value)} placeholder="videoId を入力" className="flex-1 px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]" />
+                <button aria-label="切替" onClick={()=>{ if(!videoId){ setErrorMsg('videoId を入力してください。'); return } setUsers(seed()); setActive(true); setErrorMsg(''); updateClock(); }} className="px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]">切替</button>
               </div>
               <div className="md:col-span-4 flex gap-2.5 justify-start md:justify-end">
-                <button onClick={()=>{ maybeAdd(); updateClock(); }} className="px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]">今すぐ取得</button>
-                <button onClick={()=>{ setUsers([]); setActive(false); updateClock(); }} className="px-3.5 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 transition text-[14px]">リセット</button>
+                <button aria-label="今すぐ取得" onClick={()=>{ maybeAdd(); setErrorMsg(''); updateClock(); }} className="px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]">今すぐ取得</button>
+                <button aria-label="リセット" onClick={()=>{ setUsers([]); setActive(false); setErrorMsg(''); updateClock(); }} className="px-3.5 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 transition text-[14px]">リセット</button>
               </div>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-12">
               <div className="md:col-span-3">
-                <label className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">自動間隔</label>
-                <select value={intervalSec} onChange={(e)=>setIntervalSec(Number(e.target.value))} className="w-full px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 text-[14px]">
+                <label htmlFor="interval" className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">自動間隔</label>
+                <select id="interval" aria-label="自動間隔" value={intervalSec} onChange={(e)=>setIntervalSec(Number(e.target.value))} className="w-full px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 text-[14px]">
                   <option value="0">停止</option>
                   <option value="10">10s</option>
                   <option value="30">30s</option>
