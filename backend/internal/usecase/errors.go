@@ -3,6 +3,5 @@ package usecase
 import "errors"
 
 var (
-    ErrNotImplemented = errors.New("not implemented")
+	ErrNotImplemented = errors.New("not implemented")
 )
-

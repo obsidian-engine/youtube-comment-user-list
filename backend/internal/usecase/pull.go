@@ -1,21 +1,21 @@
 package usecase
 
 import (
-    "context"
+	"context"
 
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 )
 
 type PullOutput struct {
-    AddedCount int
-    AutoReset  bool
+	AddedCount int
+	AutoReset  bool
 }
 
 type Pull struct {
-    YT    port.YouTubePort
-    Users port.UserRepo
-    State port.StateRepo
+	YT    port.YouTubePort
+	Users port.UserRepo
+	State port.StateRepo
 }
 
 // Execute: コメント取得・ユーザー追加、終了検知→WAITING へ（autoReset）。
@@ -41,14 +41,14 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 	if isEnded {
 		// ユーザークリア
 		uc.Users.Clear()
-		
+
 		// WAITINGに戻す
 		state.Status = domain.StatusWaiting
 		state.EndedAt = state.StartedAt // 簡易的に開始時刻を終了時刻として設定
 		if err := uc.State.Set(ctx, state); err != nil {
 			return PullOutput{}, err
 		}
-		
+
 		return PullOutput{AddedCount: 0, AutoReset: true}, nil
 	}
 

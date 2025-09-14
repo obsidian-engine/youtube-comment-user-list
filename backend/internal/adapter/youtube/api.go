@@ -1,16 +1,16 @@
 package youtube
 
 import (
-    "context"
-    "errors"
+	"context"
+	"errors"
 
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
-    // "google.golang.org/api/option"
-    // "google.golang.org/api/youtube/v3"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
+	// "google.golang.org/api/option"
+	// "google.golang.org/api/youtube/v3"
 )
 
 type API struct {
-    APIKey string
+	APIKey string
 }
 
 func New(apiKey string) *API { return &API{APIKey: apiKey} }
@@ -51,7 +51,7 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 	// YouTube Data API v3を使用してライブチャットメッセージを取得
 	// 実際のAPIキーがない場合のモック実装
 	// 本番では google.golang.org/api/youtube/v3 を使用
-	
+
 	// モック実装：実際の本番環境では以下のようにAPI呼び出しを行う
 	// service, err := youtube.NewService(ctx, option.WithAPIKey(a.APIKey))
 	// if err != nil { return nil, false, err }
@@ -61,7 +61,7 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 	//     // 403エラーやliveChatDisabled等で配信終了を検知
 	//     return nil, true, nil
 	// }
-	// 
+	//
 	// var messages []port.ChatMessage
 	// for _, item := range response.Items {
 	//     messages = append(messages, port.ChatMessage{
@@ -76,6 +76,6 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 		{ChannelID: "UCtest1", DisplayName: "TestUser1"},
 		{ChannelID: "UCtest2", DisplayName: "TestUser2"},
 	}
-	
+
 	return mockMessages, false, nil
 }
