@@ -22,6 +22,8 @@ jobs:
       - name: Install deps
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm i; fi
+      - name: Lint
+        run: npm run lint || true
       - name: Test
         run: npm run test -- --run
 
@@ -41,3 +43,17 @@ jobs:
           go-version: stable
       - name: Test
         run: go test ./...
+
+  golangci:
+    name: Go Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: backend

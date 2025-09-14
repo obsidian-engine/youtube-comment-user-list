@@ -45,7 +45,6 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
             render.PlainText(w, r, "internal error")
             return
         }
-        
         response := map[string]interface{}{
             "status":    string(out.Status),
             "count":     out.Count,
@@ -70,25 +69,25 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
             render.PlainText(w, r, "invalid JSON")
             return
         }
-        
+
         if req.VideoID == "" {
             render.Status(r, StatusBadRequest)
             render.PlainText(w, r, "videoId is required")
             return
         }
-        
+
         out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: req.VideoID})
         if err != nil {
             render.Status(r, StatusBadGateway)
             render.PlainText(w, r, "backend error")
             return
         }
-        
+
         response := map[string]interface{}{
-            "status":      string(out.State.Status),
-            "videoId":     out.State.VideoID,
-            "liveChatId":  out.State.LiveChatID,
-            "startedAt":   out.State.StartedAt,
+            "status":     string(out.State.Status),
+            "videoId":    out.State.VideoID,
+            "liveChatId": out.State.LiveChatID,
+            "startedAt":  out.State.StartedAt,
         }
         render.JSON(w, r, response)
     })
@@ -99,7 +98,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
             render.PlainText(w, r, "internal error")
             return
         }
-        
+
         response := map[string]interface{}{
             "addedCount": out.AddedCount,
             "autoReset":  out.AutoReset,
@@ -113,7 +112,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
             render.PlainText(w, r, "internal error")
             return
         }
-        
+
         response := map[string]interface{}{
             "status": string(out.State.Status),
         }
@@ -122,3 +121,4 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 
     return r
 }
+
