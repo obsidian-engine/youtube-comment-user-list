@@ -25,7 +25,7 @@ func LoggingMiddleware(next stdhttp.Handler) stdhttp.Handler {
 
 		// レスポンス完了ログ
 		duration := time.Since(start)
-		log.Printf("[RESPONSE] %s %s -> %d (%v)", 
+		log.Printf("[RESPONSE] %s %s -> %d (%v)",
 			r.Method, r.URL.Path, wrapped.statusCode, duration)
 	})
 }
@@ -51,7 +51,7 @@ func CORSMiddleware(frontendOrigin string) func(stdhttp.Handler) stdhttp.Handler
 				w.Header().Set("Vary", "Origin")
 				log.Printf("[CORS] Set Allow-Origin: %s", frontendOrigin)
 			}
-			
+
 			if r.Method == stdhttp.MethodOptions {
 				w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
@@ -59,7 +59,7 @@ func CORSMiddleware(frontendOrigin string) func(stdhttp.Handler) stdhttp.Handler
 				log.Printf("[CORS] Handled preflight request for %s", r.URL.Path)
 				return
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}

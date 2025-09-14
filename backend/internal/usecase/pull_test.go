@@ -1,25 +1,25 @@
 package usecase_test
 
 import (
-    "context"
-    "testing"
+	"context"
+	"testing"
 
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/memory"
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
-    "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/memory"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
 )
 
-type fakeYTForPull struct{
-    items []port.ChatMessage
-    ended bool
+type fakeYTForPull struct {
+	items []port.ChatMessage
+	ended bool
 }
 
 func (f *fakeYTForPull) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
-    return "live:abc", nil
+	return "live:abc", nil
 }
 func (f *fakeYTForPull) ListLiveChatMessages(ctx context.Context, liveChatID string) ([]port.ChatMessage, bool, error) {
-    return f.items, f.ended, nil
+	return f.items, f.ended, nil
 }
 
 func TestPull_AddsUsers_NormalFlow(t *testing.T) {
@@ -65,7 +65,7 @@ func TestPull_Ended_AutoReset(t *testing.T) {
 	if !out.AutoReset {
 		t.Errorf("AutoReset = false, want true")
 	}
-	
+
 	// ユーザーがクリアされたか確認
 	if users.Count() != 0 {
 		t.Errorf("Users.Count() = %d, want 0", users.Count())
@@ -77,4 +77,3 @@ func TestPull_Ended_AutoReset(t *testing.T) {
 		t.Errorf("State.Status = %v, want %v", currentState.Status, domain.StatusWaiting)
 	}
 }
-
