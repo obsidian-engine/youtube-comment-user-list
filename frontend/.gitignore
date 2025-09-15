@@ -1,2 +1,7 @@
 # Build outputs
 dist/
+
+# Env files
+.env
+.env.*
+!.env.example
