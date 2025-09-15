@@ -110,19 +110,7 @@ type MockUserRepoWithJoinTime struct {
 	users []domain.User
 }
 
-func (m *MockUserRepoWithJoinTime) Upsert(channelID string, displayName string) error {
-	// Not needed for this test
-	return nil
-}
-
-func (m *MockUserRepoWithJoinTime) ListDisplayNames() []string {
-	// Old method - not used in new implementation
-	names := make([]string, len(m.users))
-	for i, u := range m.users {
-		names[i] = u.DisplayName
-	}
-	return names
-}
+// Legacy methods removed - not needed
 
 func (m *MockUserRepoWithJoinTime) ListUsersSortedByJoinTime() []domain.User {
 	// Return users sorted by join time (earliest first)

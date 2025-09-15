@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/memory"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
@@ -13,8 +14,8 @@ func TestReset_ClearsUsersAndSetsWaiting(t *testing.T) {
 	ctx := context.Background()
 
 	users := memory.NewUserRepo()
-	_ = users.Upsert("ch1", "Alice")
-	_ = users.Upsert("ch2", "Bob")
+	_ = users.UpsertWithJoinTime("ch1", "Alice", time.Now())
+	_ = users.UpsertWithJoinTime("ch2", "Bob", time.Now())
 
 	state := memory.NewStateRepo()
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v123"})

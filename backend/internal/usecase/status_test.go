@@ -14,8 +14,8 @@ func TestStatus_ReturnsCurrentStateAndUserCount(t *testing.T) {
 	ctx := context.Background()
 
 	users := memory.NewUserRepo()
-	_ = users.Upsert("ch1", "Alice")
-	_ = users.Upsert("ch2", "Bob")
+	_ = users.UpsertWithJoinTime("ch1", "Alice", time.Now())
+	_ = users.UpsertWithJoinTime("ch2", "Bob", time.Now())
 
 	state := memory.NewStateRepo()
 	startedAt := time.Unix(1000, 0)
