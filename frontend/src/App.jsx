@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { getStatus, getUsers, postPull, postReset, postSwitchVideo } from './utils/api'
 import { useAutoRefresh } from './hooks/useAutoRefresh'
 import { LoadingButton } from './components/LoadingButton'
@@ -15,7 +15,6 @@ export default function App() {
   const [videoId, setVideoId] = useState(() => localStorage.getItem('videoId') || '')
   const [intervalSec, setIntervalSec] = useState(30)
   const [lastUpdated, setLastUpdated] = useState('--:--:--')
-  const timerRef = useRef(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [infoMsg, setInfoMsg] = useState('')
   const [isSwitching, setIsSwitching] = useState(false)
@@ -29,8 +28,9 @@ export default function App() {
     setLastUpdated(`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`)
   }
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
+      console.log('🔄 Auto refresh starting...', new Date().toLocaleTimeString())
       setIsRefreshing(true)
       const ac = new AbortController()
       const [st, us] = await Promise.all([
@@ -41,23 +41,17 @@ export default function App() {
       setActive(status === 'ACTIVE')
       setUsers(Array.isArray(us) ? us : [])
       setErrorMsg('')
+      console.log('✅ Auto refresh completed:', { status, userCount: (Array.isArray(us) ? us : []).length })
     } catch (e) {
+      console.error('❌ Auto refresh failed:', e)
       setErrorMsg('更新に失敗しました。しばらくしてから再試行してください。')
     } finally {
       updateClock()
       setIsRefreshing(false)
     }
-  }
+  }, [])
 
-  const restart = () => {
-    if (timerRef.current) clearInterval(timerRef.current)
-    if (intervalSec > 0) {
-      timerRef.current = setInterval(() => { refresh() }, intervalSec * 1000)
-    }
-  }
-
-  useEffect(() => { restart(); return () => timerRef.current && clearInterval(timerRef.current) }, [intervalSec])
-  useEffect(() => { refresh() }, [])
+  useEffect(() => { refresh() }, [refresh])
 
   useAutoRefresh(intervalSec, refresh)
 
