@@ -1,8 +1,14 @@
 import { http, HttpResponse } from 'msw'
 
+type User = {
+  channelId: string
+  displayName: string
+  参加時間: string
+}
+
 // 簡易なメモリ状態（各テストで server.use で上書き可）
 let state: 'WAITING' | 'ACTIVE' = 'WAITING'
-let users: string[] = []
+let users: User[] = []
 
 export const resetMockState = () => {
   state = 'WAITING'
@@ -36,7 +42,11 @@ export const handlers = [
 
   // 今すぐ取得
   http.post('*/pull', () => {
-    users.push(`User-${users.length + 1}`)
+    users.push({
+      channelId: `UC${users.length + 1}`,
+      displayName: `User-${users.length + 1}`,
+      参加時間: new Date().toISOString()
+    })
     return new HttpResponse(null, { status: 200 })
   }),
 
@@ -58,7 +68,7 @@ export const __mock = {
   get users() {
     return users
   },
-  set users(v: string[]) {
+  set users(v: User[]) {
     users = v
   },
 }

@@ -19,9 +19,15 @@ export async function getStatus(signal?: AbortSignal): Promise<StatusResponse> {
   return json<StatusResponse>(res)
 }
 
-export async function getUsers(signal?: AbortSignal): Promise<string[]> {
+export type User = {
+  channelId: string
+  displayName: string
+  参加時間: string
+}
+
+export async function getUsers(signal?: AbortSignal): Promise<User[]> {
   const res = await fetch(`${BASE}/users.json`, { signal })
-  return json<string[]>(res)
+  return json<User[]>(res)
 }
 
 export async function postSwitchVideo(videoId: string): Promise<void> {
