@@ -3,8 +3,6 @@ package memory
 import (
 	"testing"
 	"time"
-
-	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 )
 
 // TestUserRepo_UpsertWithJoinTime tests that users are stored with join time
@@ -33,15 +31,18 @@ func TestUserRepo_ListUsersWithJoinTime(t *testing.T) {
 	time2 := time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC)
 	time3 := time.Date(2023, 1, 1, 11, 55, 0, 0, time.UTC)
 
-	repo.UpsertWithJoinTime("UC1", "User1", time1)
-	repo.UpsertWithJoinTime("UC2", "User2", time2)
-	repo.UpsertWithJoinTime("UC3", "User3", time3)
+	if err := repo.UpsertWithJoinTime("UC1", "User1", time1); err != nil {
+		t.Fatalf("Failed to upsert UC1: %v", err)
+	}
+	if err := repo.UpsertWithJoinTime("UC2", "User2", time2); err != nil {
+		t.Fatalf("Failed to upsert UC2: %v", err)
+	}
+	if err := repo.UpsertWithJoinTime("UC3", "User3", time3); err != nil {
+		t.Fatalf("Failed to upsert UC3: %v", err)
+	}
 
 	// Get users sorted by join time (earliest first)
 	users := repo.ListUsersSortedByJoinTime()
-
-	// Verify we get domain.User structs
-	var _ []domain.User = users
 
 	// Should be 3 users
 	if len(users) != 3 {
@@ -79,10 +80,14 @@ func TestUserRepo_UpsertExistingUser(t *testing.T) {
 	laterTime := time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC)
 
 	// First upsert
-	repo.UpsertWithJoinTime("UC1", "User1", originalJoinTime)
+	if err := repo.UpsertWithJoinTime("UC1", "User1", originalJoinTime); err != nil {
+		t.Fatalf("Failed to upsert UC1: %v", err)
+	}
 
 	// Second upsert with same channelID should not change join time
-	repo.UpsertWithJoinTime("UC1", "User1Updated", laterTime)
+	if err := repo.UpsertWithJoinTime("UC1", "User1Updated", laterTime); err != nil {
+		t.Fatalf("Failed to upsert UC1 second time: %v", err)
+	}
 
 	users := repo.ListUsersSortedByJoinTime()
 	if len(users) != 1 {
