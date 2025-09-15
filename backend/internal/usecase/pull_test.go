@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/memory"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
@@ -22,14 +23,23 @@ func (f *fakeYTForPull) ListLiveChatMessages(ctx context.Context, liveChatID str
 	return f.items, f.ended, nil
 }
 
+type fakeClock struct {
+	now time.Time
+}
+
+func (f *fakeClock) Now() time.Time {
+	return f.now
+}
+
 func TestPull_AddsUsers_NormalFlow(t *testing.T) {
 	ctx := context.Background()
 	users := memory.NewUserRepo()
 	state := memory.NewStateRepo()
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
 	yt := &fakeYTForPull{items: []port.ChatMessage{{ChannelID: "ch1", DisplayName: "Alice"}}, ended: false}
+	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
-	uc := &usecase.Pull{YT: yt, Users: users, State: state}
+	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
 	out, err := uc.Execute(ctx)
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
@@ -54,8 +64,9 @@ func TestPull_Ended_AutoReset(t *testing.T) {
 	state := memory.NewStateRepo()
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
 	yt := &fakeYTForPull{items: nil, ended: true}
+	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
-	uc := &usecase.Pull{YT: yt, Users: users, State: state}
+	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
 	out, err := uc.Execute(ctx)
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
