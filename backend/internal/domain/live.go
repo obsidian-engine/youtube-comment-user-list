@@ -18,3 +18,10 @@ type LiveState struct {
 	StartedAt  time.Time
 	EndedAt    time.Time
 }
+
+// User represents a user with join time information
+type User struct {
+	ChannelID   string    `json:"channelId"`
+	DisplayName string    `json:"displayName"`
+	JoinedAt    time.Time `json:"参加時間"`
+}

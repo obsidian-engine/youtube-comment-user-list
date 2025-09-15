@@ -16,6 +16,7 @@ type Pull struct {
 	YT    port.YouTubePort
 	Users port.UserRepo
 	State port.StateRepo
+	Clock port.Clock
 }
 
 // Execute: コメント取得・ユーザー追加、終了検知→WAITING へ（autoReset）。
@@ -54,8 +55,9 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 
 	// ユーザー追加
 	addedCount := 0
+	now := uc.Clock.Now()
 	for _, msg := range items {
-		if err := uc.Users.Upsert(msg.ChannelID, msg.DisplayName); err != nil {
+		if err := uc.Users.UpsertWithJoinTime(msg.ChannelID, msg.DisplayName, now); err != nil {
 			return PullOutput{}, err
 		}
 		addedCount++

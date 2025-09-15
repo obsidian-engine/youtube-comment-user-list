@@ -47,9 +47,9 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 	})
 
 	r.Get("/users.json", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		log.Printf("[USERS] Getting user list")
-		users := h.Users.ListDisplayNames()
-		log.Printf("[USERS] Returning %d users", len(users))
+		log.Printf("[USERS] Getting user list with join time")
+		users := h.Users.ListUsersSortedByJoinTime()
+		log.Printf("[USERS] Returning %d users sorted by join time", len(users))
 		render.JSON(w, r, users)
 	})
 

@@ -19,12 +19,12 @@ func New(apiKey string) *API { return &API{APIKey: apiKey} }
 
 func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
 	log.Printf("[YOUTUBE_API] GetActiveLiveChatID called with videoID: %s", videoID)
-	
+
 	if a.APIKey == "" {
 		log.Printf("[YOUTUBE_API] Error: API key is empty")
 		return "", errors.New("youtube api key is required")
 	}
-	
+
 	if videoID == "" {
 		log.Printf("[YOUTUBE_API] Error: videoID is empty")
 		return "", errors.New("video ID is required")
@@ -71,7 +71,7 @@ func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (string, 
 
 func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (items []port.ChatMessage, isEnded bool, err error) {
 	log.Printf("[YOUTUBE_API] ListLiveChatMessages called with liveChatID: %s", liveChatID)
-	
+
 	if a.APIKey == "" {
 		log.Printf("[YOUTUBE_API] Error: API key is empty")
 		return nil, false, errors.New("youtube api key is required")
@@ -94,15 +94,15 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 	response, err := call.Do()
 	if err != nil {
 		log.Printf("[YOUTUBE_API] API call failed: %v", err)
-		
+
 		// 403エラーやliveChatDisabled等で配信終了を検知
-		if strings.Contains(err.Error(), "forbidden") || 
-		   strings.Contains(err.Error(), "liveChatDisabled") ||
-		   strings.Contains(err.Error(), "liveChatEnded") {
+		if strings.Contains(err.Error(), "forbidden") ||
+			strings.Contains(err.Error(), "liveChatDisabled") ||
+			strings.Contains(err.Error(), "liveChatEnded") {
 			log.Printf("[YOUTUBE_API] Live chat ended or disabled")
 			return nil, true, nil
 		}
-		
+
 		return nil, false, err
 	}
 
