@@ -76,14 +76,14 @@ export default function App() {
                 <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300/90">
                   配信中に参加したユーザーを収集し、終了時点で全員が表示されることを目指します。
                 </p>
-                <div className="flex flex-wrap gap-3 pt-1 text-[12px] md:text-[13px]">
+                <div className="flex items-center gap-4 pt-2">
                   <span className={
-                    `inline-flex items-center gap-2 rounded-md border px-2.5 py-1 ${active ? 'border-black/10 dark:border-white/15 bg-white/60 dark:bg-white/5' : 'border-amber-500/30 bg-amber-400/10 text-amber-800 dark:text-amber-300'}`
+                    `inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-base font-medium ${active ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-amber-500/30 bg-amber-400/10 text-amber-800 dark:text-amber-300'}`
                   }>
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,.15)]"></span>
+                    <span className={`h-2 w-2 rounded-full ${active ? 'bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,.15)]' : 'bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,.15)]'}`}></span>
                     <span className="tracking-wide">{active ? 'ACTIVE' : 'WAITING'}</span>
                   </span>
-                  <span className="text-slate-600 dark:text-slate-300/90">最終更新: <span>{lastUpdated}</span></span>
+                  <span className="text-base text-slate-600 dark:text-slate-300/90">最終更新: <span className="font-medium">{lastUpdated}</span></span>
                 </div>
               </div>
               <div className="md:col-span-5">
@@ -200,9 +200,9 @@ export default function App() {
           </div>
         </section>
 
-        {(isRefreshing || infoMsg) && (
+        {infoMsg && (
           <div role="status" aria-live="polite" className="rounded-lg ring-1 ring-sky-300/60 bg-sky-50 text-sky-800 px-4 py-3">
-            {isRefreshing ? '更新中…' : infoMsg}
+            {infoMsg}
           </div>
         )}
 
