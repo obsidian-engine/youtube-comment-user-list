@@ -200,19 +200,23 @@ export default function App() {
         {/* Table */}
         <section className="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur">
           <table className="w-full table-auto text-[14px] leading-7">
-            <thead className="bg-slate-100/90 dark:bg-white/5 text-slate-600 dark:text-slate-300">
+            <thead className="bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-200 dark:to-slate-300 text-white dark:text-slate-900">
               <tr>
-                <th className="text-left px-4 py-2.5 w-[72px] font-normal">#</th>
-                <th className="text-left px-4 py-2.5 font-normal">名前</th>
-                <th className="text-left px-4 py-2.5 font-normal">参加時間</th>
+                <th className="text-left px-4 py-3.5 w-[72px] font-semibold text-[13px] tracking-wide uppercase">#</th>
+                <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">名前</th>
+                <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">参加時間</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/80 dark:divide-white/10">
               {users.map((user,i)=> (
-                <tr key={`${user.channelId || user.displayName}-${i}`} className="hover:bg-neutral-50/80 dark:hover:bg-white/5 transition">
-                  <td className="px-4 py-2.5 tabular-nums text-slate-600 dark:text-slate-300">{String(i+1).padStart(2,'0')}</td>
-                  <td className="px-4 py-2.5 truncate-1" title={user.displayName || user}>{user.displayName || user}</td>
-                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300">
+                <tr key={`${user.channelId || user.displayName}-${i}`} className={`transition-colors duration-150 hover:bg-slate-100/60 dark:hover:bg-white/8 ${
+                  i % 2 === 0
+                    ? 'bg-white/90 dark:bg-white/3'
+                    : 'bg-slate-50/80 dark:bg-white/5'
+                }`}>
+                  <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium">{String(i+1).padStart(2,'0')}</td>
+                  <td className="px-4 py-3 truncate-1 text-slate-900 dark:text-slate-100 font-medium" title={user.displayName || user}>{user.displayName || user}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px]">
                     {user.joinedAt ? new Date(user.joinedAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                   </td>
                 </tr>
