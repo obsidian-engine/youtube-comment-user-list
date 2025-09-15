@@ -22,7 +22,7 @@ export async function getStatus(signal?: AbortSignal): Promise<StatusResponse> {
 export type User = {
   channelId: string
   displayName: string
-  参加時間: string
+  joinedAt: string
 }
 
 export async function getUsers(signal?: AbortSignal): Promise<User[]> {

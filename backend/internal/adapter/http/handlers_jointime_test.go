@@ -85,7 +85,7 @@ func TestHandlers_UsersEndpointWithJoinTime(t *testing.T) {
 		}
 	}
 
-	// Verify JSON field name is "参加時間"
+	// Verify JSON field name is "joinedAt"
 	var rawResponse []map[string]interface{}
 	err = json.Unmarshal(w.Body.Bytes(), &rawResponse)
 	if err != nil {
@@ -93,8 +93,8 @@ func TestHandlers_UsersEndpointWithJoinTime(t *testing.T) {
 	}
 
 	for i, user := range rawResponse {
-		if _, exists := user["参加時間"]; !exists {
-			t.Errorf("User %d should have '参加時間' field", i)
+		if _, exists := user["joinedAt"]; !exists {
+			t.Errorf("User %d should have 'joinedAt' field", i)
 		}
 		if _, exists := user["channelId"]; !exists {
 			t.Errorf("User %d should have 'channelId' field", i)

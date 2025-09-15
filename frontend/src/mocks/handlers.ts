@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw'
 type User = {
   channelId: string
   displayName: string
-  参加時間: string
+  joinedAt: string
 }
 
 // 簡易なメモリ状態（各テストで server.use で上書き可）
@@ -45,7 +45,7 @@ export const handlers = [
     users.push({
       channelId: `UC${users.length + 1}`,
       displayName: `User-${users.length + 1}`,
-      参加時間: new Date().toISOString()
+      joinedAt: new Date().toISOString()
     })
     return new HttpResponse(null, { status: 200 })
   }),
