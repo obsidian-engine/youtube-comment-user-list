@@ -213,13 +213,17 @@ export default function App() {
               <tr>
                 <th className="text-left px-4 py-2.5 w-[72px] font-normal">#</th>
                 <th className="text-left px-4 py-2.5 font-normal">名前</th>
+                <th className="text-left px-4 py-2.5 font-normal">参加時間</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/80 dark:divide-white/10">
-              {users.map((n,i)=> (
-                <tr key={`${n}-${i}`} className="hover:bg-neutral-50/80 dark:hover:bg-white/5 transition">
+              {users.map((user,i)=> (
+                <tr key={`${user.channelId || user.displayName}-${i}`} className="hover:bg-neutral-50/80 dark:hover:bg-white/5 transition">
                   <td className="px-4 py-2.5 tabular-nums text-slate-600 dark:text-slate-300">{String(i+1).padStart(2,'0')}</td>
-                  <td className="px-4 py-2.5 truncate-1" title={n}>{n}</td>
+                  <td className="px-4 py-2.5 truncate-1" title={user.displayName || user}>{user.displayName || user}</td>
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300">
+                    {user.joinedAt ? new Date(user.joinedAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                  </td>
                 </tr>
               ))}
             </tbody>

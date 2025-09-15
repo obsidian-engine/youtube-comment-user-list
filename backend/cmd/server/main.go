@@ -31,7 +31,7 @@ func main() {
 	// UseCases（未実装のため呼び出し時は 501 を返す想定）
 	ucStatus := &usecase.Status{Users: users, State: state}
 	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock}
-	ucPull := &usecase.Pull{YT: yt, Users: users, State: state}
+	ucPull := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
 	ucReset := &usecase.Reset{Users: users, State: state}
 
 	h := &ahttp.Handlers{Status: ucStatus, SwitchVideo: ucSwitch, Pull: ucPull, Reset: ucReset, Users: users}

@@ -23,5 +23,5 @@ type LiveState struct {
 type User struct {
 	ChannelID   string    `json:"channelId"`
 	DisplayName string    `json:"displayName"`
-	JoinedAt    time.Time `json:"参加時間"`
+	JoinedAt    time.Time `json:"joinedAt"`
 }

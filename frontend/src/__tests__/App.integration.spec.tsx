@@ -3,10 +3,16 @@ import { server } from '../mocks/setup'
 import { http, HttpResponse } from 'msw'
 import App from '../App.jsx'
 
+type User = {
+  channelId: string
+  displayName: string
+  joinedAt: string
+}
+
 describe('App Integration (MSW)', () => {
   test('切替成功で ACTIVE 表示になり、pull で人数が増える', async () => {
     let currentState: 'WAITING' | 'ACTIVE' = 'WAITING'
-    let users: string[] = []
+    let users: User[] = []
 
     server.use(
       http.get('*/status', () => HttpResponse.json({ status: currentState, count: users.length })),
@@ -23,7 +29,11 @@ describe('App Integration (MSW)', () => {
         return new HttpResponse(null, { status: 200 })
       }),
       http.post('*/pull', () => {
-        users = [...users, `User-${users.length + 1}`]
+        users.push({
+          channelId: `UC${users.length + 1}`,
+          displayName: `User-${users.length + 1}`,
+          joinedAt: new Date().toISOString()
+        })
         return new HttpResponse(null, { status: 200 })
       }),
     )
@@ -51,5 +61,77 @@ describe('App Integration (MSW)', () => {
     // 今すぐ取得 → 人数 1
     fireEvent.click(screen.getByRole('button', { name: '今すぐ取得' }))
     await waitFor(() => expect(screen.getByTestId('counter')).toHaveTextContent('1'))
+  })
+
+  test('参加時間が正しく表示される', async () => {
+    const mockDate = new Date('2024-01-01T10:30:00Z')
+    let users: User[] = []
+
+    server.use(
+      http.get('*/status', () => HttpResponse.json({ status: 'ACTIVE', count: users.length })),
+      http.get('*/users.json', () => HttpResponse.json(users)),
+      http.post('*/pull', () => {
+        users.push({
+          channelId: `UC${users.length + 1}`,
+          displayName: `TestUser-${users.length + 1}`,
+          joinedAt: mockDate.toISOString()
+        })
+        return new HttpResponse(null, { status: 200 })
+      }),
+    )
+
+    render(<App />)
+
+    // 初期状態で参加時間ヘッダーが表示されている
+    expect(screen.getByText('参加時間')).toBeInTheDocument()
+
+    // ユーザーがいない時は「ユーザーがいません。」が表示される
+    expect(screen.getByText('ユーザーがいません。')).toBeInTheDocument()
+
+    // 今すぐ取得でユーザーを追加
+    fireEvent.click(screen.getByRole('button', { name: '今すぐ取得' }))
+
+    // 参加時間が正しく表示される
+    await waitFor(() => {
+      expect(screen.getByText('TestUser-1')).toBeInTheDocument()
+      // 環境に依存しないように時刻パターンをチェック (HH:mm形式)
+      expect(screen.getByText(/^\d{2}:\d{2}$/)).toBeInTheDocument()
+    })
+  })
+
+  test('複数ユーザーの参加時間表示', async () => {
+    const user1Date = new Date('2024-01-01T09:00:00Z')
+    const user2Date = new Date('2024-01-01T09:15:00Z')
+    let users: User[] = [
+      {
+        channelId: 'UC1',
+        displayName: 'FirstUser',
+        joinedAt: user1Date.toISOString()
+      },
+      {
+        channelId: 'UC2',
+        displayName: 'SecondUser',
+        joinedAt: user2Date.toISOString()
+      }
+    ]
+
+    server.use(
+      http.get('*/status', () => HttpResponse.json({ status: 'ACTIVE', count: users.length })),
+      http.get('*/users.json', () => HttpResponse.json(users)),
+    )
+
+    render(<App />)
+
+    // 両方のユーザーと参加時間が表示される
+    await waitFor(() => {
+      expect(screen.getByText('FirstUser')).toBeInTheDocument()
+      expect(screen.getByText('SecondUser')).toBeInTheDocument()
+      // 時刻パターンが正しく表示されることを確認 (HH:mm形式)
+      const timeElements = screen.getAllByText(/^\d{2}:\d{2}$/)
+      expect(timeElements).toHaveLength(2) // 2つの時刻が表示される
+    })
+
+    // 参加者数が正しく表示される
+    expect(screen.getByTestId('counter')).toHaveTextContent('2')
   })
 })
