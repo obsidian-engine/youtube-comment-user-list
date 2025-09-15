@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { getStatus, getUsers, postPull, postReset, postSwitchVideo } from './utils/api'
 import { useAutoRefresh } from './hooks/useAutoRefresh'
+import { sortUsersStable } from './utils/sortUsers'
 import { LoadingButton } from './components/LoadingButton'
 
 
@@ -19,6 +20,8 @@ export default function App() {
     refreshing: false
   })
 
+  // 並び順ユーティリティ（TS実装）を使用
+
   const updateClock = () => {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0')
@@ -36,7 +39,8 @@ export default function App() {
       ])
       const status = st.status || st.Status || 'WAITING'
       setActive(status === 'ACTIVE')
-      setUsers(Array.isArray(us) ? us : [])
+      const fetched = Array.isArray(us) ? us : []
+      setUsers(sortUsersStable(fetched))
       setErrorMsg('')
       console.log('✅ Auto refresh completed:', { status, userCount: (Array.isArray(us) ? us : []).length })
     } catch (e) {
@@ -209,7 +213,7 @@ export default function App() {
             </thead>
             <tbody className="divide-y divide-slate-200/80 dark:divide-white/10">
               {users.map((user,i)=> (
-                <tr key={`${user.channelId || user.displayName}-${i}`} className={`transition-colors duration-150 hover:bg-slate-100/60 dark:hover:bg-white/8 ${
+                <tr key={`${user.channelId || user.displayName}`} className={`transition-colors duration-150 hover:bg-slate-100/60 dark:hover:bg-white/8 ${
                   i % 2 === 0
                     ? 'bg-white/90 dark:bg-white/3'
                     : 'bg-slate-50/80 dark:bg-white/5'
