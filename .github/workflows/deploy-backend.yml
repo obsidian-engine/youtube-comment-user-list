@@ -14,8 +14,8 @@ jobs:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION: ${{ secrets.GCP_REGION }}
       SERVICE: yt-commenters
-      REPO: backend
-      IMAGE: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/backend/yt-commenters:${{ github.sha }}
+      REPO: docker
+      IMAGE: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker/yt-commenters:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
