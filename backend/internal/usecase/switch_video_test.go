@@ -28,7 +28,7 @@ func TestSwitchVideo_UsersClearedAndStateActive(t *testing.T) {
 	ctx := context.Background()
 
 	users := memory.NewUserRepo()
-	_ = users.Upsert("ch1", "to-be-cleared")
+	_ = users.UpsertWithJoinTime("ch1", "to-be-cleared", time.Now())
 	state := memory.NewStateRepo()
 	yt := &fakeYT{}
 	clock := fixedClock{t: time.Unix(1000, 0)}

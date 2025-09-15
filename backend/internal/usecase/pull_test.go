@@ -60,7 +60,7 @@ func TestPull_AddsUsers_NormalFlow(t *testing.T) {
 func TestPull_Ended_AutoReset(t *testing.T) {
 	ctx := context.Background()
 	users := memory.NewUserRepo()
-	_ = users.Upsert("ch1", "Alice") // 事前にユーザーを追加
+	_ = users.UpsertWithJoinTime("ch1", "Alice", time.Now()) // 事前にユーザーを追加
 	state := memory.NewStateRepo()
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
 	yt := &fakeYTForPull{items: nil, ended: true}

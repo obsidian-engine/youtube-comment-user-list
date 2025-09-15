@@ -1,13 +1,8 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { getStatus, getUsers, postPull, postReset, postSwitchVideo } from './utils/api'
 import { useAutoRefresh } from './hooks/useAutoRefresh'
 import { LoadingButton } from './components/LoadingButton'
 
-function seed() {
-  return [
-    'Alice','Bob','Charlie','Daphne','Eve','Frank','Grace','はなこ','たろう','👾 PixelCat','🍣 sushi-lover-0123456789','VeryVeryLongUserName_ABCDEFGHIJKLMNOPQRSTUVWX'
-  ]
-}
 
 export default function App() {
   const [active, setActive] = useState(false) // ACTIVE / WAITING
@@ -17,10 +12,12 @@ export default function App() {
   const [lastUpdated, setLastUpdated] = useState('--:--:--')
   const [errorMsg, setErrorMsg] = useState('')
   const [infoMsg, setInfoMsg] = useState('')
-  const [isSwitching, setIsSwitching] = useState(false)
-  const [isPulling, setIsPulling] = useState(false)
-  const [isResetting, setIsResetting] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [loadingStates, setLoadingStates] = useState({
+    switching: false,
+    pulling: false,
+    resetting: false,
+    refreshing: false
+  })
 
   const updateClock = () => {
     const d = new Date();
@@ -31,7 +28,7 @@ export default function App() {
   const refresh = useCallback(async () => {
     try {
       console.log('🔄 Auto refresh starting...', new Date().toLocaleTimeString())
-      setIsRefreshing(true)
+      setLoadingStates(prev => ({ ...prev, refreshing: true }))
       const ac = new AbortController()
       const [st, us] = await Promise.all([
         getStatus(ac.signal),
@@ -47,9 +44,25 @@ export default function App() {
       setErrorMsg('更新に失敗しました。しばらくしてから再試行してください。')
     } finally {
       updateClock()
-      setIsRefreshing(false)
+      setLoadingStates(prev => ({ ...prev, refreshing: false }))
     }
   }, [])
+
+  // 共通のasyncActionハンドラー
+  const handleAsyncAction = useCallback(async (action, loadingKey, successMsg, errorMsgPrefix = '') => {
+    try {
+      setLoadingStates(prev => ({ ...prev, [loadingKey]: true }))
+      await action()
+      setErrorMsg('')
+      setInfoMsg(successMsg)
+      await refresh()
+    } catch(e) {
+      setErrorMsg(`${errorMsgPrefix}に失敗しました。${loadingKey === 'switching' ? '配信開始後に再度お試しください。' : ''}`)
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [loadingKey]: false }))
+      setTimeout(() => setInfoMsg(''), 2000)
+    }
+  }, [refresh])
 
   useEffect(() => { refresh() }, [refresh])
 
@@ -113,68 +126,52 @@ export default function App() {
                   onChange={(e)=>setVideoId(e.target.value)}
                   placeholder="videoId を入力"
                   className="flex-1 px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]"
-                  disabled={isSwitching}
+                  disabled={loadingStates.switching}
                 />
                 <LoadingButton
                   ariaLabel="切替"
-                  isLoading={isSwitching}
+                  isLoading={loadingStates.switching}
                   loadingText="切替中…"
                   onClick={async ()=>{
                     if(!videoId){ setErrorMsg('videoId を入力してください。'); return }
-                    try {
-                      setIsSwitching(true)
-                      await postSwitchVideo(videoId)
-                      localStorage.setItem('videoId', videoId)
-                      setErrorMsg('')
-                      setInfoMsg('切替しました')
-                      await refresh()
-                    } catch(e) {
-                      setErrorMsg('切替に失敗しました。配信開始後に再度お試しください。')
-                    } finally {
-                      setIsSwitching(false)
-                      setTimeout(()=>setInfoMsg(''), 2000)
-                    }
+                    await handleAsyncAction(
+                      async () => {
+                        await postSwitchVideo(videoId)
+                        localStorage.setItem('videoId', videoId)
+                      },
+                      'switching',
+                      '切替しました',
+                      '切替'
+                    )
                   }}
                 >切替</LoadingButton>
               </div>
               <div className="md:col-span-4 flex gap-2.5 justify-start md:justify-end">
                 <LoadingButton
                   ariaLabel="今すぐ取得"
-                  isLoading={isPulling}
+                  isLoading={loadingStates.pulling}
                   loadingText="取得中…"
                   onClick={async ()=>{
-                    try {
-                      setIsPulling(true)
-                      await postPull()
-                      setErrorMsg('')
-                      setInfoMsg('取得しました')
-                      await refresh()
-                    } catch(e) {
-                      setErrorMsg('取得に失敗しました。')
-                    } finally {
-                      setIsPulling(false)
-                      setTimeout(()=>setInfoMsg(''), 2000)
-                    }
+                    await handleAsyncAction(
+                      () => postPull(),
+                      'pulling',
+                      '取得しました',
+                      '取得'
+                    )
                   }}
                 >今すぐ取得</LoadingButton>
                 <LoadingButton
                   variant="outline"
                   ariaLabel="リセット"
-                  isLoading={isResetting}
+                  isLoading={loadingStates.resetting}
                   loadingText="リセット中…"
                   onClick={async ()=>{
-                    try {
-                      setIsResetting(true)
-                      await postReset()
-                      setErrorMsg('')
-                      setInfoMsg('リセットしました')
-                      await refresh()
-                    } catch(e) {
-                      setErrorMsg('リセットに失敗しました。')
-                    } finally {
-                      setIsResetting(false)
-                      setTimeout(()=>setInfoMsg(''), 2000)
-                    }
+                    await handleAsyncAction(
+                      () => postReset(),
+                      'resetting',
+                      'リセットしました',
+                      'リセット'
+                    )
                   }}
                 >リセット</LoadingButton>
               </div>

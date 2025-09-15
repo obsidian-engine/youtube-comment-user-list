@@ -9,45 +9,27 @@ import (
 )
 
 type UserRepo struct {
-	mu         sync.RWMutex
-	byChan     map[string]string    // channelID -> displayName (backward compatibility)
-	usersByID  map[string]domain.User // channelID -> User with join time
+	mu        sync.RWMutex
+	usersByID map[string]domain.User // channelID -> User with join time
 }
 
 func NewUserRepo() *UserRepo {
 	return &UserRepo{
-		byChan:    make(map[string]string),
 		usersByID: make(map[string]domain.User),
 	}
 }
 
-func (r *UserRepo) Upsert(channelID string, displayName string) error {
-	r.mu.Lock()
-	r.byChan[channelID] = displayName
-	r.mu.Unlock()
-	return nil
-}
 
-func (r *UserRepo) ListDisplayNames() []string {
-	r.mu.RLock()
-	names := make([]string, 0, len(r.byChan))
-	for _, n := range r.byChan {
-		names = append(names, n)
-	}
-	r.mu.RUnlock()
-	return names
-}
 
 func (r *UserRepo) Count() int {
 	r.mu.RLock()
-	c := len(r.byChan)
+	c := len(r.usersByID)
 	r.mu.RUnlock()
 	return c
 }
 
 func (r *UserRepo) Clear() {
 	r.mu.Lock()
-	r.byChan = make(map[string]string)
 	r.usersByID = make(map[string]domain.User)
 	r.mu.Unlock()
 }
@@ -57,9 +39,6 @@ func (r *UserRepo) Clear() {
 func (r *UserRepo) UpsertWithJoinTime(channelID string, displayName string, joinedAt time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
-	// 後方互換性のためにbyChannも更新
-	r.byChan[channelID] = displayName
 
 	// 既存ユーザーの場合は参加時間を保持
 	if existingUser, exists := r.usersByID[channelID]; exists {
