@@ -50,9 +50,15 @@ export function LoadingButton({
       aria-label={effectiveAriaLabel}
       aria-busy={isLoading}
       disabled={isDisabled}
-      onClick={() => {
+      onClick={async () => {
         if (isDisabled) return
-        onClick?.()
+        try {
+          await onClick?.()
+        } catch (error) {
+          // エラーをログに記録して再スロー
+          console.error('LoadingButton onClick error:', error)
+          throw error
+        }
       }}
       className={`${clsByVariant[variant]} ${clsBySize[size]} ${className}`}
     >
