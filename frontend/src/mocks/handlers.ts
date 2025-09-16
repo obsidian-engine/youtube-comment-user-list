@@ -4,6 +4,8 @@ type User = {
   channelId: string
   displayName: string
   joinedAt: string
+  commentCount?: number
+  firstCommentAt?: string
 }
 
 // 簡易なメモリ状態（各テストで server.use で上書き可）

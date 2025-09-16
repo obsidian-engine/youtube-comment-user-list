@@ -11,6 +11,7 @@ export default function App() {
   const [videoId, setVideoId] = useState(() => localStorage.getItem('videoId') || '')
   const [intervalSec, setIntervalSec] = useState(30)
   const [lastUpdated, setLastUpdated] = useState('--:--:--')
+  const [lastFetchTime, setLastFetchTime] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [infoMsg, setInfoMsg] = useState('')
   const [loadingStates, setLoadingStates] = useState({
@@ -59,6 +60,14 @@ export default function App() {
       await action()
       setErrorMsg('')
       setInfoMsg(successMsg)
+
+      // 取得系アクション（pulling）の場合は取得時刻を更新
+      if (loadingKey === 'pulling') {
+        const now = new Date()
+        const pad = (n) => String(n).padStart(2, '0')
+        setLastFetchTime(`最終取得: ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`)
+      }
+
       await refresh()
     } catch(e) {
       setErrorMsg(`${errorMsgPrefix}に失敗しました。${loadingKey === 'switching' ? '配信開始後に再度お試しください。' : ''}`)
@@ -181,6 +190,12 @@ export default function App() {
               </div>
             </div>
 
+            <div className="mt-3 text-right">
+              <span className="text-sm text-slate-600 dark:text-slate-300" data-testid="last-fetch-time">
+                {lastFetchTime}
+              </span>
+            </div>
+
             <div className="mt-4 grid gap-3 md:grid-cols-12">
               <div className="md:col-span-3">
                 <label htmlFor="interval" className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">自動間隔</label>
@@ -201,6 +216,32 @@ export default function App() {
           </div>
         )}
 
+        {/* Operation Guide */}
+        <section className="rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur" aria-label="操作方法">
+          <div className="p-5 md:p-6">
+            <h2 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">操作方法</h2>
+            <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+              <div>
+                <span className="font-medium">YouTube動画のURLまたはvideoIdを入力</span>してから切替ボタンをクリックしてください。
+              </div>
+              <div className="grid gap-2 md:grid-cols-3">
+                <div>
+                  <span className="font-medium text-slate-700 dark:text-slate-200">切替:</span> 指定した動画の監視を開始します
+                </div>
+                <div>
+                  <span className="font-medium text-slate-700 dark:text-slate-200">今すぐ取得:</span> 手動でコメントを取得します
+                </div>
+                <div>
+                  <span className="font-medium text-slate-700 dark:text-slate-200">リセット:</span> 現在の参加者リストをクリアします
+                </div>
+              </div>
+              <div>
+                <span className="font-medium text-slate-700 dark:text-slate-200">自動間隔:</span> 設定した間隔でデータを更新します（0で停止）
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Table */}
         <section className="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur">
           <table className="w-full table-auto text-[14px] leading-7">
@@ -208,6 +249,8 @@ export default function App() {
               <tr>
                 <th className="text-left px-4 py-3.5 w-[72px] font-semibold text-[13px] tracking-wide uppercase">#</th>
                 <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">名前</th>
+                <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">発言数</th>
+                <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">初回コメント</th>
                 <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">参加時間</th>
               </tr>
             </thead>
@@ -220,8 +263,14 @@ export default function App() {
                 }`}>
                   <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium">{String(i+1).padStart(2,'0')}</td>
                   <td className="px-4 py-3 truncate-1 text-slate-800 dark:text-slate-200 font-medium" title={user.displayName || user}>{user.displayName || user}</td>
+                  <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium" data-testid={`comment-count-${i}`}>
+                    {user.commentCount ?? 0}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px]" data-testid={`first-comment-${i}`}>
+                    {user.firstCommentAt ? new Date(user.firstCommentAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' }) : '--:--'}
+                  </td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px]">
-                    {user.joinedAt ? new Date(user.joinedAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                    {user.joinedAt ? new Date(user.joinedAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' }) : '--:--'}
                   </td>
                 </tr>
               ))}
