@@ -36,7 +36,7 @@ func TestPull_AddsUsers_NormalFlow(t *testing.T) {
 	users := memory.NewUserRepo()
 	state := memory.NewStateRepo()
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
-	yt := &fakeYTForPull{items: []port.ChatMessage{{ChannelID: "ch1", DisplayName: "Alice"}}, ended: false}
+	yt := &fakeYTForPull{items: []port.ChatMessage{{ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)}}, ended: false}
 	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
 	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
@@ -78,9 +78,9 @@ func TestPull_MultipleComments_IncrementCount(t *testing.T) {
 	
 	// ch1が2回、ch2が1回コメントするシナリオ
 	yt := &fakeYTForPull{items: []port.ChatMessage{
-		{ChannelID: "ch1", DisplayName: "Alice"},
-		{ChannelID: "ch2", DisplayName: "Bob"},
-		{ChannelID: "ch1", DisplayName: "Alice"},
+		{ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)},
+		{ChannelID: "ch2", DisplayName: "Bob", PublishedAt: time.Date(2023, 1, 1, 11, 35, 0, 0, time.UTC)},
+		{ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 40, 0, 0, time.UTC)},
 	}, ended: false}
 	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
@@ -165,7 +165,7 @@ func TestPull_WaitingState_NoOperation(t *testing.T) {
 	users := memory.NewUserRepo()
 	state := memory.NewStateRepo()
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusWaiting, VideoID: "v", LiveChatID: ""})
-	yt := &fakeYTForPull{items: []port.ChatMessage{{ChannelID: "ch1", DisplayName: "Alice"}}, ended: false}
+	yt := &fakeYTForPull{items: []port.ChatMessage{{ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)}}, ended: false}
 	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
 	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
@@ -193,9 +193,9 @@ func TestPull_MultipleUsers_AddedCorrectly(t *testing.T) {
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
 	yt := &fakeYTForPull{
 		items: []port.ChatMessage{
-			{ChannelID: "ch1", DisplayName: "Alice"},
-			{ChannelID: "ch2", DisplayName: "Bob"},
-			{ChannelID: "ch3", DisplayName: "Charlie"},
+			{ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)},
+			{ChannelID: "ch2", DisplayName: "Bob", PublishedAt: time.Date(2023, 1, 1, 11, 35, 0, 0, time.UTC)},
+			{ChannelID: "ch3", DisplayName: "Charlie", PublishedAt: time.Date(2023, 1, 1, 11, 40, 0, 0, time.UTC)},
 		},
 		ended: false,
 	}

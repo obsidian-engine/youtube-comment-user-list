@@ -1,11 +1,15 @@
 package port
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // ChatMessage は YouTube Live Chat のメッセージの最小情報です。
 type ChatMessage struct {
 	ChannelID   string
 	DisplayName string
+	PublishedAt time.Time
 }
 
 // YouTubePort は YouTube API 呼び出しを抽象化します。
