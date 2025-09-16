@@ -46,8 +46,8 @@ describe('初回コメント日時保持・表示機能', () => {
 
     render(<App />)
 
-    expect(await screen.findByTestId('first-comment-0')).toHaveTextContent('12:05')
-    expect(screen.getByTestId('first-comment-1')).toHaveTextContent('12:35')
+    expect(await screen.findByTestId('first-comment-0')).toHaveTextContent('21:05')
+    expect(screen.getByTestId('first-comment-1')).toHaveTextContent('21:35')
   })
 
   test('初回コメント日時の時刻フォーマットが正しい', async () => {
@@ -62,7 +62,7 @@ describe('初回コメント日時保持・表示機能', () => {
 
     render(<App />)
 
-    // 時刻が09:08として表示されることを確認（日本時間フォーマット）
+    // 時刻が18:08として表示されることを確認（日本時間フォーマット）
     expect(await screen.findByTestId('first-comment-0')).toHaveTextContent('18:08')
   })
 })

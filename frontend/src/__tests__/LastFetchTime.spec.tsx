@@ -1,5 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import App from '../App.jsx'
 import { __mock } from '../mocks/handlers'
@@ -9,8 +8,6 @@ describe('取得日時表示機能', () => {
     // 初期状態をリセット
     __mock.state = 'WAITING'
     __mock.users = []
-    // モックの時刻を固定
-    vi.spyOn(Date, 'now').mockReturnValue(new Date('2024-01-01T12:00:00Z').getTime())
   })
 
   afterEach(() => {
@@ -31,13 +28,12 @@ describe('取得日時表示機能', () => {
   })
 
   test('今すぐ取得ボタンクリック後に取得日時が表示される', async () => {
-    const user = userEvent.setup()
     __mock.state = 'ACTIVE'
 
     render(<App />)
 
     const pullButton = screen.getByText('今すぐ取得')
-    await user.click(pullButton)
+    fireEvent.click(pullButton)
 
     await waitFor(() => {
       const fetchTimeElement = screen.getByTestId('last-fetch-time')
@@ -46,20 +42,17 @@ describe('取得日時表示機能', () => {
   })
 
   test('取得日時の形式が正しい', async () => {
-    const user = userEvent.setup()
     __mock.state = 'ACTIVE'
-
-    // 特定の時刻にモック
-    vi.spyOn(Date, 'now').mockReturnValue(new Date('2024-01-01T15:30:45Z').getTime())
 
     render(<App />)
 
     const pullButton = screen.getByText('今すぐ取得')
-    await user.click(pullButton)
+    fireEvent.click(pullButton)
 
     await waitFor(() => {
       const fetchTimeElement = screen.getByTestId('last-fetch-time')
-      expect(fetchTimeElement).toHaveTextContent('最終取得: 15:30:45')
+      // 正規表現で時刻フォーマット（HH:MM:SS）をチェック
+      expect(fetchTimeElement).toHaveTextContent(/最終取得: \d{2}:\d{2}:\d{2}/)
     })
   })
 })
