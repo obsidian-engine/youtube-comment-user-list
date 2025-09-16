@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
@@ -58,10 +59,17 @@ func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (string, 
 
 	if video.LiveStreamingDetails.ActiveLiveChatId == "" {
 		log.Printf("[YOUTUBE_API] Live chat is not active for video: %s", videoID)
-		// モック用のライブチャットIDを返す（テスト用）
-		mockLiveChatID := "live:" + videoID + ":chat"
-		log.Printf("[YOUTUBE_API] Returning mock liveChatID: %s", mockLiveChatID)
-		return mockLiveChatID, nil
+		
+		// 開発・テスト環境でのみモックレスポンスを返す
+		env := os.Getenv("GO_ENV")
+		if env == "development" || env == "test" || env == "" {
+			mockLiveChatID := "live:" + videoID + ":chat"
+			log.Printf("[YOUTUBE_API] Returning mock liveChatID for %s environment: %s", env, mockLiveChatID)
+			return mockLiveChatID, nil
+		}
+		
+		// 本番環境では実際のエラーを返す
+		return "", errors.New("live chat is not active")
 	}
 
 	liveChatID := video.LiveStreamingDetails.ActiveLiveChatId

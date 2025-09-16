@@ -27,6 +27,9 @@ func main() {
 		log.Fatalf("Configuration error: %v", err)
 	}
 
+	// ログ設定を適用
+	cfg.SetupLogger()
+
 	// Adapters
 	users := memory.NewUserRepo()
 	state := memory.NewStateRepo()
