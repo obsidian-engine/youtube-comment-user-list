@@ -71,7 +71,10 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			return
 		}
 
+		log.Printf("[SWITCH_VIDEO] Received videoId: '%s' (length: %d)", req.VideoID, len(req.VideoID))
+
 		// URL形式の場合はvideo_idを抽出
+		log.Printf("[SWITCH_VIDEO] Calling ExtractVideoID with: '%s'", req.VideoID)
 		videoID, err := ExtractVideoID(req.VideoID)
 		if err != nil {
 			log.Printf("[SWITCH_VIDEO] Invalid video ID or URL: %v", err)
@@ -79,7 +82,8 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			return
 		}
 
-		log.Printf("[SWITCH_VIDEO] Switching to video: %s (extracted from: %s)", videoID, req.VideoID)
+		log.Printf("[SWITCH_VIDEO] Successfully extracted videoID: '%s' (length: %d) from: '%s'", videoID, len(videoID), req.VideoID)
+		log.Printf("[SWITCH_VIDEO] Calling SwitchVideo.Execute with videoID: '%s'", videoID)
 		out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: videoID})
 		if err != nil {
 			log.Printf("[SWITCH_VIDEO] Execute error: %v", err)
