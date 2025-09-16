@@ -267,7 +267,7 @@ export default function App() {
                     {user.commentCount ?? 0}
                   </td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px]" data-testid={`first-comment-${i}`}>
-                    {user.firstCommentAt ? new Date(user.firstCommentAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' }) : '--:--'}
+                    {user.firstCommentAt && user.firstCommentAt !== '' ? new Date(user.firstCommentAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' }) : '--:--'}
                   </td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px]">
                     {user.joinedAt ? new Date(user.joinedAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' }) : '--:--'}
