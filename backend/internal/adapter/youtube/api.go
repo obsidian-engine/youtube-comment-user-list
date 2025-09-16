@@ -95,11 +95,16 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 	if err != nil {
 		log.Printf("[YOUTUBE_API] API call failed: %v", err)
 
-		// 403エラーやliveChatDisabled等で配信終了を検知
-		if strings.Contains(err.Error(), "forbidden") ||
-			strings.Contains(err.Error(), "liveChatDisabled") ||
-			strings.Contains(err.Error(), "liveChatEnded") {
-			log.Printf("[YOUTUBE_API] Live chat ended or disabled")
+		// より詳細な配信終了検知条件
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "forbidden") ||
+			strings.Contains(errMsg, "livechatdisabled") ||
+			strings.Contains(errMsg, "livechatended") ||
+			strings.Contains(errMsg, "livechatnotfound") ||
+			strings.Contains(errMsg, "chatdisabled") ||
+			strings.Contains(errMsg, "livechatnotactive") ||
+			(strings.Contains(errMsg, "notfound") && strings.Contains(errMsg, "livechat")) {
+			log.Printf("[YOUTUBE_API] Live chat ended or disabled - Error: %s", errMsg)
 			return nil, true, nil
 		}
 
