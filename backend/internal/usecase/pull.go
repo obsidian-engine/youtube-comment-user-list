@@ -43,9 +43,9 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		// ユーザークリア
 		uc.Users.Clear()
 
-		// WAITINGに戻す
+		// WAITINGに戻す（現在時刻を終了時刻として設定）
 		state.Status = domain.StatusWaiting
-		state.EndedAt = state.StartedAt // 簡易的に開始時刻を終了時刻として設定
+		state.EndedAt = uc.Clock.Now()
 		if err := uc.State.Set(ctx, state); err != nil {
 			return PullOutput{}, err
 		}
