@@ -68,9 +68,9 @@ describe('Controls コンポーネント', () => {
     })
   })
 
-  test('videoIdが空の場合、切替ボタンクリックでエラーになる', async () => {
-    const mockOnSwitch = vi.fn().mockRejectedValue(new Error('videoId を入力してください。'))
-    render(<Controls {...mockProps} videoId="" onSwitch={mockOnSwitch} />)
+  test('切替ボタンクリック時にonSwitchが呼ばれる', async () => {
+    const mockOnSwitch = vi.fn().mockResolvedValue(undefined)
+    render(<Controls {...mockProps} videoId="test-video-id" onSwitch={mockOnSwitch} />)
 
     const switchButton = screen.getByRole('button', { name: '切替' })
     fireEvent.click(switchButton)
