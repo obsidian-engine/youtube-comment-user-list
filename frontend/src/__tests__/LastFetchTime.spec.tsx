@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { vi } from 'vitest'
 import App from '../App.jsx'
 import { __mock } from '../mocks/handlers'
 
@@ -9,11 +10,11 @@ describe('取得日時表示機能', () => {
     __mock.state = 'WAITING'
     __mock.users = []
     // モックの時刻を固定
-    jest.spyOn(Date, 'now').mockReturnValue(new Date('2024-01-01T12:00:00Z').getTime())
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2024-01-01T12:00:00Z').getTime())
   })
 
   afterEach(() => {
-    jest.restoreAllMocks()
+    vi.restoreAllMocks()
   })
 
   test('今すぐ取得ボタンの下に取得日時表示エリアが存在する', async () => {
@@ -49,7 +50,7 @@ describe('取得日時表示機能', () => {
     __mock.state = 'ACTIVE'
 
     // 特定の時刻にモック
-    jest.spyOn(Date, 'now').mockReturnValue(new Date('2024-01-01T15:30:45Z').getTime())
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2024-01-01T15:30:45Z').getTime())
 
     render(<App />)
 
