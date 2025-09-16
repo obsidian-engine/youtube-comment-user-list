@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,7 +20,11 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load()
+	err := godotenv.Load(".env")
+	if err != nil {
+		fmt.Printf("can not read env file.: %v", err)
+		return
+	}
 
 	// 設定の読み込みと検証
 	cfg, err := config.Load()
