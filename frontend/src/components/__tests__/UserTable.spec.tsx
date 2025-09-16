@@ -26,7 +26,6 @@ describe('UserTable コンポーネント', () => {
     expect(screen.getByText('名前')).toBeInTheDocument()
     expect(screen.getByText('発言数')).toBeInTheDocument()
     expect(screen.getByText('初回コメント')).toBeInTheDocument()
-    expect(screen.getByText('参加時間')).toBeInTheDocument()
   })
 
   test('ユーザー情報が正しく表示される', () => {
@@ -51,14 +50,6 @@ describe('UserTable コンポーネント', () => {
     expect(screen.getByTestId('first-comment-1')).toHaveTextContent('21:32')
   })
 
-  test('参加時間が正しく表示される', () => {
-    render(<UserTable users={mockUsers} />)
-
-    // テストIDは生成されないが、内容で確認
-    const rows = screen.getAllByRole('row')
-    expect(rows[1]).toHaveTextContent('21:00') // 1番目のユーザーの参加時間
-    expect(rows[2]).toHaveTextContent('21:30') // 2番目のユーザーの参加時間
-  })
 
   test('firstCommentedAtがない場合--:--が表示される', () => {
     const usersWithoutFirstComment = [
