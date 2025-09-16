@@ -9,11 +9,12 @@ import (
 )
 
 type StatusOutput struct {
-	Status    domain.Status
-	Count     int
-	VideoID   string
-	StartedAt time.Time
-	EndedAt   time.Time
+	Status       domain.Status
+	Count        int
+	VideoID      string
+	StartedAt    time.Time
+	EndedAt      time.Time
+	LastPulledAt time.Time
 }
 
 type Status struct {
@@ -32,10 +33,11 @@ func (uc *Status) Execute(ctx context.Context) (StatusOutput, error) {
 	count := uc.Users.Count()
 
 	return StatusOutput{
-		Status:    state.Status,
-		Count:     count,
-		VideoID:   state.VideoID,
-		StartedAt: state.StartedAt,
-		EndedAt:   state.EndedAt,
+		Status:       state.Status,
+		Count:        count,
+		VideoID:      state.VideoID,
+		StartedAt:    state.StartedAt,
+		EndedAt:      state.EndedAt,
+		LastPulledAt: state.LastPulledAt,
 	}, nil
 }

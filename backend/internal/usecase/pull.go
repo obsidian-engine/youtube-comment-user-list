@@ -45,7 +45,7 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 
 		// WAITINGに戻す
 		state.Status = domain.StatusWaiting
-		state.EndedAt = state.StartedAt // 簡易的に開始時刻を終了時刻として設定
+		state.EndedAt = uc.Clock.Now()
 		if err := uc.State.Set(ctx, state); err != nil {
 			return PullOutput{}, err
 		}
@@ -61,6 +61,12 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 			return PullOutput{}, err
 		}
 		addedCount++
+	}
+
+	// 最終取得日時を更新
+	state.LastPulledAt = now
+	if err := uc.State.Set(ctx, state); err != nil {
+		return PullOutput{}, err
 	}
 
 	return PullOutput{AddedCount: addedCount, AutoReset: false}, nil
