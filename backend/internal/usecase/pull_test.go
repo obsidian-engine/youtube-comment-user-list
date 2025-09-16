@@ -55,6 +55,65 @@ func TestPull_AddsUsers_NormalFlow(t *testing.T) {
 	if users.Count() != 1 {
 		t.Errorf("Users.Count() = %d, want 1", users.Count())
 	}
+	
+	// 発言数が1であることを確認
+	userList := users.ListUsersSortedByJoinTime()
+	if len(userList) != 1 {
+		t.Errorf("UserList length = %d, want 1", len(userList))
+	}
+	if userList[0].CommentCount != 1 {
+		t.Errorf("CommentCount = %d, want 1", userList[0].CommentCount)
+	}
+	// FirstCommentedAtが設定されていることを確認
+	if userList[0].FirstCommentedAt.IsZero() {
+		t.Errorf("FirstCommentedAt is zero, want non-zero")
+	}
+}
+
+func TestPull_MultipleComments_IncrementCount(t *testing.T) {
+	ctx := context.Background()
+	users := memory.NewUserRepo()
+	state := memory.NewStateRepo()
+	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
+	
+	// ch1が2回、ch2が1回コメントするシナリオ
+	yt := &fakeYTForPull{items: []port.ChatMessage{
+		{ChannelID: "ch1", DisplayName: "Alice"},
+		{ChannelID: "ch2", DisplayName: "Bob"},
+		{ChannelID: "ch1", DisplayName: "Alice"},
+	}, ended: false}
+	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
+
+	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
+	_, err := uc.Execute(ctx)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	// ユーザー数が2であることを確認
+	if users.Count() != 2 {
+		t.Errorf("Users.Count() = %d, want 2", users.Count())
+	}
+	
+	userList := users.ListUsersSortedByJoinTime()
+	// ch1の発言数が2であることを確認
+	for _, user := range userList {
+		if user.ChannelID == "ch1" {
+			if user.CommentCount != 2 {
+				t.Errorf("ch1 CommentCount = %d, want 2", user.CommentCount)
+			}
+			if user.FirstCommentedAt.IsZero() {
+				t.Errorf("ch1 FirstCommentedAt is zero, want non-zero")
+			}
+		} else if user.ChannelID == "ch2" {
+			if user.CommentCount != 1 {
+				t.Errorf("ch2 CommentCount = %d, want 1", user.CommentCount)
+			}
+			if user.FirstCommentedAt.IsZero() {
+				t.Errorf("ch2 FirstCommentedAt is zero, want non-zero")
+			}
+		}
+	}
 }
 
 func TestPull_Ended_AutoReset(t *testing.T) {

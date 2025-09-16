@@ -37,11 +37,12 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 
 		log.Printf("[STATUS] Current status: %s, Users: %d", out.Status, out.Count)
 		response := map[string]interface{}{
-			"status":    string(out.Status),
-			"count":     out.Count,
-			"videoId":   out.VideoID,
-			"startedAt": out.StartedAt,
-			"endedAt":   out.EndedAt,
+			"status":       string(out.Status),
+			"count":        out.Count,
+			"videoId":      out.VideoID,
+			"startedAt":    out.StartedAt,
+			"endedAt":      out.EndedAt,
+			"lastPulledAt": out.LastPulledAt,
 		}
 		render.JSON(w, r, response)
 	})
@@ -87,32 +88,34 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		}
 		render.JSON(w, r, response)
 	})
+
 	r.Post("/pull", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		log.Printf("[PULL] Processing pull request")
 		out, err := h.Pull.Execute(r.Context())
 		if err != nil {
-			log.Printf("[PULL] Execute error: %v", err)
-			renderInternalError(w, r, "Failed to pull messages: "+err.Error())
+			log.Printf("[PULL] Error: %v", err)
+			renderInternalError(w, r, "Failed to pull messages")
 			return
 		}
 
-		log.Printf("[PULL] Successfully pulled %d messages, autoReset: %v", out.AddedCount, out.AutoReset)
+		log.Printf("[PULL] Added %d users, AutoReset: %v", out.AddedCount, out.AutoReset)
 		response := map[string]interface{}{
 			"addedCount": out.AddedCount,
 			"autoReset":  out.AutoReset,
 		}
 		render.JSON(w, r, response)
 	})
+
 	r.Post("/reset", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		log.Printf("[RESET] Processing reset request")
 		out, err := h.Reset.Execute(r.Context())
 		if err != nil {
-			log.Printf("[RESET] Execute error: %v", err)
-			renderInternalError(w, r, "Failed to reset: "+err.Error())
+			log.Printf("[RESET] Error: %v", err)
+			renderInternalError(w, r, "Failed to reset")
 			return
 		}
 
-		log.Printf("[RESET] Successfully reset, status: %s", out.State.Status)
+		log.Printf("[RESET] Reset complete, status: %s", out.State.Status)
 		response := map[string]interface{}{
 			"status": string(out.State.Status),
 		}

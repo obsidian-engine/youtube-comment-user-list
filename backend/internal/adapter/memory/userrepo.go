@@ -40,16 +40,19 @@ func (r *UserRepo) UpsertWithJoinTime(channelID string, displayName string, join
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// 既存ユーザーの場合は参加時間を保持
+	// 既存ユーザーの場合は参加時間を保持、発言数をインクリメント
 	if existingUser, exists := r.usersByID[channelID]; exists {
 		existingUser.DisplayName = displayName // 表示名は更新
+		existingUser.CommentCount++            // 発言数をインクリメント
 		r.usersByID[channelID] = existingUser
 	} else {
 		// 新規ユーザーの場合
 		r.usersByID[channelID] = domain.User{
-			ChannelID:   channelID,
-			DisplayName: displayName,
-			JoinedAt:    joinedAt,
+			ChannelID:        channelID,
+			DisplayName:      displayName,
+			JoinedAt:         joinedAt,
+			CommentCount:     1,       // 初回コメントなので1
+			FirstCommentedAt: joinedAt, // 初回コメント時刻
 		}
 	}
 
