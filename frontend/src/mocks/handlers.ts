@@ -5,7 +5,7 @@ type User = {
   displayName: string
   joinedAt: string
   commentCount?: number
-  firstCommentAt?: string
+  firstCommentedAt?: string
 }
 
 // 簡易なメモリ状態（各テストで server.use で上書き可）
@@ -49,7 +49,7 @@ export const handlers = [
       channelId: `UC${users.length + 1}`,
       displayName: `User-${users.length + 1}`,
       joinedAt: now,
-      firstCommentAt: now  // 初回コメント日時を設定
+      firstCommentedAt: now  // 初回コメント日時を設定
     })
     return new HttpResponse(null, { status: 200 })
   }),

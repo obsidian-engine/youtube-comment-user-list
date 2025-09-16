@@ -34,13 +34,13 @@ describe('初回コメント日時保持・表示機能', () => {
         channelId: 'UC1',
         displayName: 'TestUser1',
         joinedAt: '2024-01-01T12:00:00Z',
-        firstCommentAt: '2024-01-01T12:05:30Z'
+        firstCommentedAt: '2024-01-01T12:05:30Z'
       },
       {
         channelId: 'UC2',
         displayName: 'TestUser2',
         joinedAt: '2024-01-01T12:30:00Z',
-        firstCommentAt: '2024-01-01T12:35:15Z'
+        firstCommentedAt: '2024-01-01T12:35:15Z'
       }
     ]
 
@@ -56,7 +56,7 @@ describe('初回コメント日時保持・表示機能', () => {
         channelId: 'UC1',
         displayName: 'TestUser1',
         joinedAt: '2024-01-01T09:05:00Z',
-        firstCommentAt: '2024-01-01T09:08:45Z'
+        firstCommentedAt: '2024-01-01T09:08:45Z'
       }
     ]
 
@@ -79,13 +79,13 @@ describe('初回コメント日時保持・表示機能', () => {
     expect(await screen.findByTestId('first-comment-0')).not.toHaveTextContent('--:--')
   })
 
-  test('firstCommentAtが空文字列の場合は「--:--」が表示される', async () => {
+  test('firstCommentedAtが空文字列の場合は「--:--」が表示される', async () => {
     __mock.users = [
       {
         channelId: 'UC1',
         displayName: 'TestUser1',
         joinedAt: '2024-01-01T12:00:00Z',
-        firstCommentAt: ''  // 空文字列
+        firstCommentedAt: ''  // 空文字列
       }
     ]
 
