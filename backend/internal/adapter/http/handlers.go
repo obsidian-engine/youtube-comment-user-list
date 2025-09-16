@@ -71,8 +71,16 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			return
 		}
 
-		log.Printf("[SWITCH_VIDEO] Switching to video: %s", req.VideoID)
-		out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: req.VideoID})
+		// URL形式の場合はvideo_idを抽出
+		videoID, err := ExtractVideoID(req.VideoID)
+		if err != nil {
+			log.Printf("[SWITCH_VIDEO] Invalid video ID or URL: %v", err)
+			renderBadRequest(w, r, "Invalid video ID or URL: "+err.Error())
+			return
+		}
+
+		log.Printf("[SWITCH_VIDEO] Switching to video: %s (extracted from: %s)", videoID, req.VideoID)
+		out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: videoID})
 		if err != nil {
 			log.Printf("[SWITCH_VIDEO] Execute error: %v", err)
 			renderBadGateway(w, r, "Failed to switch video: "+err.Error())
