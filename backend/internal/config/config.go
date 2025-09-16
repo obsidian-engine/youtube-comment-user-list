@@ -32,6 +32,22 @@ func Load() (*Config, error) {
 	return config, nil
 }
 
+// SetupLogger はログレベルに応じてログ設定を行います
+func (c *Config) SetupLogger() {
+	switch c.LogLevel {
+	case "debug":
+		log.SetFlags(log.LstdFlags | log.Lshortfile)
+	case "info":
+		log.SetFlags(log.LstdFlags)
+	case "warn", "error":
+		log.SetFlags(log.LstdFlags)
+	default:
+		log.SetFlags(log.LstdFlags)
+	}
+	
+	log.Printf("Logger configured with level: %s", c.LogLevel)
+}
+
 // Validate は設定の妥当性を検証します
 func (c *Config) Validate() error {
 	// ポート番号の検証
@@ -39,10 +55,20 @@ func (c *Config) Validate() error {
 		return errors.New("PORT must be a valid port number (1-65535)")
 	}
 
-	// YouTubeAPIKeyは本番環境では必須（開発・テスト環境では任意）
+	// 環境変数の取得
 	env := getEnv("GO_ENV", "development")
-	if env == "production" && c.YouTubeAPIKey == "" {
-		return errors.New("YT_API_KEY is required in production environment")
+
+	// 本番環境での必須項目チェック
+	if env == "production" {
+		// YouTubeAPIKeyは本番環境では必須
+		if c.YouTubeAPIKey == "" {
+			return errors.New("YT_API_KEY is required in production environment")
+		}
+		
+		// FrontendOriginは本番環境では必須（CORS設定のため）
+		if c.FrontendOrigin == "" {
+			return errors.New("FRONTEND_ORIGIN is required in production environment")
+		}
 	}
 
 	// ログレベルの検証
@@ -52,6 +78,7 @@ func (c *Config) Validate() error {
 	}
 
 	log.Printf("Config loaded successfully:")
+	log.Printf("  Environment: %s", env)
 	log.Printf("  Port: %s", c.Port)
 	log.Printf("  Frontend Origin: %s", maskString(c.FrontendOrigin))
 	log.Printf("  YouTube API Key: %s", maskString(c.YouTubeAPIKey))
