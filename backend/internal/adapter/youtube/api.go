@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"google.golang.org/api/option"
@@ -131,17 +132,27 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 	// レスポンスからメッセージを変換
 	var messages []port.ChatMessage
 	for _, item := range response.Items {
-		if item.AuthorDetails != nil {
+		if item.AuthorDetails != nil && item.Snippet != nil {
+			// publishedAtを解析
+			publishedAt, err := time.Parse(time.RFC3339, item.Snippet.PublishedAt)
+			if err != nil {
+				log.Printf("[YOUTUBE_API] Failed to parse publishedAt: %v", err)
+				// エラーの場合は現在時刻を使用
+				publishedAt = time.Now()
+			}
+
 			messages = append(messages, port.ChatMessage{
 				ChannelID:   item.AuthorDetails.ChannelId,
 				DisplayName: item.AuthorDetails.DisplayName,
+				PublishedAt: publishedAt,
 			})
 		}
 	}
 
 	log.Printf("[YOUTUBE_API] Successfully retrieved %d messages", len(messages))
 	for i, msg := range messages {
-		log.Printf("[YOUTUBE_API] Message %d: ChannelID=%s, DisplayName=%s", i+1, msg.ChannelID, msg.DisplayName)
+		log.Printf("[YOUTUBE_API] Message %d: ChannelID=%s, DisplayName=%s, PublishedAt=%s", 
+			i+1, msg.ChannelID, msg.DisplayName, msg.PublishedAt.Format(time.RFC3339))
 	}
 
 	return messages, false, nil

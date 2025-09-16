@@ -53,11 +53,12 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		return PullOutput{AddedCount: 0, AutoReset: true}, nil
 	}
 
-	// ユーザー追加
+	// ユーザー追加 - 実際の投稿時刻を使用
 	addedCount := 0
 	now := uc.Clock.Now()
 	for _, msg := range items {
-		if err := uc.Users.UpsertWithJoinTime(msg.ChannelID, msg.DisplayName, now); err != nil {
+		// YouTube APIから取得した実際の投稿時刻を使用
+		if err := uc.Users.UpsertWithJoinTime(msg.ChannelID, msg.DisplayName, msg.PublishedAt); err != nil {
 			return PullOutput{}, err
 		}
 		addedCount++
