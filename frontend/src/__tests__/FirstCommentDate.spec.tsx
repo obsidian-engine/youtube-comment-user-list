@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import App from '../App.jsx'
 import { __mock } from '../mocks/handlers'
 
@@ -34,13 +34,13 @@ describe('初回コメント日時保持・表示機能', () => {
         channelId: 'UC1',
         displayName: 'TestUser1',
         joinedAt: '2024-01-01T12:00:00Z',
-        firstCommentAt: '2024-01-01T12:05:30Z'
+        firstCommentedAt: '2024-01-01T12:05:30Z'
       },
       {
         channelId: 'UC2',
         displayName: 'TestUser2',
         joinedAt: '2024-01-01T12:30:00Z',
-        firstCommentAt: '2024-01-01T12:35:15Z'
+        firstCommentedAt: '2024-01-01T12:35:15Z'
       }
     ]
 
@@ -56,7 +56,7 @@ describe('初回コメント日時保持・表示機能', () => {
         channelId: 'UC1',
         displayName: 'TestUser1',
         joinedAt: '2024-01-01T09:05:00Z',
-        firstCommentAt: '2024-01-01T09:08:45Z'
+        firstCommentedAt: '2024-01-01T09:08:45Z'
       }
     ]
 
@@ -64,5 +64,33 @@ describe('初回コメント日時保持・表示機能', () => {
 
     // 時刻が18:08として表示されることを確認（日本時間フォーマット）
     expect(await screen.findByTestId('first-comment-0')).toHaveTextContent('18:08')
+  })
+
+  test('/pullエンドポイントで追加されたユーザーはfirstCommentAtが設定される', async () => {
+    // 初期状態はユーザー無し
+    __mock.users = []
+    render(<App />)
+
+    // 今すぐ取得ボタンをクリック（/pullエンドポイントを呼び出す）
+    fireEvent.click(screen.getByRole('button', { name: /今すぐ取得/ }))
+
+    // 追加されたユーザーにfirstCommentAtが設定されていることを確認
+    // 修正後は時刻が表示されるはず
+    expect(await screen.findByTestId('first-comment-0')).not.toHaveTextContent('--:--')
+  })
+
+  test('firstCommentedAtが空文字列の場合は「--:--」が表示される', async () => {
+    __mock.users = [
+      {
+        channelId: 'UC1',
+        displayName: 'TestUser1',
+        joinedAt: '2024-01-01T12:00:00Z',
+        firstCommentedAt: ''  // 空文字列
+      }
+    ]
+
+    render(<App />)
+
+    expect(await screen.findByTestId('first-comment-0')).toHaveTextContent('--:--')
   })
 })
