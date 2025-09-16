@@ -41,17 +41,6 @@ const getUserFirstComment = (user: UserData): string => {
   return '--:--'
 }
 
-const getUserJoinedAt = (user: UserData): string => {
-  if (typeof user === 'string') return '--:--'
-  if (user.joinedAt) {
-    return new Date(user.joinedAt).toLocaleTimeString('ja-JP', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Asia/Tokyo'
-    })
-  }
-  return '--:--'
-}
 
 export function UserTable({ users }: UserTableProps) {
   return (
@@ -63,7 +52,6 @@ export function UserTable({ users }: UserTableProps) {
             <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">名前</th>
             <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">発言数</th>
             <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">初回コメント</th>
-            <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">参加時間</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200/60 dark:divide-slate-600/40">
@@ -96,9 +84,6 @@ export function UserTable({ users }: UserTableProps) {
                 data-testid={`first-comment-${i}`}
               >
                 {getUserFirstComment(user)}
-              </td>
-              <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px]">
-                {getUserJoinedAt(user)}
               </td>
             </tr>
           ))}
