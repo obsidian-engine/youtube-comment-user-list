@@ -40,6 +40,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			"status":       string(out.Status),
 			"count":        out.Count,
 			"videoId":      out.VideoID,
+			"liveChatId":   out.LiveChatID,
 			"startedAt":    out.StartedAt,
 			"endedAt":      out.EndedAt,
 			"lastPulledAt": out.LastPulledAt,
