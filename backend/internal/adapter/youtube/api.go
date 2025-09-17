@@ -122,6 +122,7 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 			}
 
 			messages = append(messages, port.ChatMessage{
+				ID:          item.Id, // メッセージIDを追加
 				ChannelID:   item.AuthorDetails.ChannelId,
 				DisplayName: item.AuthorDetails.DisplayName,
 				PublishedAt: publishedAt,
@@ -131,8 +132,8 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 
 	log.Printf("[YOUTUBE_API] Successfully retrieved %d messages", len(messages))
 	for i, msg := range messages {
-		log.Printf("[YOUTUBE_API] Message %d: ChannelID=%s, DisplayName=%s, PublishedAt=%s", 
-			i+1, msg.ChannelID, msg.DisplayName, msg.PublishedAt.Format(time.RFC3339))
+		log.Printf("[YOUTUBE_API] Message %d: ID=%s, ChannelID=%s, DisplayName=%s, PublishedAt=%s", 
+			i+1, msg.ID, msg.ChannelID, msg.DisplayName, msg.PublishedAt.Format(time.RFC3339))
 	}
 
 	return messages, false, nil

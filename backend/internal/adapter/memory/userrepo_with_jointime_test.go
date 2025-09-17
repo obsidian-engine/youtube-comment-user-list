@@ -104,3 +104,149 @@ func TestUserRepo_UpsertExistingUser(t *testing.T) {
 		t.Errorf("Expected display name to be 'User1Updated', got '%s'", users[0].DisplayName)
 	}
 }
+
+func TestUserRepo_UpsertWithMessage_NewUser(t *testing.T) {
+	repo := NewUserRepo()
+	now := time.Now()
+
+	// Test upserting a new user with message ID
+	err := repo.UpsertWithMessage("UC123", "TestUser1", now, "msg1")
+	if err != nil {
+		t.Fatalf("UpsertWithMessage failed: %v", err)
+	}
+
+	users := repo.ListUsersSortedByJoinTime()
+	if len(users) != 1 {
+		t.Fatalf("Expected 1 user, got %d", len(users))
+	}
+
+	user := users[0]
+	if user.ChannelID != "UC123" {
+		t.Errorf("Expected ChannelID UC123, got %s", user.ChannelID)
+	}
+	if user.DisplayName != "TestUser1" {
+		t.Errorf("Expected DisplayName TestUser1, got %s", user.DisplayName)
+	}
+	if user.CommentCount != 1 {
+		t.Errorf("Expected CommentCount 1, got %d", user.CommentCount)
+	}
+}
+
+func TestUserRepo_UpsertWithMessage_ExistingUser(t *testing.T) {
+	repo := NewUserRepo()
+	originalJoinTime := time.Now().Add(-1 * time.Hour)
+	laterTime := time.Now()
+
+	// First upsert
+	if err := repo.UpsertWithMessage("UC1", "User1", originalJoinTime, "msg1"); err != nil {
+		t.Fatalf("Failed to upsert UC1: %v", err)
+	}
+
+	// Second upsert with same channelID but different message ID should increment comment count
+	if err := repo.UpsertWithMessage("UC1", "User1Updated", laterTime, "msg2"); err != nil {
+		t.Fatalf("Failed to upsert UC1 second time: %v", err)
+	}
+
+	users := repo.ListUsersSortedByJoinTime()
+	if len(users) != 1 {
+		t.Fatalf("Expected 1 user, got %d", len(users))
+	}
+
+	user := users[0]
+	if user.CommentCount != 2 {
+		t.Errorf("Expected CommentCount 2, got %d", user.CommentCount)
+	}
+	if user.DisplayName != "User1Updated" {
+		t.Errorf("Expected DisplayName User1Updated, got %s", user.DisplayName)
+	}
+	// Join time should remain original
+	if !user.JoinedAt.Equal(originalJoinTime) {
+		t.Errorf("Expected JoinedAt to remain %v, got %v", originalJoinTime, user.JoinedAt)
+	}
+}
+
+func TestUserRepo_UpsertWithMessage_DuplicateMessage(t *testing.T) {
+	repo := NewUserRepo()
+	now := time.Now()
+
+	// First upsert
+	if err := repo.UpsertWithMessage("UC1", "User1", now, "msg1"); err != nil {
+		t.Fatalf("Failed to upsert UC1: %v", err)
+	}
+
+	// Second upsert with same message ID should be ignored
+	if err := repo.UpsertWithMessage("UC1", "User1", now, "msg1"); err != nil {
+		t.Fatalf("Failed to upsert UC1 second time: %v", err)
+	}
+
+	users := repo.ListUsersSortedByJoinTime()
+	if len(users) != 1 {
+		t.Fatalf("Expected 1 user, got %d", len(users))
+	}
+
+	user := users[0]
+	if user.CommentCount != 1 {
+		t.Errorf("Expected CommentCount 1 (no increment for duplicate message), got %d", user.CommentCount)
+	}
+}
+
+func TestUserRepo_UpsertWithMessage_MultipleUpdates_NoDuplicates(t *testing.T) {
+	repo := NewUserRepo()
+	now := time.Now()
+
+	// Simulate multiple pull requests with same message (should only count once)
+	for i := 0; i < 5; i++ {
+		if err := repo.UpsertWithMessage("UC1", "User1", now, "msg1"); err != nil {
+			t.Fatalf("Failed to upsert UC1 iteration %d: %v", i, err)
+		}
+	}
+
+	users := repo.ListUsersSortedByJoinTime()
+	if len(users) != 1 {
+		t.Fatalf("Expected 1 user, got %d", len(users))
+	}
+
+	user := users[0]
+	if user.CommentCount != 1 {
+		t.Errorf("Expected CommentCount 1 (no duplicates), got %d", user.CommentCount)
+	}
+
+	// Add different message - should increment
+	if err := repo.UpsertWithMessage("UC1", "User1", now, "msg2"); err != nil {
+		t.Fatalf("Failed to upsert UC1 with msg2: %v", err)
+	}
+
+	users = repo.ListUsersSortedByJoinTime()
+	user = users[0]
+	if user.CommentCount != 2 {
+		t.Errorf("Expected CommentCount 2 after different message, got %d", user.CommentCount)
+	}
+}
+
+func TestUserRepo_Clear_RemovesProcessedMessages(t *testing.T) {
+	repo := NewUserRepo()
+	now := time.Now()
+
+	// Add user with message
+	if err := repo.UpsertWithMessage("UC1", "User1", now, "msg1"); err != nil {
+		t.Fatalf("Failed to upsert UC1: %v", err)
+	}
+
+	// Clear should remove both users and processed messages
+	repo.Clear()
+
+	// Same message ID should now be processable again
+	if err := repo.UpsertWithMessage("UC1", "User1", now, "msg1"); err != nil {
+		t.Fatalf("Failed to upsert UC1 after clear: %v", err)
+	}
+
+	users := repo.ListUsersSortedByJoinTime()
+	if len(users) != 1 {
+		t.Fatalf("Expected 1 user after clear and re-add, got %d", len(users))
+	}
+
+	user := users[0]
+	if user.CommentCount != 1 {
+		t.Errorf("Expected CommentCount 1 after clear and re-add, got %d", user.CommentCount)
+	}
+}

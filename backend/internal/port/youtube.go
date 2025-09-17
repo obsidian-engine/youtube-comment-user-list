@@ -7,6 +7,7 @@ import (
 
 // ChatMessage は YouTube Live Chat のメッセージの最小情報です。
 type ChatMessage struct {
+	ID          string    // メッセージID（重複チェック用）
 	ChannelID   string
 	DisplayName string
 	PublishedAt time.Time
