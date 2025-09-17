@@ -12,6 +12,7 @@ type StatusOutput struct {
 	Status       domain.Status
 	Count        int
 	VideoID      string
+	LiveChatID   string
 	StartedAt    time.Time
 	EndedAt      time.Time
 	LastPulledAt time.Time
@@ -36,6 +37,7 @@ func (uc *Status) Execute(ctx context.Context) (StatusOutput, error) {
 		Status:       state.Status,
 		Count:        count,
 		VideoID:      state.VideoID,
+		LiveChatID:   state.LiveChatID,
 		StartedAt:    state.StartedAt,
 		EndedAt:      state.EndedAt,
 		LastPulledAt: state.LastPulledAt,
