@@ -119,6 +119,12 @@ export function UserTable({ users }: UserTableProps) {
     })
   }
 
+  const handleReset = () => {
+    setSortState({ field: null, order: 'asc' })
+  }
+
+  const isSorted = sortState.field !== null
+
   const sortedUsers = useMemo(() => {
     if (!sortState.field) {
       return users
@@ -150,6 +156,21 @@ export function UserTable({ users }: UserTableProps) {
 
   return (
     <section className="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur">
+      {/* ソートリセットボタン */}
+      <div className="px-4 py-3 border-b border-slate-200/60 dark:border-slate-600/40 bg-slate-50/50 dark:bg-slate-800/30">
+        <button
+          onClick={handleReset}
+          disabled={!isSorted}
+          aria-label="ソートリセット"
+          className={`text-[12px] px-3 py-1.5 rounded-md transition-colors ${
+            isSorted
+              ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+          }`}
+        >
+          ↻ デフォルト順
+        </button>
+      </div>
       <table className="w-full table-auto text-[14px] leading-7">
         <thead className="bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700 text-white dark:text-slate-100">
           <tr>

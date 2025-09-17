@@ -240,5 +240,70 @@ describe('UserTable コンポーネント', () => {
       expect(screen.getByText('02')).toBeInTheDocument()
       expect(screen.getByText('03')).toBeInTheDocument()
     })
+
+    test('ソートリセットボタンが表示される', () => {
+      render(<UserTable users={sortTestUsers} />)
+
+      const resetButton = screen.getByRole('button', { name: 'ソートリセット' })
+      expect(resetButton).toBeInTheDocument()
+    })
+
+    test('ソートリセットボタンクリックで初期表示順に戻る', () => {
+      render(<UserTable users={sortTestUsers} />)
+
+      // まず発言数でソート
+      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole('button')
+      fireEvent.click(commentCountSortButton)
+
+      // ソート後の確認
+      let rows = screen.getAllByRole('row')
+      expect(rows[1]).toHaveTextContent('User3') // commentCount: 8
+
+      // リセットボタンクリック
+      const resetButton = screen.getByRole('button', { name: 'ソートリセット' })
+      fireEvent.click(resetButton)
+
+      // 初期表示順（props順）に戻ることを確認
+      rows = screen.getAllByRole('row')
+      expect(rows[1]).toHaveTextContent('User1') // 元の順序
+      expect(rows[2]).toHaveTextContent('User2')
+      expect(rows[3]).toHaveTextContent('User3')
+    })
+
+    test('初期状態ではソートリセットボタンが無効化されている', () => {
+      render(<UserTable users={sortTestUsers} />)
+
+      const resetButton = screen.getByRole('button', { name: 'ソートリセット' })
+      expect(resetButton).toBeDisabled()
+    })
+
+    test('ソート後はソートリセットボタンが有効化される', () => {
+      render(<UserTable users={sortTestUsers} />)
+
+      const resetButton = screen.getByRole('button', { name: 'ソートリセット' })
+      expect(resetButton).toBeDisabled()
+
+      // 発言数でソート
+      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole('button')
+      fireEvent.click(commentCountSortButton)
+
+      expect(resetButton).not.toBeDisabled()
+    })
+
+    test('リセット後は再びソートリセットボタンが無効化される', () => {
+      render(<UserTable users={sortTestUsers} />)
+
+      // ソート実行
+      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole('button')
+      fireEvent.click(commentCountSortButton)
+
+      const resetButton = screen.getByRole('button', { name: 'ソートリセット' })
+      expect(resetButton).not.toBeDisabled()
+
+      // リセット実行
+      fireEvent.click(resetButton)
+
+      expect(resetButton).toBeDisabled()
+    })
   })
 })
