@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -20,10 +19,10 @@ import (
 )
 
 func main() {
+	// .envファイルの読み込み（本番環境では存在しない場合があるため、エラーでも続行）
 	err := godotenv.Load(".env")
 	if err != nil {
-		fmt.Printf("can not read env file.: %v", err)
-		return
+		log.Printf("Warning: can not read env file (this is normal in production): %v", err)
 	}
 
 	// 設定の読み込みと検証
