@@ -53,12 +53,12 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		return PullOutput{AddedCount: 0, AutoReset: true}, nil
 	}
 
-	// ユーザー追加 - 実際の投稿時刻を使用
+	// ユーザー追加 - メッセージIDによる重複チェックを使用
 	addedCount := 0
 	now := uc.Clock.Now()
 	for _, msg := range items {
-		// YouTube APIから取得した実際の投稿時刻を使用
-		if err := uc.Users.UpsertWithJoinTime(msg.ChannelID, msg.DisplayName, msg.PublishedAt); err != nil {
+		// UpsertWithMessageを使用してメッセージIDによる重複チェックを実行
+		if err := uc.Users.UpsertWithMessage(msg.ChannelID, msg.DisplayName, msg.PublishedAt, msg.ID); err != nil {
 			return PullOutput{}, err
 		}
 		addedCount++
