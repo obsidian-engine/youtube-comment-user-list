@@ -68,6 +68,7 @@ func isYouTubeDomain(host string) bool {
 	ytDomains := []string{
 		"youtube.com",
 		"www.youtube.com",
+		"studio.youtube.com",
 		"youtu.be",
 		"m.youtube.com",
 	}
