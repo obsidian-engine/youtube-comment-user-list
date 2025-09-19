@@ -12,12 +12,13 @@ const (
 
 // LiveState は現在の配信に関する状態を保持します。
 type LiveState struct {
-	Status       Status
-	VideoID      string
-	LiveChatID   string
-	StartedAt    time.Time
-	EndedAt      time.Time
-	LastPulledAt time.Time
+    Status       Status
+    VideoID      string
+    LiveChatID   string
+    StartedAt    time.Time
+    EndedAt      time.Time
+    LastPulledAt time.Time
+    NextPageToken string
 }
 
 // User represents a user with join time information

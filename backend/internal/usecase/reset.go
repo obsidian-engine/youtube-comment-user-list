@@ -23,7 +23,8 @@ func (uc *Reset) Execute(ctx context.Context) (ResetOutput, error) {
 
 	// StateをWAITINGに戻す
 	newState := domain.LiveState{
-		Status: domain.StatusWaiting,
+		Status:        domain.StatusWaiting,
+		NextPageToken: "",
 	}
 
 	if err := uc.State.Set(ctx, newState); err != nil {

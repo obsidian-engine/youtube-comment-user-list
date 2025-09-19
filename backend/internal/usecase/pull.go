@@ -32,8 +32,8 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		return PullOutput{AddedCount: 0, AutoReset: false}, nil
 	}
 
-	// YouTube APIからメッセージを取得
-	items, isEnded, err := uc.YT.ListLiveChatMessages(ctx, state.LiveChatID)
+	// YouTube APIからメッセージを取得（ページトークン対応）
+	items, nextToken, isEnded, err := uc.YT.ListLiveChatMessages(ctx, state.LiveChatID, state.NextPageToken)
 	if err != nil {
 		return PullOutput{}, err
 	}
@@ -46,6 +46,7 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		// WAITINGに戻す（現在時刻を終了時刻として設定）
 		state.Status = domain.StatusWaiting
 		state.EndedAt = uc.Clock.Now()
+		state.NextPageToken = ""
 		if err := uc.State.Set(ctx, state); err != nil {
 			return PullOutput{}, err
 		}
@@ -64,8 +65,9 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		addedCount++
 	}
 
-	// 最終取得日時を更新
+	// 最終取得日時と次ページトークンを更新
 	state.LastPulledAt = now
+	state.NextPageToken = nextToken
 	if err := uc.State.Set(ctx, state); err != nil {
 		return PullOutput{}, err
 	}
