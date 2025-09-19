@@ -9,13 +9,15 @@ import (
 )
 
 type UserRepo struct {
-	mu        sync.RWMutex
-	usersByID map[string]domain.User // channelID -> User with join time
+	mu            sync.RWMutex
+	usersByID     map[string]domain.User // channelID -> User with join time
+	processedMsgs map[string]bool        // messageID -> processed flag for deduplication
 }
 
 func NewUserRepo() *UserRepo {
 	return &UserRepo{
-		usersByID: make(map[string]domain.User),
+		usersByID:     make(map[string]domain.User),
+		processedMsgs: make(map[string]bool),
 	}
 }
 
@@ -31,6 +33,7 @@ func (r *UserRepo) Count() int {
 func (r *UserRepo) Clear() {
 	r.mu.Lock()
 	r.usersByID = make(map[string]domain.User)
+	r.processedMsgs = make(map[string]bool)
 	r.mu.Unlock()
 }
 
@@ -55,6 +58,39 @@ func (r *UserRepo) UpsertWithJoinTime(channelID string, displayName string, join
 			FirstCommentedAt: joinedAt, // 初回コメント時刻
 		}
 	}
+
+	return nil
+}
+
+// UpsertWithMessage adds a user with join time and message ID for deduplication
+func (r *UserRepo) UpsertWithMessage(channelID string, displayName string, joinedAt time.Time, messageID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// メッセージIDの重複チェック
+	if r.processedMsgs[messageID] {
+		// 既に処理済みのメッセージの場合、何もしない
+		return nil
+	}
+
+	// 既存ユーザーの場合は参加時間を保持、発言数をインクリメント
+	if existingUser, exists := r.usersByID[channelID]; exists {
+		existingUser.DisplayName = displayName // 表示名は更新
+		existingUser.CommentCount++            // 発言数をインクリメント
+		r.usersByID[channelID] = existingUser
+	} else {
+		// 新規ユーザーの場合
+		r.usersByID[channelID] = domain.User{
+			ChannelID:        channelID,
+			DisplayName:      displayName,
+			JoinedAt:         joinedAt,
+			CommentCount:     1,       // 初回コメントなので1
+			FirstCommentedAt: joinedAt, // 初回コメント時刻
+		}
+	}
+
+	// メッセージIDを処理済みとして記録
+	r.processedMsgs[messageID] = true
 
 	return nil
 }

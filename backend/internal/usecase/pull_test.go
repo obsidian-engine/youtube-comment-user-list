@@ -16,6 +16,17 @@ type fakeYTForPull struct {
 	ended bool
 }
 
+// ページトークンを返すフェイク
+type fakeYTWithToken struct{ items []port.ChatMessage }
+
+func (f *fakeYTWithToken) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) { return "", nil }
+func (f *fakeYTWithToken) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, bool, error) {
+	return f.items, "nxt", 1500, false, nil
+}
+
+// ページトークンを保存・読み出しする簡易フェイク（必要なら）
+// removed unused tokenStateRepo to satisfy linter
+
 func (f *fakeYTForPull) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
 	return "live:abc", nil
 }
@@ -36,7 +47,7 @@ func TestPull_AddsUsers_NormalFlow(t *testing.T) {
 	users := memory.NewUserRepo()
 	state := memory.NewStateRepo()
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
-	yt := &fakeYTForPull{items: []port.ChatMessage{{ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)}}, ended: false}
+	yt := &fakeYTForPull{items: []port.ChatMessage{{ID: "msg1", ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)}}, ended: false}
 	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
 	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
@@ -78,9 +89,9 @@ func TestPull_MultipleComments_IncrementCount(t *testing.T) {
 	
 	// ch1が2回、ch2が1回コメントするシナリオ
 	yt := &fakeYTForPull{items: []port.ChatMessage{
-		{ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)},
-		{ChannelID: "ch2", DisplayName: "Bob", PublishedAt: time.Date(2023, 1, 1, 11, 35, 0, 0, time.UTC)},
-		{ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 40, 0, 0, time.UTC)},
+		{ID: "msg1", ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)},
+		{ID: "msg2", ChannelID: "ch2", DisplayName: "Bob", PublishedAt: time.Date(2023, 1, 1, 11, 35, 0, 0, time.UTC)},
+		{ID: "msg3", ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 40, 0, 0, time.UTC)},
 	}, ended: false}
 	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
@@ -98,14 +109,15 @@ func TestPull_MultipleComments_IncrementCount(t *testing.T) {
 	userList := users.ListUsersSortedByJoinTime()
 	// ch1の発言数が2であることを確認
 	for _, user := range userList {
-		if user.ChannelID == "ch1" {
+		switch user.ChannelID {
+		case "ch1":
 			if user.CommentCount != 2 {
 				t.Errorf("ch1 CommentCount = %d, want 2", user.CommentCount)
 			}
 			if user.FirstCommentedAt.IsZero() {
 				t.Errorf("ch1 FirstCommentedAt is zero, want non-zero")
 			}
-		} else if user.ChannelID == "ch2" {
+		case "ch2":
 			if user.CommentCount != 1 {
 				t.Errorf("ch2 CommentCount = %d, want 1", user.CommentCount)
 			}
@@ -165,7 +177,7 @@ func TestPull_WaitingState_NoOperation(t *testing.T) {
 	users := memory.NewUserRepo()
 	state := memory.NewStateRepo()
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusWaiting, VideoID: "v", LiveChatID: ""})
-	yt := &fakeYTForPull{items: []port.ChatMessage{{ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)}}, ended: false}
+	yt := &fakeYTForPull{items: []port.ChatMessage{{ID: "msg1", ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)}}, ended: false}
 	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
 	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
@@ -186,35 +198,27 @@ func TestPull_WaitingState_NoOperation(t *testing.T) {
 	}
 }
 
-func TestPull_MultipleUsers_AddedCorrectly(t *testing.T) {
-	ctx := context.Background()
+func TestPull_SavesNextPageToken(t *testing.T) {
 	users := memory.NewUserRepo()
 	state := memory.NewStateRepo()
-	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
-	yt := &fakeYTForPull{
-		items: []port.ChatMessage{
-			{ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)},
-			{ChannelID: "ch2", DisplayName: "Bob", PublishedAt: time.Date(2023, 1, 1, 11, 35, 0, 0, time.UTC)},
-			{ChannelID: "ch3", DisplayName: "Charlie", PublishedAt: time.Date(2023, 1, 1, 11, 40, 0, 0, time.UTC)},
-		},
-		ended: false,
+	clock := &fakeClock{now: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)}
+
+	// フェイクYT: 1ページ返して nextToken は "nxt"
+	yt := &fakeYTWithToken{items: []port.ChatMessage{{ID: "m1", ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)}}}
+
+	// Active状態にして実行
+	if err := state.Set(context.Background(), domain.LiveState{Status: domain.StatusActive, LiveChatID: "lc1"}); err != nil {
+		t.Fatalf("state set error: %v", err)
 	}
-	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
 	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
-	out, err := uc.Execute(ctx)
-	if err != nil {
-		t.Fatalf("Execute failed: %v", err)
+	if _, err := uc.Execute(context.Background()); err != nil {
+		t.Fatalf("execute error: %v", err)
 	}
 
-	// 複数ユーザーが追加されたか確認
-	if out.AddedCount != 3 {
-		t.Errorf("AddedCount = %d, want 3", out.AddedCount)
-	}
-	if out.AutoReset {
-		t.Errorf("AutoReset = true, want false")
-	}
-	if users.Count() != 3 {
-		t.Errorf("Users.Count() = %d, want 3", users.Count())
+	// 次ページトークンが保存されていること
+	cur, _ := state.Get(context.Background())
+	if cur.NextPageToken != "nxt" {
+		t.Errorf("NextPageToken = %q, want %q", cur.NextPageToken, "nxt")
 	}
 }

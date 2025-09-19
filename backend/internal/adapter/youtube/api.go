@@ -151,6 +151,7 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 			}
 
 			messages = append(messages, port.ChatMessage{
+				ID:          item.Id,
 				ChannelID:   item.AuthorDetails.ChannelId,
 				DisplayName: item.AuthorDetails.DisplayName,
 				PublishedAt: publishedAt,

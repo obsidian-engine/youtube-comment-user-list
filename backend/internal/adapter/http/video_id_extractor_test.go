@@ -18,6 +18,12 @@ func TestExtractVideoID(t *testing.T) {
 			hasError: false,
 		},
 		{
+			name:     "YouTube Studio ライブチャットURL",
+			input:    "https://studio.youtube.com/live_chat?is_popout=1&v=bIRpAmqwbvs",
+			expected: "bIRpAmqwbvs",
+			hasError: false,
+		},
+		{
 			name:     "通常の動画URL",
 			input:    "https://www.youtube.com/watch?v=Qw3tyIFqKrg",
 			expected: "Qw3tyIFqKrg",
