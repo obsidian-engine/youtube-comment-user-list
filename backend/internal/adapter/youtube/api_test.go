@@ -415,8 +415,8 @@ func TestPaginationLogic(t *testing.T) {
 		}
 		page3 := []port.ChatMessage{
 			{ChannelID: "UC005", DisplayName: "User5", PublishedAt: time.Now()},
-		}
-
+}
+ 
 		// 全ページを結合した結果を検証
 		allMessages := append(append(page1, page2...), page3...)
 

@@ -25,9 +25,7 @@ func (f *fakeYTWithToken) ListLiveChatMessages(ctx context.Context, liveChatID s
 }
 
 // ページトークンを保存・読み出しする簡易フェイク（必要なら）
-type tokenStateRepo struct {
-	port.StateRepo
-}
+// removed unused tokenStateRepo to satisfy linter
 
 func (f *fakeYTForPull) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
 	return "live:abc", nil
