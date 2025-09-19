@@ -87,90 +87,56 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 		return nil, false, err
 	}
 
+	// Live Chat APIは1回の呼び出しで増分取得を行う設計
+	// 無限ループを避けるため、1ページのみ取得
+	call := service.LiveChatMessages.List(liveChatID, []string{"snippet", "authorDetails"})
+
+	// Live Chat API仕様: デフォルト200、最大2000
+	// 適度な値で効率的な取得を行う
+	call = call.MaxResults(200)
+
+	response, err := call.Do()
+	if err != nil {
+		log.Printf("[YOUTUBE_API] API call failed: %v", err)
+
+		// より詳細な配信終了検知条件
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "forbidden") ||
+			strings.Contains(errMsg, "livechatdisabled") ||
+			strings.Contains(errMsg, "livechatended") ||
+			strings.Contains(errMsg, "livechatnotfound") ||
+			strings.Contains(errMsg, "chatdisabled") ||
+			strings.Contains(errMsg, "livechatnotactive") ||
+			(strings.Contains(errMsg, "notfound") && strings.Contains(errMsg, "livechat")) {
+			log.Printf("[YOUTUBE_API] Live chat ended or disabled")
+			return nil, true, nil
+		}
+
+		return nil, false, err
+	}
+
+	// レスポンスからメッセージを変換
 	var messages []port.ChatMessage
-	pageToken := ""
-	totalPages := 0
-
-	// ページング処理を実装 - すべてのコメントを取得
-	for {
-		// ライブチャットメッセージを取得 - 正しいAPIの使い方
-		call := service.LiveChatMessages.List(liveChatID, []string{"snippet", "authorDetails"})
-
-		// 最大件数を設定（YouTube APIの最大値は2000）
-		call = call.MaxResults(2000)
-
-		// ページトークンがある場合は設定
-		if pageToken != "" {
-			call = call.PageToken(pageToken)
-		}
-
-		response, err := call.Do()
-		if err != nil {
-			log.Printf("[YOUTUBE_API] API call failed: %v", err)
-
-			// より詳細な配信終了検知条件
-			errMsg := strings.ToLower(err.Error())
-			if strings.Contains(errMsg, "forbidden") ||
-				strings.Contains(errMsg, "livechatdisabled") ||
-				strings.Contains(errMsg, "livechatended") ||
-				strings.Contains(errMsg, "livechatnotfound") ||
-				strings.Contains(errMsg, "chatdisabled") ||
-				strings.Contains(errMsg, "livechatnotactive") ||
-				(strings.Contains(errMsg, "notfound") && strings.Contains(errMsg, "livechat")) {
-				log.Printf("[YOUTUBE_API] Live chat ended or disabled - Error: %s", errMsg)
-				return messages, true, nil
+	for _, item := range response.Items {
+		if item.AuthorDetails != nil && item.Snippet != nil {
+			// publishedAtを解析
+			publishedAt, err := time.Parse(time.RFC3339, item.Snippet.PublishedAt)
+			if err != nil {
+				log.Printf("[YOUTUBE_API] Failed to parse publishedAt: %v", err)
+				// エラーの場合は現在時刻を使用
+				publishedAt = time.Now()
 			}
 
-			return nil, false, err
-		}
-
-		totalPages++
-
-		// レスポンスからメッセージを変換
-		for _, item := range response.Items {
-			if item.AuthorDetails != nil && item.Snippet != nil {
-				// publishedAtを解析
-				publishedAt, err := time.Parse(time.RFC3339, item.Snippet.PublishedAt)
-				if err != nil {
-					log.Printf("[YOUTUBE_API] Failed to parse publishedAt: %v", err)
-					// エラーの場合は現在時刻を使用
-					publishedAt = time.Now()
-				}
-
-				messages = append(messages, port.ChatMessage{
-					ID:          item.Id, // メッセージIDを追加
-					ChannelID:   item.AuthorDetails.ChannelId,
-					DisplayName: item.AuthorDetails.DisplayName,
-					PublishedAt: publishedAt,
-				})
-			}
-		}
-
-		log.Printf("[YOUTUBE_API] Page %d: Retrieved %d messages", totalPages, len(response.Items))
-
-		// 次のページトークンを取得
-		if response.NextPageToken != "" {
-			pageToken = response.NextPageToken
-			log.Printf("[YOUTUBE_API] Next page token found, continuing to fetch more messages...")
-		} else {
-			// 次のページがない場合は終了
-			log.Printf("[YOUTUBE_API] No more pages, total pages fetched: %d", totalPages)
-			break
+			messages = append(messages, port.ChatMessage{
+				ID:          item.Id,
+				ChannelID:   item.AuthorDetails.ChannelId,
+				DisplayName: item.AuthorDetails.DisplayName,
+				PublishedAt: publishedAt,
+			})
 		}
 	}
 
-	log.Printf("[YOUTUBE_API] Successfully retrieved total %d messages from %d pages", len(messages), totalPages)
-
-	// デバッグ用：最初と最後のメッセージを出力
-	if len(messages) > 0 {
-		log.Printf("[YOUTUBE_API] First message: ID=%s, ChannelID=%s, DisplayName=%s, PublishedAt=%s",
-			messages[0].ID, messages[0].ChannelID, messages[0].DisplayName, messages[0].PublishedAt.Format(time.RFC3339))
-		if len(messages) > 1 {
-			lastIdx := len(messages) - 1
-			log.Printf("[YOUTUBE_API] Last message: ID=%s, ChannelID=%s, DisplayName=%s, PublishedAt=%s",
-				messages[lastIdx].ID, messages[lastIdx].ChannelID, messages[lastIdx].DisplayName, messages[lastIdx].PublishedAt.Format(time.RFC3339))
-		}
-	}
+	log.Printf("[YOUTUBE_API] Successfully retrieved %d messages", len(messages))
 
 	return messages, false, nil
 }
