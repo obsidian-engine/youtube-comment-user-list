@@ -18,6 +18,32 @@ type API struct {
 
 func New(apiKey string) *API { return &API{APIKey: apiKey} }
 
+// isLiveChatEnded はエラーがライブチャットの終了または無効化を示すかどうかを判定します
+func isLiveChatEnded(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errMsg := strings.ToLower(err.Error())
+	endedKeywords := []string{
+		"forbidden",
+		"livechatdisabled",
+		"livechatended",
+		"livechatnotfound",
+		"chatdisabled",
+		"livechatnotactive",
+	}
+
+	for _, keyword := range endedKeywords {
+		if strings.Contains(errMsg, keyword) {
+			return true
+		}
+	}
+
+	// "notfound" + "livechat" の組み合わせもチェック
+	return strings.Contains(errMsg, "notfound") && strings.Contains(errMsg, "livechat")
+}
+
 func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
 	log.Printf("[YOUTUBE_API] GetActiveLiveChatID called with videoID: %s", videoID)
 
@@ -87,22 +113,20 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 		return nil, false, err
 	}
 
-	// ライブチャットメッセージを取得 - 正しいAPIの使い方
+	// Live Chat APIは1回の呼び出しで増分取得を行う設計
+	// 無限ループを避けるため、1ページのみ取得
 	call := service.LiveChatMessages.List(liveChatID, []string{"snippet", "authorDetails"})
+
+	// Live Chat API仕様: デフォルト200、最大2000
+	// 適度な値で効率的な取得を行う
+	call = call.MaxResults(200)
+
 	response, err := call.Do()
 	if err != nil {
 		log.Printf("[YOUTUBE_API] API call failed: %v", err)
 
-		// より詳細な配信終了検知条件
-		errMsg := strings.ToLower(err.Error())
-		if strings.Contains(errMsg, "forbidden") ||
-			strings.Contains(errMsg, "livechatdisabled") ||
-			strings.Contains(errMsg, "livechatended") ||
-			strings.Contains(errMsg, "livechatnotfound") ||
-			strings.Contains(errMsg, "chatdisabled") ||
-			strings.Contains(errMsg, "livechatnotactive") ||
-			(strings.Contains(errMsg, "notfound") && strings.Contains(errMsg, "livechat")) {
-			log.Printf("[YOUTUBE_API] Live chat ended or disabled - Error: %s", errMsg)
+		if isLiveChatEnded(err) {
+			log.Printf("[YOUTUBE_API] Live chat ended or disabled")
 			return nil, true, nil
 		}
 
@@ -122,7 +146,7 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 			}
 
 			messages = append(messages, port.ChatMessage{
-				ID:          item.Id, // メッセージIDを追加
+				ID:          item.Id,
 				ChannelID:   item.AuthorDetails.ChannelId,
 				DisplayName: item.AuthorDetails.DisplayName,
 				PublishedAt: publishedAt,
@@ -131,10 +155,6 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 	}
 
 	log.Printf("[YOUTUBE_API] Successfully retrieved %d messages", len(messages))
-	for i, msg := range messages {
-		log.Printf("[YOUTUBE_API] Message %d: ID=%s, ChannelID=%s, DisplayName=%s, PublishedAt=%s", 
-			i+1, msg.ID, msg.ChannelID, msg.DisplayName, msg.PublishedAt.Format(time.RFC3339))
-	}
 
 	return messages, false, nil
 }
