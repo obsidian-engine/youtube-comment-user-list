@@ -122,7 +122,10 @@ func TestListLiveChatMessages_Pagination(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+			return
+		}
 	}))
 	defer server.Close()
 
@@ -193,34 +196,6 @@ func TestListLiveChatMessages_ErrorHandling(t *testing.T) {
 	}
 }
 
-// モック用のYouTubeサービスを返すヘルパー関数
-// 実際のページングテストに使用
-type mockYouTubeService struct {
-	pages      [][]port.ChatMessage
-	pageIndex  int
-	shouldFail bool
-	failError  error
-}
-
-func (m *mockYouTubeService) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, error) {
-	if m.shouldFail {
-		return nil, "", m.failError
-	}
-
-	if m.pageIndex >= len(m.pages) {
-		return []port.ChatMessage{}, "", nil
-	}
-
-	messages := m.pages[m.pageIndex]
-	m.pageIndex++
-
-	nextPageToken := ""
-	if m.pageIndex < len(m.pages) {
-		nextPageToken = "next-page"
-	}
-
-	return messages, nextPageToken, nil
-}
 
 func TestPaginationLogic(t *testing.T) {
 	t.Run("複数ページのメッセージを結合すること", func(t *testing.T) {

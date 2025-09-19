@@ -98,14 +98,15 @@ func TestPull_MultipleComments_IncrementCount(t *testing.T) {
 	userList := users.ListUsersSortedByJoinTime()
 	// ch1の発言数が2であることを確認
 	for _, user := range userList {
-		if user.ChannelID == "ch1" {
+		switch user.ChannelID {
+		case "ch1":
 			if user.CommentCount != 2 {
 				t.Errorf("ch1 CommentCount = %d, want 2", user.CommentCount)
 			}
 			if user.FirstCommentedAt.IsZero() {
 				t.Errorf("ch1 FirstCommentedAt is zero, want non-zero")
 			}
-		} else if user.ChannelID == "ch2" {
+		case "ch2":
 			if user.CommentCount != 1 {
 				t.Errorf("ch2 CommentCount = %d, want 1", user.CommentCount)
 			}
