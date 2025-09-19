@@ -8,8 +8,9 @@ import (
 )
 
 type PullOutput struct {
-	AddedCount int
-	AutoReset  bool
+    AddedCount           int
+    AutoReset            bool
+    PollingIntervalMillis int64
 }
 
 type Pull struct {
@@ -32,11 +33,11 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		return PullOutput{AddedCount: 0, AutoReset: false}, nil
 	}
 
-	// YouTube APIからメッセージを取得
-	items, isEnded, err := uc.YT.ListLiveChatMessages(ctx, state.LiveChatID)
-	if err != nil {
-		return PullOutput{}, err
-	}
+	// YouTube APIからメッセージを取得（ページトークン対応）
+    items, nextToken, pollMs, isEnded, err := uc.YT.ListLiveChatMessages(ctx, state.LiveChatID, state.NextPageToken)
+    if err != nil {
+        return PullOutput{}, err
+    }
 
 	// 配信終了検知
 	if isEnded {
@@ -46,12 +47,13 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		// WAITINGに戻す（現在時刻を終了時刻として設定）
 		state.Status = domain.StatusWaiting
 		state.EndedAt = uc.Clock.Now()
+		state.NextPageToken = ""
 		if err := uc.State.Set(ctx, state); err != nil {
 			return PullOutput{}, err
 		}
 
-		return PullOutput{AddedCount: 0, AutoReset: true}, nil
-	}
+        return PullOutput{AddedCount: 0, AutoReset: true, PollingIntervalMillis: 0}, nil
+    }
 
 	// ユーザー追加 - メッセージIDによる重複チェックを使用
 	addedCount := 0
@@ -64,11 +66,12 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		addedCount++
 	}
 
-	// 最終取得日時を更新
+	// 最終取得日時と次ページトークンを更新
 	state.LastPulledAt = now
+	state.NextPageToken = nextToken
 	if err := uc.State.Set(ctx, state); err != nil {
 		return PullOutput{}, err
 	}
 
-	return PullOutput{AddedCount: addedCount, AutoReset: false}, nil
+    return PullOutput{AddedCount: addedCount, AutoReset: false, PollingIntervalMillis: pollMs}, nil
 }

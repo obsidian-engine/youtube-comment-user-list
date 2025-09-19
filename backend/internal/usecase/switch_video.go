@@ -36,10 +36,11 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 	// 3. StateをACTIVEに更新
 	now := uc.Clock.Now()
 	newState := domain.LiveState{
-		Status:     domain.StatusActive,
-		VideoID:    in.VideoID,
-		LiveChatID: liveChatID,
-		StartedAt:  now,
+		Status:        domain.StatusActive,
+		VideoID:       in.VideoID,
+		LiveChatID:    liveChatID,
+		StartedAt:     now,
+		NextPageToken: "",
 	}
 
 	if err := uc.State.Set(ctx, newState); err != nil {
