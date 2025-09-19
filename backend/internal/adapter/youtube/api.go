@@ -93,24 +93,24 @@ func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (string, 
 	return liveChatID, nil
 }
 
-func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) (items []port.ChatMessage, nextPageToken string, isEnded bool, err error) {
+func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) (items []port.ChatMessage, nextPageToken string, pollingIntervalMillis int64, isEnded bool, err error) {
     log.Printf("[YOUTUBE_API] ListLiveChatMessages called with liveChatID: %s", liveChatID)
 
     if a.APIKey == "" {
         log.Printf("[YOUTUBE_API] Error: API key is empty")
-        return nil, "", false, errors.New("youtube api key is required")
+        return nil, "", 0, false, errors.New("youtube api key is required")
     }
 
     if liveChatID == "" {
         log.Printf("[YOUTUBE_API] Error: liveChatID is empty")
-        return nil, "", false, errors.New("live chat ID is required")
+        return nil, "", 0, false, errors.New("live chat ID is required")
     }
 
 	// YouTube Data API v3を使用してライブチャットメッセージを取得
     service, err := youtube.NewService(ctx, option.WithAPIKey(a.APIKey))
     if err != nil {
         log.Printf("[YOUTUBE_API] Failed to create YouTube service: %v", err)
-        return nil, "", false, err
+        return nil, "", 0, false, err
     }
 
     // Live Chat APIは1回の呼び出しで増分取得を行う設計
@@ -132,10 +132,10 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 
         if isLiveChatEnded(err) {
             log.Printf("[YOUTUBE_API] Live chat ended or disabled")
-            return nil, "", true, nil
+            return nil, "", 0, true, nil
         }
 
-        return nil, "", false, err
+        return nil, "", 0, false, err
     }
 
 	// レスポンスからメッセージを変換
@@ -159,7 +159,7 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 		}
 	}
 
-    log.Printf("[YOUTUBE_API] Successfully retrieved %d messages (pageToken=%s next=%s)", len(messages), pageToken, response.NextPageToken)
+    log.Printf("[YOUTUBE_API] Successfully retrieved %d messages (pageToken=%s next=%s, pollingIntervalMillis=%d)", len(messages), pageToken, response.NextPageToken, response.PollingIntervalMillis)
 
-    return messages, response.NextPageToken, false, nil
+    return messages, response.NextPageToken, int64(response.PollingIntervalMillis), false, nil
 }

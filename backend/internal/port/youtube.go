@@ -19,5 +19,5 @@ type YouTubePort interface {
     GetActiveLiveChatID(ctx context.Context, videoID string) (string, error)
     // liveChatId のメッセージを取得します。ページング対応のため、pageToken を受け取り、nextPageToken を返します。
     // 配信終了検知は isEnded で返します。
-    ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) (items []ChatMessage, nextPageToken string, isEnded bool, err error)
+    ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) (items []ChatMessage, nextPageToken string, pollingIntervalMillis int64, isEnded bool, err error)
 }

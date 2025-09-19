@@ -8,8 +8,9 @@ import (
 )
 
 type PullOutput struct {
-	AddedCount int
-	AutoReset  bool
+    AddedCount           int
+    AutoReset            bool
+    PollingIntervalMillis int64
 }
 
 type Pull struct {
@@ -33,10 +34,10 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 	}
 
 	// YouTube APIからメッセージを取得（ページトークン対応）
-	items, nextToken, isEnded, err := uc.YT.ListLiveChatMessages(ctx, state.LiveChatID, state.NextPageToken)
-	if err != nil {
-		return PullOutput{}, err
-	}
+    items, nextToken, pollMs, isEnded, err := uc.YT.ListLiveChatMessages(ctx, state.LiveChatID, state.NextPageToken)
+    if err != nil {
+        return PullOutput{}, err
+    }
 
 	// 配信終了検知
 	if isEnded {
@@ -51,8 +52,8 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 			return PullOutput{}, err
 		}
 
-		return PullOutput{AddedCount: 0, AutoReset: true}, nil
-	}
+        return PullOutput{AddedCount: 0, AutoReset: true, PollingIntervalMillis: 0}, nil
+    }
 
 	// ユーザー追加 - メッセージIDによる重複チェックを使用
 	addedCount := 0
@@ -72,5 +73,5 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		return PullOutput{}, err
 	}
 
-	return PullOutput{AddedCount: addedCount, AutoReset: false}, nil
+    return PullOutput{AddedCount: addedCount, AutoReset: false, PollingIntervalMillis: pollMs}, nil
 }

@@ -111,10 +111,11 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			return
 		}
 
-		log.Printf("[PULL] Added %d users, AutoReset: %v", out.AddedCount, out.AutoReset)
+		log.Printf("[PULL] Added %d messages, AutoReset: %v, Polling(ms): %d", out.AddedCount, out.AutoReset, out.PollingIntervalMillis)
 		response := map[string]interface{}{
-			"addedCount": out.AddedCount,
-			"autoReset":  out.AutoReset,
+			"addedCount":            out.AddedCount,
+			"autoReset":             out.AutoReset,
+			"pollingIntervalMillis": out.PollingIntervalMillis,
 		}
 		render.JSON(w, r, response)
 	})

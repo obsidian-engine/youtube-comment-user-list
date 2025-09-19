@@ -20,8 +20,8 @@ type fakeYTForPull struct {
 type fakeYTWithToken struct{ items []port.ChatMessage }
 
 func (f *fakeYTWithToken) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) { return "", nil }
-func (f *fakeYTWithToken) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, bool, error) {
-	return f.items, "nxt", false, nil
+func (f *fakeYTWithToken) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, bool, error) {
+	return f.items, "nxt", 1500, false, nil
 }
 
 // ページトークンを保存・読み出しする簡易フェイク（必要なら）
@@ -32,8 +32,8 @@ type tokenStateRepo struct {
 func (f *fakeYTForPull) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
 	return "live:abc", nil
 }
-func (f *fakeYTForPull) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, bool, error) {
-	return f.items, "", f.ended, nil
+func (f *fakeYTForPull) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, bool, error) {
+	return f.items, "", 0, f.ended, nil
 }
 
 type fakeClock struct {

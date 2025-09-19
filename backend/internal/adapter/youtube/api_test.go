@@ -175,7 +175,7 @@ func TestListLiveChatMessages_ErrorHandling(t *testing.T) {
 				APIKey: tt.apiKey,
 			}
 
-    items, next, isEnded, err := api.ListLiveChatMessages(context.Background(), tt.liveChatID, "")
+    items, next, pollMs, isEnded, err := api.ListLiveChatMessages(context.Background(), tt.liveChatID, "")
 
 			if tt.wantErr {
 				if err == nil {
@@ -194,6 +194,7 @@ func TestListLiveChatMessages_ErrorHandling(t *testing.T) {
             if tt.wantErr && items != nil {
                 t.Errorf("エラー時にitemsがnilでない: %v", items)
             }
+            _ = pollMs
             if err != nil && next != "" {
                 t.Errorf("エラー時にnextPageTokenが空でない: %q", next)
             }
