@@ -32,8 +32,8 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		return PullOutput{AddedCount: 0, AutoReset: false}, nil
 	}
 
-	// YouTube APIからメッセージを取得
-	items, isEnded, err := uc.YT.ListLiveChatMessages(ctx, state.LiveChatID)
+	// YouTube APIからメッセージを取得（NextPageTokenを使用）
+	items, nextPageToken, _, isEnded, err := uc.YT.ListLiveChatMessages(ctx, state.LiveChatID, state.NextPageToken)
 	if err != nil {
 		return PullOutput{}, err
 	}
@@ -64,7 +64,8 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		addedCount++
 	}
 
-	// 最終取得日時を更新
+	// NextPageTokenとPollingIntervalを状態に保存
+	state.NextPageToken = nextPageToken
 	state.LastPulledAt = now
 	if err := uc.State.Set(ctx, state); err != nil {
 		return PullOutput{}, err
