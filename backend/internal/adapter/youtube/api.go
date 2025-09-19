@@ -18,6 +18,32 @@ type API struct {
 
 func New(apiKey string) *API { return &API{APIKey: apiKey} }
 
+// isLiveChatEnded はエラーがライブチャットの終了または無効化を示すかどうかを判定します
+func isLiveChatEnded(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errMsg := strings.ToLower(err.Error())
+	endedKeywords := []string{
+		"forbidden",
+		"livechatdisabled",
+		"livechatended",
+		"livechatnotfound",
+		"chatdisabled",
+		"livechatnotactive",
+	}
+
+	for _, keyword := range endedKeywords {
+		if strings.Contains(errMsg, keyword) {
+			return true
+		}
+	}
+
+	// "notfound" + "livechat" の組み合わせもチェック
+	return strings.Contains(errMsg, "notfound") && strings.Contains(errMsg, "livechat")
+}
+
 func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
 	log.Printf("[YOUTUBE_API] GetActiveLiveChatID called with videoID: %s", videoID)
 
@@ -99,15 +125,7 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 	if err != nil {
 		log.Printf("[YOUTUBE_API] API call failed: %v", err)
 
-		// より詳細な配信終了検知条件
-		errMsg := strings.ToLower(err.Error())
-		if strings.Contains(errMsg, "forbidden") ||
-			strings.Contains(errMsg, "livechatdisabled") ||
-			strings.Contains(errMsg, "livechatended") ||
-			strings.Contains(errMsg, "livechatnotfound") ||
-			strings.Contains(errMsg, "chatdisabled") ||
-			strings.Contains(errMsg, "livechatnotactive") ||
-			(strings.Contains(errMsg, "notfound") && strings.Contains(errMsg, "livechat")) {
+		if isLiveChatEnded(err) {
 			log.Printf("[YOUTUBE_API] Live chat ended or disabled")
 			return nil, true, nil
 		}

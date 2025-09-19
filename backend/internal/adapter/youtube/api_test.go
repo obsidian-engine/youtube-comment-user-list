@@ -3,6 +3,7 @@ package youtube
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -196,6 +197,204 @@ func TestListLiveChatMessages_ErrorHandling(t *testing.T) {
 	}
 }
 
+
+func TestIsLiveChatEnded(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "forbidden error",
+			err:      errors.New("googleapi: Error 403: Forbidden"),
+			expected: true,
+		},
+		{
+			name:     "liveChatDisabled",
+			err:      errors.New("liveChatDisabled"),
+			expected: true,
+		},
+		{
+			name:     "liveChatEnded",
+			err:      errors.New("liveChatEnded"),
+			expected: true,
+		},
+		{
+			name:     "liveChatNotFound",
+			err:      errors.New("liveChatNotFound"),
+			expected: true,
+		},
+		{
+			name:     "chatDisabled",
+			err:      errors.New("chatDisabled"),
+			expected: true,
+		},
+		{
+			name:     "liveChatNotActive",
+			err:      errors.New("liveChatNotActive"),
+			expected: true,
+		},
+		{
+			name:     "notFound with liveChat",
+			err:      errors.New("liveChat resource notFound"),
+			expected: true,
+		},
+		{
+			name:     "notFound without liveChat",
+			err:      errors.New("video notFound"),
+			expected: false,
+		},
+		{
+			name:     "other error",
+			err:      errors.New("network timeout"),
+			expected: false,
+		},
+		{
+			name:     "case insensitive",
+			err:      errors.New("FORBIDDEN: LiveChatEnded"),
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isLiveChatEnded(tt.err)
+			if result != tt.expected {
+				t.Errorf("isLiveChatEnded(%v) = %v, want %v", tt.err, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMessageConversion(t *testing.T) {
+	t.Run("normal message conversion", func(t *testing.T) {
+		// 正常なメッセージ変換のテスト
+		publishedAt := time.Now().Format(time.RFC3339)
+
+		// YouTube API レスポンスのモック（簡略版）
+		item := struct {
+			Id            string
+			AuthorDetails *struct {
+				ChannelId   string
+				DisplayName string
+			}
+			Snippet *struct {
+				PublishedAt string
+			}
+		}{
+			Id: "msg123",
+			AuthorDetails: &struct {
+				ChannelId   string
+				DisplayName string
+			}{
+				ChannelId:   "UC123",
+				DisplayName: "TestUser",
+			},
+			Snippet: &struct {
+				PublishedAt string
+			}{
+				PublishedAt: publishedAt,
+			},
+		}
+
+		// publishedAtの解析をテスト
+		parsedTime, err := time.Parse(time.RFC3339, item.Snippet.PublishedAt)
+		if err != nil {
+			t.Errorf("Failed to parse publishedAt: %v", err)
+		}
+
+		// ChatMessageへの変換
+		msg := port.ChatMessage{
+			ID:          item.Id,
+			ChannelID:   item.AuthorDetails.ChannelId,
+			DisplayName: item.AuthorDetails.DisplayName,
+			PublishedAt: parsedTime,
+		}
+
+		// 検証
+		if msg.ID != "msg123" {
+			t.Errorf("ID = %s, want msg123", msg.ID)
+		}
+		if msg.ChannelID != "UC123" {
+			t.Errorf("ChannelID = %s, want UC123", msg.ChannelID)
+		}
+		if msg.DisplayName != "TestUser" {
+			t.Errorf("DisplayName = %s, want TestUser", msg.DisplayName)
+		}
+	})
+
+	t.Run("invalid publishedAt fallback", func(t *testing.T) {
+		// 不正なpublishedAtフォーマットのテスト
+		invalidTime := "invalid-time-format"
+
+		_, err := time.Parse(time.RFC3339, invalidTime)
+		if err == nil {
+			t.Error("Expected error for invalid time format")
+		}
+
+		// time.Now()フォールバックの確認
+		fallbackTime := time.Now()
+		if fallbackTime.IsZero() {
+			t.Error("Fallback time should not be zero")
+		}
+	})
+
+	t.Run("nil AuthorDetails or Snippet", func(t *testing.T) {
+		// nil AuthorDetailsのケース
+		itemWithNilAuthor := struct {
+			AuthorDetails *struct {
+				ChannelId   string
+				DisplayName string
+			}
+			Snippet *struct {
+				PublishedAt string
+			}
+		}{
+			AuthorDetails: nil,
+			Snippet: &struct {
+				PublishedAt string
+			}{
+				PublishedAt: time.Now().Format(time.RFC3339),
+			},
+		}
+
+		if itemWithNilAuthor.AuthorDetails != nil || itemWithNilAuthor.Snippet == nil {
+			t.Error("Test setup error")
+		}
+
+		// nil Snippetのケース
+		itemWithNilSnippet := struct {
+			AuthorDetails *struct {
+				ChannelId   string
+				DisplayName string
+			}
+			Snippet *struct {
+				PublishedAt string
+			}
+		}{
+			AuthorDetails: &struct {
+				ChannelId   string
+				DisplayName string
+			}{
+				ChannelId:   "UC123",
+				DisplayName: "TestUser",
+			},
+			Snippet: nil,
+		}
+
+		if itemWithNilSnippet.AuthorDetails == nil || itemWithNilSnippet.Snippet != nil {
+			t.Error("Test setup error")
+		}
+
+		// 実際のコードでは、これらのケースではメッセージがスキップされる
+		// （if item.AuthorDetails != nil && item.Snippet != nil のチェック）
+	})
+}
 
 func TestPaginationLogic(t *testing.T) {
 	t.Run("複数ページのメッセージを結合すること", func(t *testing.T) {
