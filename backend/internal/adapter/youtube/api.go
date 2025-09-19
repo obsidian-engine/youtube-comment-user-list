@@ -90,20 +90,20 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 	var messages []port.ChatMessage
 	pageToken := ""
 	totalPages := 0
-	
+
 	// ページング処理を実装 - すべてのコメントを取得
 	for {
 		// ライブチャットメッセージを取得 - 正しいAPIの使い方
 		call := service.LiveChatMessages.List(liveChatID, []string{"snippet", "authorDetails"})
-		
+
 		// 最大件数を設定（YouTube APIの最大値は2000）
 		call = call.MaxResults(2000)
-		
+
 		// ページトークンがある場合は設定
 		if pageToken != "" {
 			call = call.PageToken(pageToken)
 		}
-		
+
 		response, err := call.Do()
 		if err != nil {
 			log.Printf("[YOUTUBE_API] API call failed: %v", err)
@@ -125,7 +125,7 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 		}
 
 		totalPages++
-		
+
 		// レスポンスからメッセージを変換
 		for _, item := range response.Items {
 			if item.AuthorDetails != nil && item.Snippet != nil {
@@ -138,15 +138,16 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 				}
 
 				messages = append(messages, port.ChatMessage{
+					ID:          item.Id, // メッセージIDを追加
 					ChannelID:   item.AuthorDetails.ChannelId,
 					DisplayName: item.AuthorDetails.DisplayName,
 					PublishedAt: publishedAt,
 				})
 			}
 		}
-		
+
 		log.Printf("[YOUTUBE_API] Page %d: Retrieved %d messages", totalPages, len(response.Items))
-		
+
 		// 次のページトークンを取得
 		if response.NextPageToken != "" {
 			pageToken = response.NextPageToken
@@ -159,15 +160,15 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string) (item
 	}
 
 	log.Printf("[YOUTUBE_API] Successfully retrieved total %d messages from %d pages", len(messages), totalPages)
-	
-	// デバッグ用：最初の5件と最後の5件を出力
+
+	// デバッグ用：最初と最後のメッセージを出力
 	if len(messages) > 0 {
-		log.Printf("[YOUTUBE_API] First message: ChannelID=%s, DisplayName=%s, PublishedAt=%s", 
-			messages[0].ChannelID, messages[0].DisplayName, messages[0].PublishedAt.Format(time.RFC3339))
+		log.Printf("[YOUTUBE_API] First message: ID=%s, ChannelID=%s, DisplayName=%s, PublishedAt=%s",
+			messages[0].ID, messages[0].ChannelID, messages[0].DisplayName, messages[0].PublishedAt.Format(time.RFC3339))
 		if len(messages) > 1 {
 			lastIdx := len(messages) - 1
-			log.Printf("[YOUTUBE_API] Last message: ChannelID=%s, DisplayName=%s, PublishedAt=%s", 
-				messages[lastIdx].ChannelID, messages[lastIdx].DisplayName, messages[lastIdx].PublishedAt.Format(time.RFC3339))
+			log.Printf("[YOUTUBE_API] Last message: ID=%s, ChannelID=%s, DisplayName=%s, PublishedAt=%s",
+				messages[lastIdx].ID, messages[lastIdx].ChannelID, messages[lastIdx].DisplayName, messages[lastIdx].PublishedAt.Format(time.RFC3339))
 		}
 	}
 
