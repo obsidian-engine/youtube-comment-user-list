@@ -87,6 +87,7 @@ export function Controls({
             >
               <option value="0">停止</option>
               <option value="10">10s</option>
+              <option value="15">15s</option>
               <option value="30">30s</option>
               <option value="60">60s</option>
             </select>

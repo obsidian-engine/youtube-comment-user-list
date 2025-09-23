@@ -7,21 +7,23 @@ import { Controls } from './components/Controls'
 import { UserTable } from './components/UserTable'
 
 export default function App() {
-  const { state, actions } = useAppState()
-  const {
-    active,
-    users,
-    videoId,
-    intervalSec,
-    lastUpdated,
-    lastFetchTime,
-    errorMsg,
-    infoMsg,
-    loadingStates
-  } = state
+  const [active, setActive] = useState(false) // ACTIVE / WAITING
+  const [users, setUsers] = useState([])
+  const [videoId, setVideoId] = useState(() => localStorage.getItem('videoId') || '')
+  const [intervalSec, setIntervalSec] = useState(15)
+  const [lastUpdated, setLastUpdated] = useState('--:--:--')
+  const [lastFetchTime, setLastFetchTime] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
+  const [infoMsg, setInfoMsg] = useState('')
+  const [loadingStates, setLoadingStates] = useState({
+    switching: false,
+    pulling: false,
+    resetting: false,
+    refreshing: false,
+  })
 
-  useEffect(() => { 
-    actions.refresh() 
+  useEffect(() => {
+    actions.refresh()
   }, [actions.refresh])
 
   useAutoRefresh(intervalSec, actions.refresh)
@@ -30,16 +32,16 @@ export default function App() {
     <div className="min-h-screen bg-canvas-light dark:bg-canvas-dark text-slate-900 dark:text-slate-100">
       <div className="fixed inset-0 -z-10 bg-field" />
       <main className="mx-auto max-w-4xl px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
-        <Header
-          active={active}
-          userCount={users.length}
-          lastUpdated={lastUpdated}
-        />
+        <Header active={active} userCount={users.length} lastUpdated={lastUpdated} />
 
         <QuickGuide />
 
         {errorMsg && (
-          <div role="alert" aria-live="assertive" className="rounded-lg ring-1 ring-rose-300/60 bg-rose-50 text-rose-800 px-4 py-3">
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="rounded-lg ring-1 ring-rose-300/60 bg-rose-50 text-rose-800 px-4 py-3"
+          >
             {errorMsg}
           </div>
         )}
@@ -57,7 +59,11 @@ export default function App() {
         />
 
         {infoMsg && (
-          <div role="status" aria-live="polite" className="rounded-lg ring-1 ring-sky-300/60 bg-sky-50 text-sky-800 px-4 py-3">
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-lg ring-1 ring-sky-300/60 bg-sky-50 text-sky-800 px-4 py-3"
+          >
             {infoMsg}
           </div>
         )}

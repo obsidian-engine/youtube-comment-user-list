@@ -13,13 +13,33 @@ type ErrorResponse struct {
 	Code    int    `json:"code"`
 }
 
-// renderError は統一されたエラーレスポンスを返す
+// ErrorConfig はrenderError関数の引数をまとめる設定構造体
+type ErrorConfig struct {
+	ResponseWriter stdhttp.ResponseWriter
+	Request        *stdhttp.Request
+	Code           int
+	Error          string
+	Message        string
+}
+
+// renderErrorWithConfig は統一されたエラーレスポンスを返す（新しいAPI）
+func renderErrorWithConfig(config ErrorConfig) {
+	render.Status(config.Request, config.Code)
+	render.JSON(config.ResponseWriter, config.Request, ErrorResponse{
+		Error:   config.Error,
+		Message: config.Message,
+		Code:    config.Code,
+	})
+}
+
+// renderError は統一されたエラーレスポンスを返す（後方互換性のために残存）
 func renderError(w stdhttp.ResponseWriter, r *stdhttp.Request, code int, err string, message string) {
-	render.Status(r, code)
-	render.JSON(w, r, ErrorResponse{
-		Error:   err,
-		Message: message,
-		Code:    code,
+	renderErrorWithConfig(ErrorConfig{
+		ResponseWriter: w,
+		Request:        r,
+		Code:           code,
+		Error:          err,
+		Message:        message,
 	})
 }
 
