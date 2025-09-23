@@ -288,7 +288,7 @@ func TestPull_MinimumPollingInterval(t *testing.T) {
 			}
 
 			// 初期状態をACTIVEに設定
-			state.Set(context.Background(), domain.LiveState{
+			_ = state.Set(context.Background(), domain.LiveState{
 				Status:     domain.StatusActive,
 				VideoID:    "test-video",
 				LiveChatID: "test-chat",

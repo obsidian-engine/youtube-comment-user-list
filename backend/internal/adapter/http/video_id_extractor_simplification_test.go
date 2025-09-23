@@ -89,10 +89,10 @@ func isValidVideoIDSimplified(input string) bool {
 	
 	// Valid characters: a-z, A-Z, 0-9, underscore, hyphen
 	for _, char := range input {
-		if !((char >= 'a' && char <= 'z') ||
-			(char >= 'A' && char <= 'Z') ||
-			(char >= '0' && char <= '9') ||
-			char == '_' || char == '-') {
+		if (char < 'a' || char > 'z') &&
+			(char < 'A' || char > 'Z') &&
+			(char < '0' || char > '9') &&
+			char != '_' && char != '-' {
 			return false
 		}
 	}

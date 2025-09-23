@@ -89,7 +89,7 @@ func TestCORSMiddleware(t *testing.T) {
 			// ダミーハンドラーを作成
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(200)
-				w.Write([]byte("OK"))
+				_, _ = w.Write([]byte("OK"))
 			})
 
 			// CORSミドルウェアを適用
@@ -165,7 +165,7 @@ func TestLoggingMiddleware(t *testing.T) {
 			// ダミーハンドラーを作成
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.handlerStatus)
-				w.Write([]byte("response"))
+				_, _ = w.Write([]byte("response"))
 			})
 
 			// ロギングミドルウェアを適用
