@@ -54,12 +54,6 @@ func isValidVideoID(input string) bool {
 	if !hasAlphaNum {
 		return false
 	}
-	// 一般的な英単語やパターンは除外
-	if strings.Contains(input, "invalid") || 
-	   strings.HasPrefix(input, "test") ||
-	   input == "invalid-url" {
-		return false
-	}
 	return true
 }
 

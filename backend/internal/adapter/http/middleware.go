@@ -54,7 +54,7 @@ func CORSMiddleware(frontendOrigin string) func(stdhttp.Handler) stdhttp.Handler
 
 			// すべてのリクエストに対して基本的なCORSヘッダーを設定
 			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "*")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With")
 			w.Header().Set("Access-Control-Max-Age", "86400")
 
 			if r.Method == stdhttp.MethodOptions {

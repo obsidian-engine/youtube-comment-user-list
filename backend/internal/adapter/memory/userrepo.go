@@ -62,15 +62,16 @@ func (r *UserRepo) UpsertWithJoinTime(channelID string, displayName string, join
 	return nil
 }
 
-// UpsertWithMessage adds a user with join time and message ID for deduplication
-func (r *UserRepo) UpsertWithMessage(channelID string, displayName string, joinedAt time.Time, messageID string) error {
+// UpsertWithMessageUpdated adds a user with join time and message ID for deduplication
+// Returns true if the user data was actually updated (not a duplicate message)
+func (r *UserRepo) UpsertWithMessageUpdated(channelID string, displayName string, joinedAt time.Time, messageID string) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	// メッセージIDの重複チェック
 	if r.processedMsgs[messageID] {
 		// 既に処理済みのメッセージの場合、何もしない
-		return nil
+		return false, nil
 	}
 
 	// 既存ユーザーの場合は参加時間を保持、発言数をインクリメント
@@ -92,7 +93,13 @@ func (r *UserRepo) UpsertWithMessage(channelID string, displayName string, joine
 	// メッセージIDを処理済みとして記録
 	r.processedMsgs[messageID] = true
 
-	return nil
+	return true, nil
+}
+
+// UpsertWithMessage adds a user with join time and message ID for deduplication (backward compatibility)
+func (r *UserRepo) UpsertWithMessage(channelID string, displayName string, joinedAt time.Time, messageID string) error {
+	_, err := r.UpsertWithMessageUpdated(channelID, displayName, joinedAt, messageID)
+	return err
 }
 
 // ListUsersSortedByJoinTime は User構造体の配列を参加時間順（早い順）で返します。

@@ -59,11 +59,14 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 	addedCount := 0
 	now := uc.Clock.Now()
 	for _, msg := range items {
-		// UpsertWithMessageを使用してメッセージIDによる重複チェックを実行
-		if err := uc.Users.UpsertWithMessage(msg.ChannelID, msg.DisplayName, msg.PublishedAt, msg.ID); err != nil {
+		// UpsertWithMessageUpdatedを使用してメッセージIDによる重複チェックを実行し、実際に更新された場合のみカウント
+		updated, err := uc.Users.UpsertWithMessageUpdated(msg.ChannelID, msg.DisplayName, msg.PublishedAt, msg.ID)
+		if err != nil {
 			return PullOutput{}, err
 		}
-		addedCount++
+		if updated {
+			addedCount++
+		}
 	}
 
 	// 最終取得日時と次ページトークンを更新
