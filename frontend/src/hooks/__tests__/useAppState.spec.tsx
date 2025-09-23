@@ -10,11 +10,11 @@ const mockPostPull = vi.fn()
 const mockPostReset = vi.fn()
 
 vi.mock('../../utils/api', () => ({
-  getStatus: (...args: any[]) => mockGetStatus(...args),
-  getUsers: (...args: any[]) => mockGetUsers(...args),
-  postSwitchVideo: (...args: any[]) => mockPostSwitchVideo(...args),
-  postPull: (...args: any[]) => mockPostPull(...args),
-  postReset: (...args: any[]) => mockPostReset(...args),
+  getStatus: (...args: unknown[]) => mockGetStatus(...args),
+  getUsers: (...args: unknown[]) => mockGetUsers(...args),
+  postSwitchVideo: (...args: unknown[]) => mockPostSwitchVideo(...args),
+  postPull: (...args: unknown[]) => mockPostPull(...args),
+  postReset: (...args: unknown[]) => mockPostReset(...args),
 }))
 
 describe('useAppState', () => {

@@ -60,6 +60,7 @@ describe('App Integration (MSW)', () => {
 
   test('初回コメント時間が正しく表示される', async () => {
     const mockDate = new Date('2024-01-01T10:30:00Z')
+    // eslint-disable-next-line prefer-const
     let users: User[] = []
 
     server.use(

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { __mock } from '../mocks/handlers'
 import App from '../App'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, waitFor } from '@testing-library/react'
 import { createElement } from 'react'
 
 // TDD: 仕様
