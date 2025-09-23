@@ -17,10 +17,20 @@ type fakeYTForPull struct {
 }
 
 // ページトークンを返すフェイク
-type fakeYTWithToken struct{ items []port.ChatMessage }
+type fakeYTWithToken struct {
+	items                 []port.ChatMessage
+	messages              []port.ChatMessage
+	nextPageToken         string
+	pollingIntervalMillis int64
+}
 
 func (f *fakeYTWithToken) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) { return "", nil }
 func (f *fakeYTWithToken) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, bool, error) {
+	// messagesフィールドがある場合はそれを使用（新しいテスト用）
+	if f.messages != nil {
+		return f.messages, f.nextPageToken, f.pollingIntervalMillis, false, nil
+	}
+	// 既存のテストとの互換性のため、itemsフィールドを使用
 	return f.items, "nxt", 1500, false, nil
 }
 
@@ -220,5 +230,89 @@ func TestPull_SavesNextPageToken(t *testing.T) {
 	cur, _ := state.Get(context.Background())
 	if cur.NextPageToken != "nxt" {
 		t.Errorf("NextPageToken = %q, want %q", cur.NextPageToken, "nxt")
+	}
+}
+
+func TestPull_MinimumPollingInterval(t *testing.T) {
+	tests := []struct {
+		name                   string
+		apiPollingMillis       int64
+		expectedPollingMillis  int64
+	}{
+		{
+			name:                  "APIが5秒を返した場合は15秒に調整",
+			apiPollingMillis:      5000,
+			expectedPollingMillis: 15000,
+		},
+		{
+			name:                  "APIが10秒を返した場合は15秒に調整",
+			apiPollingMillis:      10000,
+			expectedPollingMillis: 15000,
+		},
+		{
+			name:                  "APIが15秒を返した場合はそのまま",
+			apiPollingMillis:      15000,
+			expectedPollingMillis: 15000,
+		},
+		{
+			name:                  "APIが20秒を返した場合はそのまま",
+			apiPollingMillis:      20000,
+			expectedPollingMillis: 20000,
+		},
+		{
+			name:                  "APIが30秒を返した場合はそのまま",
+			apiPollingMillis:      30000,
+			expectedPollingMillis: 30000,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// セットアップ
+			users := memory.NewUserRepo()
+			state := memory.NewStateRepo()
+			clock := &fakeClock{}
+			
+			// APIのモックを作成（pollingIntervalMillisを返す）
+			yt := &fakeYTWithToken{
+				messages: []port.ChatMessage{
+					{
+						ID:          "msg1",
+						ChannelID:   "UC001",
+						DisplayName: "User1",
+						PublishedAt: time.Now(),
+					},
+				},
+				nextPageToken: "token123",
+				pollingIntervalMillis: tt.apiPollingMillis,
+			}
+
+			// 初期状態をACTIVEに設定
+			state.Set(context.Background(), domain.LiveState{
+				Status:     domain.StatusActive,
+				VideoID:    "test-video",
+				LiveChatID: "test-chat",
+				StartedAt:  time.Now(),
+			})
+
+			uc := &usecase.Pull{
+				YT:    yt,
+				Users: users,
+				State: state,
+				Clock: clock,
+			}
+
+			// 実行
+			output, err := uc.Execute(context.Background())
+			if err != nil {
+				t.Fatalf("Execute returned error: %v", err)
+			}
+
+			// 検証: pollingIntervalMillisが期待値と一致
+			if output.PollingIntervalMillis != tt.expectedPollingMillis {
+				t.Errorf("PollingIntervalMillis = %d, want %d", 
+					output.PollingIntervalMillis, tt.expectedPollingMillis)
+			}
+		})
 	}
 }

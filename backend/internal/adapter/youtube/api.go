@@ -123,8 +123,8 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
     }
 
 	// Live Chat API仕様: デフォルト200、最大2000
-	// 適度な値で効率的な取得を行う
-	call = call.MaxResults(200)
+	// 最大値に設定してより多くのコメントを一度に取得
+	call = call.MaxResults(2000)
 
     response, err := call.Do()
     if err != nil {
