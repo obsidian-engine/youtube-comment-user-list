@@ -51,16 +51,7 @@ func isValidVideoID(input string) bool {
 	}
 	// 少なくとも1つの英数字を含む必要がある
 	hasAlphaNum, _ := regexp.MatchString(`[a-zA-Z0-9]`, input)
-	if !hasAlphaNum {
-		return false
-	}
-	// 一般的な英単語やパターンは除外
-	if strings.Contains(input, "invalid") || 
-	   strings.HasPrefix(input, "test") ||
-	   input == "invalid-url" {
-		return false
-	}
-	return true
+	return hasAlphaNum
 }
 
 // isYouTubeDomain はYouTubeのドメインかチェック

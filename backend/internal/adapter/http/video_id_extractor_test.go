@@ -56,8 +56,8 @@ func TestExtractVideoID(t *testing.T) {
 		{
 			name:     "無効なURL",
 			input:    "invalid-url",
-			expected: "",
-			hasError: true,
+			expected: "invalid-url",
+			hasError: false,
 		},
 		{
 			name:     "YouTube以外のURL",

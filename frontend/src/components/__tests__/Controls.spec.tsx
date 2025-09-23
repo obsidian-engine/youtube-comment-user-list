@@ -6,7 +6,7 @@ describe('Controls コンポーネント', () => {
   const mockProps = {
     videoId: '',
     setVideoId: vi.fn(),
-    intervalSec: 30,
+    intervalSec: 15,
     setIntervalSec: vi.fn(),
     lastFetchTime: '',
     loadingStates: {
@@ -129,11 +129,12 @@ describe('Controls コンポーネント', () => {
 
     const select = screen.getByLabelText('自動間隔')
     expect(select).toBeInTheDocument()
-    expect(select).toHaveValue('30')
+    expect(select).toHaveValue('15')
 
     // オプションが正しく存在する
     expect(screen.getByRole('option', { name: '停止' })).toHaveValue('0')
     expect(screen.getByRole('option', { name: '10s' })).toHaveValue('10')
+    expect(screen.getByRole('option', { name: '15s' })).toHaveValue('15')
     expect(screen.getByRole('option', { name: '30s' })).toHaveValue('30')
     expect(screen.getByRole('option', { name: '60s' })).toHaveValue('60')
   })

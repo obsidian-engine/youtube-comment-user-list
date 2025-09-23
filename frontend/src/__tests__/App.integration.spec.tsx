@@ -2,12 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { server } from '../mocks/setup'
 import { http, HttpResponse } from 'msw'
 import App from '../App.jsx'
-
-type User = {
-  channelId: string
-  displayName: string
-  joinedAt: string
-}
+import type { User } from '../utils/api'
 
 describe('App Integration (MSW)', () => {
   test('切替成功で ACTIVE 表示になり、pull で人数が増える', async () => {
@@ -65,6 +60,7 @@ describe('App Integration (MSW)', () => {
 
   test('初回コメント時間が正しく表示される', async () => {
     const mockDate = new Date('2024-01-01T10:30:00Z')
+    // eslint-disable-next-line prefer-const
     let users: User[] = []
 
     server.use(

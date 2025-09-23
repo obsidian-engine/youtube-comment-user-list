@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -34,7 +35,10 @@ type mockAuthorDetails struct {
 }
 
 func TestListLiveChatMessages_Pagination(t *testing.T) {
-    t.Skip("統合相当のためこの環境ではスキップ（ポートバインド不可）")
+	// CI環境では実際のHTTPサーバーテストを有効化
+	if os.Getenv("CI") == "" {
+		t.Skip("ローカル環境ではスキップ（CIでのみ実行）")
+	}
     // モックサーバーのセットアップ
     requestCount := 0
     server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

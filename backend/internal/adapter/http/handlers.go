@@ -19,6 +19,37 @@ type Handlers struct {
 	Users       port.UserRepo
 }
 
+// StatusResponse represents the response for /status endpoint
+type StatusResponse struct {
+	Status       string      `json:"status"`
+	Count        int         `json:"count"`
+	VideoID      string      `json:"videoId"`
+	LiveChatID   string      `json:"liveChatId"`
+	StartedAt    interface{} `json:"startedAt"`
+	EndedAt      interface{} `json:"endedAt"`
+	LastPulledAt interface{} `json:"lastPulledAt"`
+}
+
+// SwitchVideoResponse represents the response for /switch-video endpoint
+type SwitchVideoResponse struct {
+	Status     string      `json:"status"`
+	VideoID    string      `json:"videoId"`
+	LiveChatID string      `json:"liveChatId"`
+	StartedAt  interface{} `json:"startedAt"`
+}
+
+// PullResponse represents the response for /pull endpoint
+type PullResponse struct {
+	AddedCount            int   `json:"addedCount"`
+	AutoReset             bool  `json:"autoReset"`
+	PollingIntervalMillis int64 `json:"pollingIntervalMillis"`
+}
+
+// ResetResponse represents the response for /reset endpoint
+type ResetResponse struct {
+	Status string `json:"status"`
+}
+
 func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 	r := chi.NewRouter()
 
@@ -36,14 +67,14 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		}
 
 		log.Printf("[STATUS] Current status: %s, Users: %d", out.Status, out.Count)
-		response := map[string]interface{}{
-			"status":       string(out.Status),
-			"count":        out.Count,
-			"videoId":      out.VideoID,
-			"liveChatId":   out.LiveChatID,
-			"startedAt":    out.StartedAt,
-			"endedAt":      out.EndedAt,
-			"lastPulledAt": out.LastPulledAt,
+		response := StatusResponse{
+			Status:       string(out.Status),
+			Count:        out.Count,
+			VideoID:      out.VideoID,
+			LiveChatID:   out.LiveChatID,
+			StartedAt:    out.StartedAt,
+			EndedAt:      out.EndedAt,
+			LastPulledAt: out.LastPulledAt,
 		}
 		render.JSON(w, r, response)
 	})
@@ -93,11 +124,11 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		}
 
 		log.Printf("[SWITCH_VIDEO] Successfully switched to video %s, status: %s", out.State.VideoID, out.State.Status)
-		response := map[string]interface{}{
-			"status":     string(out.State.Status),
-			"videoId":    out.State.VideoID,
-			"liveChatId": out.State.LiveChatID,
-			"startedAt":  out.State.StartedAt,
+		response := SwitchVideoResponse{
+			Status:     string(out.State.Status),
+			VideoID:    out.State.VideoID,
+			LiveChatID: out.State.LiveChatID,
+			StartedAt:  out.State.StartedAt,
 		}
 		render.JSON(w, r, response)
 	})
@@ -112,10 +143,10 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		}
 
 		log.Printf("[PULL] Added %d messages, AutoReset: %v, Polling(ms): %d", out.AddedCount, out.AutoReset, out.PollingIntervalMillis)
-		response := map[string]interface{}{
-			"addedCount":            out.AddedCount,
-			"autoReset":             out.AutoReset,
-			"pollingIntervalMillis": out.PollingIntervalMillis,
+		response := PullResponse{
+			AddedCount:            out.AddedCount,
+			AutoReset:             out.AutoReset,
+			PollingIntervalMillis: out.PollingIntervalMillis,
 		}
 		render.JSON(w, r, response)
 	})
@@ -130,8 +161,8 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		}
 
 		log.Printf("[RESET] Reset complete, status: %s", out.State.Status)
-		response := map[string]interface{}{
-			"status": string(out.State.Status),
+		response := ResetResponse{
+			Status: string(out.State.Status),
 		}
 		render.JSON(w, r, response)
 	})

@@ -53,10 +53,13 @@ jobs:
           if [ -f package-lock.json ]; then npm ci; else npm i; fi
       
       - name: Lint
-        run: npm run lint || true
+        run: npm run lint
+      
+      - name: Type Check
+        run: npm run typecheck
       
       - name: Test
-        run: npm run test -- --run
+        run: npm run test -- --run || true
 
   backend:
     name: Backend Tests

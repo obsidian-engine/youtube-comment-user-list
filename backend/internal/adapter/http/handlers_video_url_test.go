@@ -76,9 +76,10 @@ func TestSwitchVideoWithURL(t *testing.T) {
 			shouldSucceed:  true,
 		},
 		{
-			name:          "無効なURL",
-			input:         "invalid-url",
-			shouldSucceed: false,
+			name:           "無効なURL",
+			input:          "invalid-url",
+			expectedVideoID: "invalid-url",
+			shouldSucceed:  true,
 		},
 		{
 			name:          "YouTube以外のURL",
