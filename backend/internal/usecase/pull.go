@@ -73,5 +73,11 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		return PullOutput{}, err
 	}
 
+	// 最小ポーリング間隔を15秒に設定（無料枠での運用を考慮）
+	const minPollingIntervalMillis = 15000
+	if pollMs < minPollingIntervalMillis {
+		pollMs = minPollingIntervalMillis
+	}
+
     return PullOutput{AddedCount: addedCount, AutoReset: false, PollingIntervalMillis: pollMs}, nil
 }
