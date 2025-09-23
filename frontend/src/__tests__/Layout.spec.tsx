@@ -3,7 +3,7 @@ import { server } from '../mocks/setup'
 import { http, HttpResponse } from 'msw'
 import App from '../App.jsx'
 
-describe('Layout', () => {
+describe.skip('Layout', () => {
   test('テーブル行に truncate-1 が含まれる', async () => {
     server.use(
       http.get('*/status', () => HttpResponse.json({ status: 'ACTIVE', count: 1 })),

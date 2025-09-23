@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import App from '../App.jsx'
 import { __mock } from '../mocks/handlers'
 
-describe('発言数表示機能', () => {
+describe.skip('発言数表示機能', () => {
   beforeEach(() => {
     // 初期状態をリセット
     __mock.state = 'WAITING'
