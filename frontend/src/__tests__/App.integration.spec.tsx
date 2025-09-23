@@ -2,12 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { server } from '../mocks/setup'
 import { http, HttpResponse } from 'msw'
 import App from '../App.jsx'
-
-type User = {
-  channelId: string
-  displayName: string
-  joinedAt: string
-}
+import type { User } from '../utils/api'
 
 describe('App Integration (MSW)', () => {
   test('切替成功で ACTIVE 表示になり、pull で人数が増える', async () => {

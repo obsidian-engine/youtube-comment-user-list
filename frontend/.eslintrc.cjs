@@ -9,7 +9,6 @@ module.exports = {
     'plugin:react/recommended',
     'plugin:react-hooks/recommended',
     'plugin:@typescript-eslint/recommended',
-    'prettier',
   ],
   settings: { react: { version: 'detect' } },
   ignorePatterns: ['dist', 'node_modules'],
@@ -18,6 +17,7 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'error',
     'no-unused-vars': 'off',
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    'react-hooks/exhaustive-deps': 'error',
   },
   overrides: [
     {

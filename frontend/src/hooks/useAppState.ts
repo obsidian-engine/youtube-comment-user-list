@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { getStatus, getUsers, postPull, postReset, postSwitchVideo } from '../utils/api'
 import { sortUsersStable } from '../utils/sortUsers'
+import { logger } from '../utils/logger'
 import type { User } from '../utils/api'
 
 interface LoadingStates {
@@ -49,6 +50,12 @@ export function useAppState() {
     }
   })
 
+  // AbortController管理用のref
+  const refreshControllerRef = useRef<AbortController | null>(null)
+  const switchControllerRef = useRef<AbortController | null>(null)
+  const pullControllerRef = useRef<AbortController | null>(null)
+  const resetControllerRef = useRef<AbortController | null>(null)
+
   const updateClock = useCallback(() => {
     const d = new Date()
     const pad = (n: number) => String(n).padStart(2, '0')
@@ -58,17 +65,28 @@ export function useAppState() {
 
   const refresh = useCallback(async () => {
     try {
-      console.log('🔄 Auto refresh starting...', new Date().toLocaleTimeString())
+      // 前のリクエストをキャンセル
+      if (refreshControllerRef.current) {
+        refreshControllerRef.current.abort()
+      }
+
+      logger.log('🔄 Auto refresh starting...', new Date().toLocaleTimeString())
       setState(prev => ({ 
         ...prev, 
         loadingStates: { ...prev.loadingStates, refreshing: true }
       }))
       
-      const ac = new AbortController()
+      // 新しいAbortControllerを作成
+      const controller = new AbortController()
+      refreshControllerRef.current = controller
+
       const [st, us] = await Promise.all([
-        getStatus(ac.signal),
-        getUsers(ac.signal),
+        getStatus(controller.signal),
+        getUsers(controller.signal),
       ])
+      
+      // リクエストが成功したらcontrollerをクリア
+      refreshControllerRef.current = null
       
       const status = st.status || st.Status || 'WAITING'
       const fetched = Array.isArray(us) ? us : []
@@ -80,9 +98,15 @@ export function useAppState() {
         errorMsg: ''
       }))
       
-      console.log('✅ Auto refresh completed:', { status, userCount: fetched.length })
+      logger.log('✅ Auto refresh completed:', { status, userCount: fetched.length })
     } catch (e) {
-      console.error('❌ Auto refresh failed:', e)
+      // AbortErrorの場合はエラーメッセージを表示しない
+      if (e instanceof Error && e.name === 'AbortError') {
+        logger.log('🚫 Refresh aborted')
+        return
+      }
+      
+      logger.error('❌ Auto refresh failed:', e)
       setState(prev => ({
         ...prev,
         errorMsg: '更新に失敗しました。しばらくしてから再試行してください。'
@@ -97,18 +121,31 @@ export function useAppState() {
   }, [updateClock])
 
   const handleAsyncAction = useCallback(async (
-    action: () => Promise<void>,
+    action: (signal: AbortSignal) => Promise<void>,
     loadingKey: keyof LoadingStates,
     successMsg: string,
-    errorMsgPrefix: string = ''
+    errorMsgPrefix: string = '',
+    controllerRef: React.MutableRefObject<AbortController | null>
   ) => {
     try {
+      // 前のリクエストをキャンセル
+      if (controllerRef.current) {
+        controllerRef.current.abort()
+      }
+
       setState(prev => ({ 
         ...prev, 
         loadingStates: { ...prev.loadingStates, [loadingKey]: true }
       }))
       
-      await action()
+      // 新しいAbortControllerを作成
+      const controller = new AbortController()
+      controllerRef.current = controller
+
+      await action(controller.signal)
+      
+      // リクエストが成功したらcontrollerをクリア
+      controllerRef.current = null
       
       setState(prev => ({ ...prev, errorMsg: '', infoMsg: successMsg }))
 
@@ -122,6 +159,12 @@ export function useAppState() {
 
       await refresh()
     } catch (e) {
+      // AbortErrorの場合はエラーメッセージを表示しない
+      if (e instanceof Error && e.name === 'AbortError') {
+        logger.log(`🚫 ${loadingKey} action aborted`)
+        return
+      }
+      
       const errorMessage = `${errorMsgPrefix}に失敗しました。${loadingKey === 'switching' ? '配信開始後に再度お試しください。' : ''}`
       setState(prev => ({ ...prev, errorMsg: errorMessage }))
     } finally {
@@ -152,31 +195,34 @@ export function useAppState() {
         return
       }
       await handleAsyncAction(
-        async () => {
-          await postSwitchVideo(state.videoId)
+        async (signal) => {
+          await postSwitchVideo(state.videoId, signal)
           localStorage.setItem('videoId', state.videoId)
         },
         'switching',
         '切替しました',
-        '切替'
+        '切替',
+        switchControllerRef
       )
     }, [state.videoId, handleAsyncAction]),
 
     onPull: useCallback(async () => {
       await handleAsyncAction(
-        () => postPull(),
+        (signal) => postPull(signal),
         'pulling',
         '取得しました',
-        '取得'
+        '取得',
+        pullControllerRef
       )
     }, [handleAsyncAction]),
 
     onReset: useCallback(async () => {
       await handleAsyncAction(
-        () => postReset(),
+        (signal) => postReset(signal),
         'resetting',
         'リセットしました',
-        'リセット'
+        'リセット',
+        resetControllerRef
       )
     }, [handleAsyncAction])
   }

@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useAutoRefresh } from './hooks/useAutoRefresh'
 import { useAppState } from './hooks/useAppState'
 import { Header } from './components/Header'
@@ -7,24 +6,18 @@ import { Controls } from './components/Controls'
 import { UserTable } from './components/UserTable'
 
 export default function App() {
-  const [active, setActive] = useState(false) // ACTIVE / WAITING
-  const [users, setUsers] = useState([])
-  const [videoId, setVideoId] = useState(() => localStorage.getItem('videoId') || '')
-  const [intervalSec, setIntervalSec] = useState(15)
-  const [lastUpdated, setLastUpdated] = useState('--:--:--')
-  const [lastFetchTime, setLastFetchTime] = useState('')
-  const [errorMsg, setErrorMsg] = useState('')
-  const [infoMsg, setInfoMsg] = useState('')
-  const [loadingStates, setLoadingStates] = useState({
-    switching: false,
-    pulling: false,
-    resetting: false,
-    refreshing: false,
-  })
-
-  useEffect(() => {
-    actions.refresh()
-  }, [actions.refresh])
+  const { state, actions } = useAppState()
+  const {
+    active,
+    users,
+    videoId,
+    intervalSec,
+    lastUpdated,
+    lastFetchTime,
+    errorMsg,
+    infoMsg,
+    loadingStates,
+  } = state
 
   useAutoRefresh(intervalSec, actions.refresh)
 

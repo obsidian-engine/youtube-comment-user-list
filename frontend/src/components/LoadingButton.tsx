@@ -1,4 +1,5 @@
 import React from 'react'
+import { logger } from '../utils/logger'
 
 type Variant = 'primary' | 'outline'
 type Size = 'sm' | 'md'
@@ -56,7 +57,7 @@ export function LoadingButton({
           await onClick?.()
         } catch (error) {
           // エラーをログに記録して再スロー
-          console.error('LoadingButton onClick error:', error)
+          logger.error('LoadingButton onClick error:', error)
           throw error
         }
       }}

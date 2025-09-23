@@ -23,6 +23,8 @@ export type User = {
   channelId: string
   displayName: string
   joinedAt: string
+  firstCommentedAt?: string
+  commentCount?: number
 }
 
 export async function getUsers(signal?: AbortSignal): Promise<User[]> {
@@ -30,22 +32,23 @@ export async function getUsers(signal?: AbortSignal): Promise<User[]> {
   return json<User[]>(res)
 }
 
-export async function postSwitchVideo(videoId: string): Promise<void> {
+export async function postSwitchVideo(videoId: string, signal?: AbortSignal): Promise<void> {
   const res = await fetch(`${BASE}/switch-video`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ videoId }),
+    signal,
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }
 
-export async function postPull(): Promise<void> {
-  const res = await fetch(`${BASE}/pull`, { method: 'POST' })
+export async function postPull(signal?: AbortSignal): Promise<void> {
+  const res = await fetch(`${BASE}/pull`, { method: 'POST', signal })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }
 
-export async function postReset(): Promise<void> {
-  const res = await fetch(`${BASE}/reset`, { method: 'POST' })
+export async function postReset(signal?: AbortSignal): Promise<void> {
+  const res = await fetch(`${BASE}/reset`, { method: 'POST', signal })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }
 
