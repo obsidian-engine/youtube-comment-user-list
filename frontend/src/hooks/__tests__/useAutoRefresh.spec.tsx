@@ -41,7 +41,7 @@ describe.skip('useAutoRefresh', () => {
     })
     
     expect(mockRefresh).toHaveBeenCalledTimes(1)
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh interval triggered (5s)')
+    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 5 seconds')
     
     // さらに5秒経過
     act(() => {
@@ -64,7 +64,7 @@ describe.skip('useAutoRefresh', () => {
     // intervalを変更
     rerender({ interval: 5 })
     
-    expect(console.log).toHaveBeenCalledWith('🗑️ Auto refresh timer cleared')
+    expect(console.log).toHaveBeenCalledWith('🗑️ Clearing previous auto refresh timer')
     expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 5 seconds')
     
     // 新しい間隔で動作することを確認
@@ -131,7 +131,7 @@ describe.skip('useAutoRefresh', () => {
     
     unmount()
     
-    expect(console.log).toHaveBeenCalledWith('🗑️ Auto refresh timer cleared')
+    expect(console.log).toHaveBeenCalledWith('🗑️ Clearing previous auto refresh timer')
     
     // アンマウント後は実行されない
     act(() => {

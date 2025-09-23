@@ -17,7 +17,7 @@ vi.mock('../../utils/api', () => ({
   postReset: (...args: unknown[]) => mockPostReset(...args),
 }))
 
-describe.skip('useAppState', () => {
+describe('useAppState', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
@@ -135,7 +135,7 @@ describe.skip('useAppState', () => {
       await result.current.actions.onSwitch()
     })
 
-    expect(mockPostSwitchVideo).toHaveBeenCalledWith('test-video')
+    expect(mockPostSwitchVideo).toHaveBeenCalledWith('test-video', expect.any(AbortSignal))
     expect(localStorage.getItem('videoId')).toBe('test-video')
     expect(result.current.state.infoMsg).toBe('切替しました')
   })
