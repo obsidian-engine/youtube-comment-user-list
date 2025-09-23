@@ -3,7 +3,7 @@ import { logger } from '../utils/logger'
 
 export function useAutoRefresh(intervalSec: number, refresh: () => Promise<void> | void) {
   const isRefreshingRef = useRef(false)
-  const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalIdRef = useRef<number | null>(null)
 
   // 安全なrefresh関数：重複実行を防ぐ
   const safeRefresh = useCallback(async () => {
@@ -27,7 +27,7 @@ export function useAutoRefresh(intervalSec: number, refresh: () => Promise<void>
     // 既存のタイマーをクリア
     if (intervalIdRef.current) {
       logger.log('🗑️ Clearing previous auto refresh timer')
-      clearInterval(intervalIdRef.current)
+      window.clearInterval(intervalIdRef.current)
       intervalIdRef.current = null
     }
 
@@ -39,12 +39,12 @@ export function useAutoRefresh(intervalSec: number, refresh: () => Promise<void>
     logger.log(`⏰ Auto refresh timer set to ${intervalSec} seconds`)
     
     // 新しいタイマーを作成
-    intervalIdRef.current = setInterval(safeRefresh, intervalSec * 1000)
+    intervalIdRef.current = window.setInterval(safeRefresh, intervalSec * 1000)
 
     return () => {
       if (intervalIdRef.current) {
         logger.log('🗑️ Auto refresh timer cleared on cleanup')
-        clearInterval(intervalIdRef.current)
+        window.clearInterval(intervalIdRef.current)
         intervalIdRef.current = null
       }
     }
