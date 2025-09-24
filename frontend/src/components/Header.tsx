@@ -1,10 +1,9 @@
 interface HeaderProps {
   active: boolean
   userCount: number
-  lastUpdated: string
 }
 
-export function Header({ active, userCount, lastUpdated }: HeaderProps) {
+export function Header({ active, userCount }: HeaderProps) {
   return (
     <section className="relative overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur" aria-label="ヘッダー">
       <div className="p-5 md:p-7">
@@ -23,7 +22,7 @@ export function Header({ active, userCount, lastUpdated }: HeaderProps) {
                 <span className={`h-2 w-2 rounded-full ${active ? 'bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,.15)]' : 'bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,.15)]'}`}></span>
                 <span className="tracking-wide">{active ? 'ACTIVE' : 'WAITING'}</span>
               </span>
-              <span className="text-base text-slate-600 dark:text-slate-300/90">最終更新: <span className="font-medium">{lastUpdated}</span></span>
+
             </div>
           </div>
           <div className="md:col-span-5">
