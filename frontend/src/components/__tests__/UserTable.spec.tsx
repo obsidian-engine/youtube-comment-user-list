@@ -27,6 +27,7 @@ describe('UserTable コンポーネント', () => {
     expect(screen.getByText('名前')).toBeInTheDocument()
     expect(screen.getByText('発言数')).toBeInTheDocument()
     expect(screen.getByText('初回コメント')).toBeInTheDocument()
+    expect(screen.getByText('最新コメント')).toBeInTheDocument()
   })
 
   test('ユーザー情報が正しく表示される', () => {
@@ -49,6 +50,40 @@ describe('UserTable コンポーネント', () => {
     // 日本時間での表示を確認（UTCから+9時間）
     expect(screen.getByTestId('first-comment-0')).toHaveTextContent('21:05')
     expect(screen.getByTestId('first-comment-1')).toHaveTextContent('21:32')
+  })
+
+  test('最新コメント時間が正しく表示される', () => {
+    const usersWithLatestComment = [
+      {
+        channelId: 'UC1',
+        displayName: 'TestUser1',
+        joinedAt: '2024-01-01T12:00:00Z',
+        commentCount: 5,
+        firstCommentedAt: '2024-01-01T12:05:00Z',
+        latestCommentedAt: '2024-01-01T15:30:00Z' // 最新コメント時間
+      },
+      {
+        channelId: 'UC2',
+        displayName: 'TestUser2',
+        joinedAt: '2024-01-01T12:30:00Z',
+        commentCount: 3,
+        firstCommentedAt: '2024-01-01T12:32:00Z',
+        latestCommentedAt: '2024-01-01T14:15:00Z' // 最新コメント時間
+      }
+    ]
+    render(<UserTable users={usersWithLatestComment} />)
+
+    // 日本時間での表示を確認（UTCから+9時間）
+    expect(screen.getByTestId('latest-comment-0')).toHaveTextContent('00:30')
+    expect(screen.getByTestId('latest-comment-1')).toHaveTextContent('23:15')
+  })
+
+  test('最新コメント時間がない場合--:--が表示される', () => {
+    render(<UserTable users={mockUsers} />)
+
+    // latestCommentedAtが未定義の場合
+    expect(screen.getByTestId('latest-comment-0')).toHaveTextContent('--:--')
+    expect(screen.getByTestId('latest-comment-1')).toHaveTextContent('--:--')
   })
 
   test('リフレッシュ中のローディング状態が正しく表示される', () => {
@@ -178,6 +213,31 @@ describe('UserTable コンポーネント', () => {
     expect(screen.getByText('09')).toBeInTheDocument()
     expect(screen.getByText('10')).toBeInTheDocument()
     expect(screen.getByText('15')).toBeInTheDocument()
+  })
+
+  test('狭い画面では初回コメントと最新コメントカラムが非表示になる', () => {
+    // 画面幅を狭くシミュレート（CSSメディアクエリはJSでテストできないので、クラス名で確認）
+    render(<UserTable users={mockUsers} />)
+
+    const table = screen.getByRole('table')
+    
+    // 初回コメントと最新コメントのヘッダーにレスポンシブクラスが適用されていることを確認
+    const firstCommentHeader = screen.getByText('初回コメント').closest('th')
+    const latestCommentHeader = screen.getByText('最新コメント').closest('th')
+    
+    expect(firstCommentHeader).toHaveClass('hidden', 'md:table-cell')
+    expect(latestCommentHeader).toHaveClass('hidden', 'md:table-cell')
+  })
+
+  test('狭い画面では初回コメントと最新コメントのセルが非表示になる', () => {
+    render(<UserTable users={mockUsers} />)
+
+    // 初回コメントと最新コメントのセルにレスポンシブクラスが適用されていることを確認
+    const firstCommentCell = screen.getByTestId('first-comment-0')
+    const latestCommentCell = screen.getByTestId('latest-comment-0')
+    
+    expect(firstCommentCell).toHaveClass('hidden', 'md:table-cell')
+    expect(latestCommentCell).toHaveClass('hidden', 'md:table-cell')
   })
 
   describe('ソート機能', () => {

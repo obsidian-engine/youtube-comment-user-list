@@ -8,11 +8,11 @@ interface StatsCardProps {
 
 const getMonitoringStartTime = (startTime?: string): string => {
   if (!startTime) return '未開始'
-  
+
   try {
     const start = new Date(startTime)
     if (isNaN(start.getTime())) return '未開始'
-    
+
     return start.toLocaleString('ja-JP', {
       year: 'numeric',
       month: '2-digit',
@@ -50,8 +50,6 @@ export function StatsCard({ users, active, startTime }: StatsCardProps) {
             </div>
           </div>
 
-
-
           {/* 監視開始時間 */}
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0">
@@ -66,8 +64,6 @@ export function StatsCard({ users, active, startTime }: StatsCardProps) {
               </div>
             </div>
           </div>
-
-
         </div>
 
         {/* ステータスインジケーター */}
@@ -75,15 +71,14 @@ export function StatsCard({ users, active, startTime }: StatsCardProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className={`w-3 h-3 rounded-full ${
-                active 
-                  ? 'bg-green-400 animate-pulse shadow-lg shadow-green-400/50' 
+                active
+                  ? 'bg-green-400 animate-pulse shadow-lg shadow-green-400/50'
                   : 'bg-slate-300 dark:bg-slate-600'
               }`} />
               <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
                 {active ? '監視中' : '停止中'}
               </span>
             </div>
-
           </div>
         </div>
       </div>

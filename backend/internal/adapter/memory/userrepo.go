@@ -45,17 +45,19 @@ func (r *UserRepo) UpsertWithJoinTime(channelID string, displayName string, join
 
 	// 既存ユーザーの場合は参加時間を保持、発言数をインクリメント
 	if existingUser, exists := r.usersByID[channelID]; exists {
-		existingUser.DisplayName = displayName // 表示名は更新
-		existingUser.CommentCount++            // 発言数をインクリメント
+		existingUser.DisplayName = displayName     // 表示名は更新
+		existingUser.CommentCount++                // 発言数をインクリメント
+		existingUser.LatestCommentedAt = joinedAt  // 最新コメント時間を更新
 		r.usersByID[channelID] = existingUser
 	} else {
 		// 新規ユーザーの場合
 		r.usersByID[channelID] = domain.User{
-			ChannelID:        channelID,
-			DisplayName:      displayName,
-			JoinedAt:         joinedAt,
-			CommentCount:     1,       // 初回コメントなので1
-			FirstCommentedAt: joinedAt, // 初回コメント時刻
+			ChannelID:         channelID,
+			DisplayName:       displayName,
+			JoinedAt:          joinedAt,
+			CommentCount:      1,        // 初回コメントなので1
+			FirstCommentedAt:  joinedAt, // 初回コメント時刻
+			LatestCommentedAt: joinedAt, // 最新コメント時刻（初回なので同じ）
 		}
 	}
 
@@ -76,17 +78,19 @@ func (r *UserRepo) UpsertWithMessageUpdated(channelID string, displayName string
 
 	// 既存ユーザーの場合は参加時間を保持、発言数をインクリメント
 	if existingUser, exists := r.usersByID[channelID]; exists {
-		existingUser.DisplayName = displayName // 表示名は更新
-		existingUser.CommentCount++            // 発言数をインクリメント
+		existingUser.DisplayName = displayName     // 表示名は更新
+		existingUser.CommentCount++                // 発言数をインクリメント
+		existingUser.LatestCommentedAt = joinedAt  // 最新コメント時間を更新
 		r.usersByID[channelID] = existingUser
 	} else {
 		// 新規ユーザーの場合
 		r.usersByID[channelID] = domain.User{
-			ChannelID:        channelID,
-			DisplayName:      displayName,
-			JoinedAt:         joinedAt,
-			CommentCount:     1,       // 初回コメントなので1
-			FirstCommentedAt: joinedAt, // 初回コメント時刻
+			ChannelID:         channelID,
+			DisplayName:       displayName,
+			JoinedAt:          joinedAt,
+			CommentCount:      1,        // 初回コメントなので1
+			FirstCommentedAt:  joinedAt, // 初回コメント時刻
+			LatestCommentedAt: joinedAt, // 最新コメント時刻（初回なので同じ）
 		}
 	}
 

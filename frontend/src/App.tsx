@@ -28,7 +28,7 @@ export default function App() {
     isRefreshing: loadingStates.refreshing 
   })
 
-  useAutoRefresh(intervalSec, actions.onPull)
+  useAutoRefresh(intervalSec, actions.onPullSilent)
 
   return (
     <div className="min-h-screen bg-canvas-light dark:bg-canvas-dark text-slate-900 dark:text-slate-100">

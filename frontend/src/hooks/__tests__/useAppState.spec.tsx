@@ -244,4 +244,36 @@ describe('useAppState', () => {
     // 画面更新間隔も0になることを確認
     expect(result.current.state.intervalSec).toBe(0)
   })
+
+  test('onPullSilentは成功メッセージを表示しない', async () => {
+    mockPostPull.mockResolvedValue(undefined)
+    mockGetStatus.mockResolvedValue({ status: 'ACTIVE' })
+    mockGetUsers.mockResolvedValue([])
+
+    const { result } = renderHook(() => useAppState())
+    
+    await act(async () => {
+      await result.current.actions.onPullSilent()
+    })
+
+    expect(mockPostPull).toHaveBeenCalled()
+    expect(result.current.state.infoMsg).toBe('') // メッセージなし
+    expect(result.current.state.errorMsg).toBe('')
+  })
+
+  test('onPullは成功メッセージを表示する', async () => {
+    mockPostPull.mockResolvedValue(undefined)
+    mockGetStatus.mockResolvedValue({ status: 'ACTIVE' })
+    mockGetUsers.mockResolvedValue([])
+
+    const { result } = renderHook(() => useAppState())
+    
+    await act(async () => {
+      await result.current.actions.onPull()
+    })
+
+    expect(mockPostPull).toHaveBeenCalled()
+    expect(result.current.state.infoMsg).toBe('取得しました') // メッセージあり
+    expect(result.current.state.errorMsg).toBe('')
+  })
 })

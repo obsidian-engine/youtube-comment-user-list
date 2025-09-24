@@ -25,6 +25,7 @@ export type User = {
   joinedAt: string
   firstCommentedAt?: string
   commentCount?: number
+  latestCommentedAt?: string
 }
 
 export async function getUsers(signal?: AbortSignal): Promise<User[]> {

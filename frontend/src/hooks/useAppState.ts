@@ -30,6 +30,7 @@ interface AppActions {
   refresh: () => Promise<void>
   onSwitch: () => Promise<void>
   onPull: () => Promise<void>
+  onPullSilent: () => Promise<void>
   onReset: () => Promise<void>
   clearInfoMsg: () => void
 }
@@ -66,6 +67,73 @@ export function useAppState() {
     setState(prev => ({ ...prev, lastUpdated: timeString }))
   }, [])
 
+  // 切替・リセット時専用のrefresh（ユーザーリストを強制クリア）
+  const refreshWithClear = useCallback(async () => {
+    logger.log('🎯 refreshWithClear function called - will clear user list')
+    
+    try {
+      // 前のリクエストをキャンセル
+      if (refreshControllerRef.current) {
+        logger.log('🛑 Aborting previous refresh request')
+        refreshControllerRef.current.abort()
+      }
+
+      logger.log('🔄 Refresh with clear starting...', new Date().toLocaleTimeString())
+      setState(prev => ({ 
+        ...prev, 
+        loadingStates: { ...prev.loadingStates, refreshing: true }
+      }))
+      
+      // 新しいAbortControllerを作成
+      const controller = new AbortController()
+      refreshControllerRef.current = controller
+
+      const [st, us] = await Promise.all([
+        getStatus(controller.signal),
+        getUsers(controller.signal),
+      ])
+      
+      // リクエストが成功したらcontrollerをクリア
+      refreshControllerRef.current = null
+      
+      const status = st.status || st.Status || 'WAITING'
+      const fetched = Array.isArray(us) ? us : []
+      
+      setState(prev => {
+        const sortedUsers = sortUsersStable(fetched)
+        logger.log('📋 Clearing and updating with fresh users:', { count: sortedUsers.length })
+        
+        return {
+          ...prev,
+          active: status === 'ACTIVE',
+          users: sortedUsers, // 強制的に新しいリストに置き換え
+          startTime: st.startedAt,
+          errorMsg: ''
+        }
+      })
+      
+      logger.log('✅ Refresh with clear completed:', { status, userCount: fetched.length })
+    } catch (e) {
+      // AbortErrorの場合はエラーメッセージを表示しない
+      if (e instanceof Error && e.name === 'AbortError') {
+        logger.log('🚫 Refresh with clear aborted')
+        return
+      }
+      
+      logger.error('❌ Refresh with clear failed:', e)
+      setState(prev => ({
+        ...prev,
+        errorMsg: '更新に失敗しました。しばらくしてから再試行してください。'
+      }))
+    } finally {
+      updateClock()
+      setState(prev => ({ 
+        ...prev, 
+        loadingStates: { ...prev.loadingStates, refreshing: false }
+      }))
+    }
+  }, [updateClock])
+
   const refresh = useCallback(async () => {
     logger.log('🎯 refresh function called from useAppState')
     
@@ -100,10 +168,24 @@ export function useAppState() {
       setState(prev => {
         const sortedUsers = sortUsersStable(fetched)
         logger.log('📋 Updating state with users:', { count: sortedUsers.length, firstThree: sortedUsers.slice(0, 3).map(u => u.displayName) })
+        
+        // ユーザーリスト保持ロジック：
+        // 1. サーバーから新しいユーザーがある場合は更新
+        // 2. サーバーが空でも既存ユーザーがいれば保持（停止中でもリストを保持）
+        const shouldKeepExistingUsers = fetched.length === 0 && prev.users.length > 0
+        const finalUsers = shouldKeepExistingUsers ? prev.users : sortedUsers
+        
+        logger.log('📋 User list decision:', {
+          serverUsers: fetched.length,
+          existingUsers: prev.users.length,
+          keepExisting: shouldKeepExistingUsers,
+          finalCount: finalUsers.length
+        })
+        
         return {
           ...prev,
           active: status === 'ACTIVE',
-          users: sortedUsers,
+          users: finalUsers,
           startTime: st.startedAt,
           errorMsg: ''
         }
@@ -136,7 +218,8 @@ export function useAppState() {
     loadingKey: keyof LoadingStates,
     successMsg: string,
     errorMsgPrefix: string = '',
-    controllerRef: React.MutableRefObject<AbortController | null>
+    controllerRef: React.MutableRefObject<AbortController | null>,
+    shouldClearUsers: boolean = false // 切替・リセット時のフラグ
   ) => {
     try {
       // 前のリクエストをキャンセル
@@ -168,7 +251,12 @@ export function useAppState() {
         setState(prev => ({ ...prev, lastFetchTime: timeString }))
       }
 
-      await refresh()
+      // 切替・リセット時はユーザーリストをクリア、それ以外は保持
+      if (shouldClearUsers) {
+        await refreshWithClear()
+      } else {
+        await refresh()
+      }
     } catch (e) {
       // AbortErrorの場合はエラーメッセージを表示しない
       if (e instanceof Error && e.name === 'AbortError') {
@@ -211,7 +299,8 @@ export function useAppState() {
         'switching',
         '切替しました',
         '切替',
-        switchControllerRef
+        switchControllerRef,
+        true // 切替時はユーザーリストをクリア
       )
     }, [state.videoId, handleAsyncAction]),
 
@@ -225,13 +314,24 @@ export function useAppState() {
       )
     }, [handleAsyncAction]),
 
+    onPullSilent: useCallback(async () => {
+      await handleAsyncAction(
+        (signal) => postPull(signal),
+        'pulling',
+        '', // 自動更新時はメッセージなし
+        '取得',
+        pullControllerRef
+      )
+    }, [handleAsyncAction]),
+
     onReset: useCallback(async () => {
       await handleAsyncAction(
         (signal) => postReset(signal),
         'resetting',
         'リセットしました',
         'リセット',
-        resetControllerRef
+        resetControllerRef,
+        true // リセット時もユーザーリストをクリア
       )
     }, [handleAsyncAction]),
 

@@ -7,6 +7,7 @@ interface User {
   joinedAt?: string
   commentCount?: number
   firstCommentedAt?: string
+  latestCommentedAt?: string
 }
 
 // Union type to handle both object and string users
@@ -49,6 +50,18 @@ const getUserFirstComment = (user: UserData): string => {
   if (typeof user === 'string') return '--:--'
   if (user.firstCommentedAt && user.firstCommentedAt !== '') {
     return new Date(user.firstCommentedAt).toLocaleTimeString('ja-JP', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Tokyo'
+    })
+  }
+  return '--:--'
+}
+
+const getUserLatestComment = (user: UserData): string => {
+  if (typeof user === 'string') return '--:--'
+  if (user.latestCommentedAt && user.latestCommentedAt !== '') {
+    return new Date(user.latestCommentedAt).toLocaleTimeString('ja-JP', {
       hour: '2-digit',
       minute: '2-digit',
       timeZone: 'Asia/Tokyo'
@@ -237,11 +250,12 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
                 発言数
               </SortButton>
             </th>
-            <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">
+            <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase hidden md:table-cell">
               <SortButton field="firstCommentedAt" currentSort={sortState} onSort={handleSort}>
                 初回コメント
               </SortButton>
             </th>
+            <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase hidden md:table-cell">最新コメント</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200/60 dark:divide-slate-600/40">
@@ -270,10 +284,16 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
                 {getUserCommentCount(user)}
               </td>
               <td
-                className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px]"
+                className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell"
                 data-testid={`first-comment-${i}`}
               >
                 {getUserFirstComment(user)}
+              </td>
+              <td
+                className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell"
+                data-testid={`latest-comment-${i}`}
+              >
+                {getUserLatestComment(user)}
               </td>
             </tr>
           ))}
