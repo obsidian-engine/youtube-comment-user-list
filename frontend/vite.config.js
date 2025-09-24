@@ -29,8 +29,8 @@ export default defineConfig({
     // ファイル監視の最適化
     watch: process.env.CI ? false : true,
 
-    // 軽量化のため分離を無効化（単体テストは問題なし）
-    isolate: false,
+    // テスト分離を有効化（コンポーネントレンダリングに必要）
+    isolate: true,
 
     // 依存関係最適化（バンドル化による高速化）
     deps: {
