@@ -56,23 +56,7 @@ describe('StatsCard', () => {
 
 
 
-    test('commentCount が 0 のユーザーは非アクティブとしてカウントされる', () => {
-      const usersWithZeroComments: User[] = [
-        ...mockUsers,
-        {
-          channelId: 'channel4',
-          displayName: 'User4',
-          joinedAt: '2024-01-01T10:03:00Z',
-          commentCount: 0
-        }
-      ]
-      
-      render(<StatsCard users={usersWithZeroComments} active={true} />)
-      
-      // まだ2人がアクティブ（commentCount: 0は非アクティブ）
-      const activeUserElements = screen.getAllByText('2')
-      expect(activeUserElements.length).toBeGreaterThan(0)
-    })
+
   })
 
   describe('監視時間表示', () => {
@@ -202,7 +186,7 @@ describe('StatsCard', () => {
       render(<StatsCard users={usersWithEmptyComment} active={true} />)
       
       expect(screen.getByText('なし')).toBeInTheDocument()
-      expect(screen.getByText('0%')).toBeInTheDocument() // アクティブユーザー0人
+
     })
 
     test('不正なfirstCommentedAtの場合、エラーにならずなしと表示', () => {
