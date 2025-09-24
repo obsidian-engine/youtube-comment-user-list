@@ -55,7 +55,7 @@ export default function App() {
           />
         )}
 
-        <StatsCard users={users} active={active} />
+        <StatsCard users={users} active={active} startTime={state.startTime} />
 
         <UserTable users={users} intervalSec={intervalSec} setIntervalSec={actions.setIntervalSec} lastUpdated={lastUpdated} isRefreshing={loadingStates.refreshing} />
       </main>

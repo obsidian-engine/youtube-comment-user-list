@@ -2,18 +2,13 @@ const isDevelopment = import.meta.env.DEV
 
 export const logger = {
   log: (...args: unknown[]) => {
-    if (isDevelopment) {
-      console.log(...args)
-    }
+    // 本番環境でもデバッグのため一時的に有効化
+    console.log(...args)
   },
   error: (...args: unknown[]) => {
-    if (isDevelopment) {
-      console.error(...args)
-    }
+    console.error(...args)
   },
   warn: (...args: unknown[]) => {
-    if (isDevelopment) {
-      console.warn(...args)
-    }
+    console.warn(...args)
   },
 }

@@ -20,6 +20,7 @@ interface AppState {
   lastFetchTime: string
   errorMsg: string
   infoMsg: string
+  startTime?: string
   loadingStates: LoadingStates
 }
 
@@ -43,6 +44,7 @@ export function useAppState() {
     lastFetchTime: '',
     errorMsg: '',
     infoMsg: '',
+    startTime: undefined,
     loadingStates: {
       switching: false,
       pulling: false,
@@ -99,6 +101,7 @@ export function useAppState() {
           ...prev,
           active: status === 'ACTIVE',
           users: sortedUsers,
+          startTime: st.startedAt,
           errorMsg: ''
         }
       })
