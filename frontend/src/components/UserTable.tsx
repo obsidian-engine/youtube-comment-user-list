@@ -181,7 +181,7 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
             </div>
             <button
               onClick={handleReset}
-              disabled={!isSorted}
+              disabled={!isSorted || isRefreshing}
               aria-label="ソートリセット"
               className={`text-[12px] px-3 py-1.5 rounded-md transition-colors ${
                 isSorted
@@ -199,6 +199,7 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
                   aria-label="更新間隔"
                   value={intervalSec}
                   onChange={(e) => setIntervalSec(Number(e.target.value))}
+                  disabled={isRefreshing}
                   className="text-[12px] px-2 py-1 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10"
                 >
                   <option value="0">停止</option>
@@ -213,8 +214,14 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
           <div className="flex items-center gap-3">
 
             {isRefreshing && (
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300"></div>
+              <div className="flex items-center gap-3">
+                <div 
+                  data-testid="loading-spinner"
+                  className="animate-spin rounded-full h-8 w-8 border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300"
+                />
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  データ更新中...
+                </span>
               </div>
             )}
           </div>

@@ -30,6 +30,7 @@ interface AppActions {
   onSwitch: () => Promise<void>
   onPull: () => Promise<void>
   onReset: () => Promise<void>
+  clearInfoMsg: () => void
 }
 
 export function useAppState() {
@@ -176,9 +177,7 @@ export function useAppState() {
         ...prev, 
         loadingStates: { ...prev.loadingStates, [loadingKey]: false }
       }))
-      setTimeout(() => {
-        setState(prev => ({ ...prev, infoMsg: '' }))
-      }, 2000)
+
     }
   }, [refresh])
 
@@ -228,7 +227,11 @@ export function useAppState() {
         'リセット',
         resetControllerRef
       )
-    }, [handleAsyncAction])
+    }, [handleAsyncAction]),
+
+    clearInfoMsg: useCallback(() => {
+      setState(prev => ({ ...prev, infoMsg: '' }))
+    }, [])
   }
 
   return { state, actions }

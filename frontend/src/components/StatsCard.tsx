@@ -1,37 +1,33 @@
-interface User {
-  channelId?: string
-  displayName?: string
-  joinedAt?: string
-  commentCount?: number
-  firstCommentedAt?: string
-}
-
-type UserData = User | string
+import type { User } from '../utils/api'
 
 interface StatsCardProps {
-  users: UserData[]
+  users: User[]
   active: boolean
   startTime?: string
 }
 
-const getUserCommentCount = (user: UserData): number => {
-  if (typeof user === 'string') return 0
-  return user.commentCount ?? 0
+const getActiveUsersCount = (users: User[]): number => {
+  return users.filter(user => {
+    return user.commentCount !== undefined && user.commentCount > 0
+  }).length
 }
 
-const getActiveUsersCount = (users: UserData[]): number => {
-  return users.filter(user => getUserCommentCount(user) > 0).length
-}
-
-const getLatestCommentTime = (users: UserData[]): string => {
+const getLatestCommentTime = (users: User[]): string => {
   let latestTime: Date | null = null
   
   for (const user of users) {
-    if (typeof user === 'string') continue
     if (user.firstCommentedAt && user.firstCommentedAt !== '') {
-      const commentTime = new Date(user.firstCommentedAt)
-      if (!latestTime || commentTime > latestTime) {
-        latestTime = commentTime
+      try {
+        const commentTime = new Date(user.firstCommentedAt)
+        // 不正な日付の場合はInvalid Dateになるのでチェック
+        if (!isNaN(commentTime.getTime())) {
+          if (!latestTime || commentTime > latestTime) {
+            latestTime = commentTime
+          }
+        }
+      } catch (error) {
+        // 不正な日付フォーマットの場合はスキップ
+        console.warn('Invalid date format:', user.firstCommentedAt)
       }
     }
   }
@@ -49,17 +45,24 @@ const getLatestCommentTime = (users: UserData[]): string => {
 const getMonitoringDuration = (startTime?: string): string => {
   if (!startTime) return '停止中'
   
-  const start = new Date(startTime)
-  const now = new Date()
-  const diffMs = now.getTime() - start.getTime()
-  const diffMinutes = Math.floor(diffMs / (1000 * 60))
-  
-  if (diffMinutes < 1) return '1分未満'
-  if (diffMinutes < 60) return `${diffMinutes}分`
-  
-  const hours = Math.floor(diffMinutes / 60)
-  const minutes = diffMinutes % 60
-  return `${hours}時間${minutes}分`
+  try {
+    const start = new Date(startTime)
+    if (isNaN(start.getTime())) return '停止中'
+    
+    const now = new Date()
+    const diffMs = now.getTime() - start.getTime()
+    const diffMinutes = Math.floor(diffMs / (1000 * 60))
+    
+    if (diffMinutes < 1) return '1分未満'
+    if (diffMinutes < 60) return `${diffMinutes}分`
+    
+    const hours = Math.floor(diffMinutes / 60)
+    const minutes = diffMinutes % 60
+    return `${hours}時間${minutes}分`
+  } catch (error) {
+    console.warn('Invalid start time format:', startTime)
+    return '停止中'
+  }
 }
 
 export function StatsCard({ users, active, startTime }: StatsCardProps) {

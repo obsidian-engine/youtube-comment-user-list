@@ -4,6 +4,8 @@ import { StatsCard } from './components/StatsCard'
 import { QuickGuide } from './components/QuickGuide'
 import { Controls } from './components/Controls'
 import { UserTable } from './components/UserTable'
+import { Toast } from './components/Toast'
+import { useAutoRefresh } from './hooks/useAutoRefresh'
 
 export default function App() {
   const { state, actions } = useAppState()
@@ -47,13 +49,11 @@ export default function App() {
         />
 
         {infoMsg && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="rounded-lg ring-1 ring-sky-300/60 bg-sky-50 text-sky-800 px-4 py-3"
-          >
-            {infoMsg}
-          </div>
+          <Toast 
+            message={infoMsg}
+            type="success"
+            onClose={actions.clearInfoMsg}
+          />
         )}
 
         <StatsCard users={users} active={active} />
