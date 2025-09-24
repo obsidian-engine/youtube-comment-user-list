@@ -36,7 +36,7 @@ describe('useAppState', () => {
       active: false,
       users: [],
       videoId: '',
-      intervalSec: 30,
+      intervalSec: 15,
       lastUpdated: '--:--:--',
       lastFetchTime: '',
       errorMsg: '',
@@ -155,7 +155,7 @@ describe('useAppState', () => {
     })
 
     expect(mockPostPull).toHaveBeenCalled()
-    expect(result.current.state.lastFetchTime).toBe('最終取得: 10:15:30')
+    expect(result.current.state.lastFetchTime).toBe('10:15:30')
     expect(result.current.state.infoMsg).toBe('取得しました')
 
     vi.useRealTimers()
@@ -210,5 +210,38 @@ describe('useAppState', () => {
 
     // ローディング完了
     expect(result.current.state.loadingStates.pulling).toBe(false)
+  })
+
+  test('API更新間隔を変更すると画面更新間隔も同じ値に設定される', () => {
+    const { result } = renderHook(() => useAppState())
+    
+    // 初期値の確認
+    expect(result.current.state.intervalSec).toBe(15)
+    
+    // API更新間隔を60秒に変更
+    act(() => {
+      result.current.actions.setIntervalSec(60)
+    })
+
+    // 画面更新間隔も同じ値になることを確認
+    expect(result.current.state.intervalSec).toBe(60)
+  })
+
+  test('API更新間隔を0(停止)に設定すると画面更新間隔も停止される', () => {
+    const { result } = renderHook(() => useAppState())
+    
+    // 最初に値を設定
+    act(() => {
+      result.current.actions.setIntervalSec(30)
+    })
+    expect(result.current.state.intervalSec).toBe(30)
+    
+    // 0に設定
+    act(() => {
+      result.current.actions.setIntervalSec(0)
+    })
+
+    // 画面更新間隔も0になることを確認
+    expect(result.current.state.intervalSec).toBe(0)
   })
 })

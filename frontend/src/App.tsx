@@ -1,9 +1,10 @@
 import { useAutoRefresh } from './hooks/useAutoRefresh'
 import { useAppState } from './hooks/useAppState'
-import { Header } from './components/Header'
+import { StatsCard } from './components/StatsCard'
 import { QuickGuide } from './components/QuickGuide'
 import { Controls } from './components/Controls'
 import { UserTable } from './components/UserTable'
+import { Toast } from './components/Toast'
 
 export default function App() {
   const { state, actions } = useAppState()
@@ -27,8 +28,6 @@ export default function App() {
       <main className="mx-auto max-w-4xl px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
         <QuickGuide />
         
-        <Header active={active} userCount={users.length} />
-
         {errorMsg && (
           <div
             role="alert"
@@ -49,16 +48,16 @@ export default function App() {
         />
 
         {infoMsg && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="rounded-lg ring-1 ring-sky-300/60 bg-sky-50 text-sky-800 px-4 py-3"
-          >
-            {infoMsg}
-          </div>
+          <Toast 
+            message={infoMsg}
+            type="success"
+            onClose={actions.clearInfoMsg}
+          />
         )}
 
-        <UserTable users={users} intervalSec={intervalSec} setIntervalSec={actions.setIntervalSec} lastUpdated={lastUpdated} lastFetchTime={lastFetchTime} />
+        <StatsCard users={users} active={active} />
+
+        <UserTable users={users} intervalSec={intervalSec} setIntervalSec={actions.setIntervalSec} lastUpdated={lastUpdated} lastFetchTime={lastFetchTime} isRefreshing={loadingStates.refreshing} />
       </main>
     </div>
   )
