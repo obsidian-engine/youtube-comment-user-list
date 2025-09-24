@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
+import { Tooltip } from './Tooltip'
+import { isTextTooLong, truncateText } from '../utils/textUtils'
 
 
 interface User {
@@ -245,11 +247,11 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
           </div>
         </div>
       </div>
-      <table className="w-full table-auto text-[14px] leading-7">
+      <table className="w-full table-fixed text-[14px] leading-7">
         <thead className="bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700 text-white dark:text-slate-100">
           <tr>
             <th className="text-center px-4 py-3.5 w-[80px] font-semibold text-[13px] tracking-wide uppercase">#</th>
-            <th className="text-center px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase min-w-[250px] w-auto">名前</th>
+            <th className="text-center px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase w-[250px] max-w-[250px]">名前</th>
             <th className="text-center px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase w-[120px]">
               <SortButton field="commentCount" currentSort={sortState} onSort={handleSort}>
                 発言数
@@ -280,11 +282,19 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
               <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium">
                 {String(i + 1).padStart(2, '0')}
               </td>
-              <td
-                className="px-4 py-3 truncate-1 text-slate-800 dark:text-slate-200 font-medium"
-                title={getUserDisplayName(user)}
-              >
-                {getUserDisplayName(user)}
+              <td className="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">
+                <Tooltip
+                  content={getUserDisplayName(user)}
+                  disabled={!isTextTooLong(getUserDisplayName(user), 20)}
+                  className="block w-full max-w-[200px]"
+                >
+                  <span className="block truncate">
+                    {isTextTooLong(getUserDisplayName(user), 20) 
+                      ? truncateText(getUserDisplayName(user), 20) 
+                      : getUserDisplayName(user)
+                    }
+                  </span>
+                </Tooltip>
               </td>
               <td
                 className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium"

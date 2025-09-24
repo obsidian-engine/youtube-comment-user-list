@@ -49,15 +49,15 @@ describe('Controls コンポーネント', () => {
   test('操作ボタンが正しく表示される', () => {
     render(<Controls {...mockProps} />)
 
-    expect(screen.getByRole('button', { name: '切替' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '今すぐ取得' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'リセット' })).toBeInTheDocument()
+    expect(screen.getByLabelText('切替')).toBeInTheDocument()
+    expect(screen.getByLabelText('今すぐ取得')).toBeInTheDocument()
+    expect(screen.getByLabelText('リセット')).toBeInTheDocument()
   })
 
   test('切替ボタンクリック時にonSwitchが呼ばれる', async () => {
     render(<Controls {...mockProps} videoId="test-video" />)
 
-    const switchButton = screen.getByRole('button', { name: '切替' })
+    const switchButton = screen.getByLabelText('切替')
     fireEvent.click(switchButton)
 
     await waitFor(() => {
@@ -69,7 +69,7 @@ describe('Controls コンポーネント', () => {
     const mockOnSwitch = vi.fn().mockResolvedValue(undefined)
     render(<Controls {...mockProps} videoId="test-video-id" onSwitch={mockOnSwitch} />)
 
-    const switchButton = screen.getByRole('button', { name: '切替' })
+    const switchButton = screen.getByLabelText('切替')
     fireEvent.click(switchButton)
 
     await waitFor(() => {
@@ -80,7 +80,7 @@ describe('Controls コンポーネント', () => {
   test('今すぐ取得ボタンクリック時にonPullが呼ばれる', async () => {
     render(<Controls {...mockProps} />)
 
-    const pullButton = screen.getByRole('button', { name: '今すぐ取得' })
+    const pullButton = screen.getByLabelText('今すぐ取得')
     fireEvent.click(pullButton)
 
     await waitFor(() => {
@@ -91,7 +91,7 @@ describe('Controls コンポーネント', () => {
   test('リセットボタンクリック時にonResetが呼ばれる', async () => {
     render(<Controls {...mockProps} />)
 
-    const resetButton = screen.getByRole('button', { name: 'リセット' })
+    const resetButton = screen.getByLabelText('リセット')
     fireEvent.click(resetButton)
 
     await waitFor(() => {
