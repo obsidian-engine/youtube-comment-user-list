@@ -18,9 +18,29 @@ vi.mock('../../utils/api', () => ({
 }))
 
 describe('useAppState', () => {
+  let mockLocalStorage: { [key: string]: string } = {}
+
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.clear()
+    mockLocalStorage = {}
+    
+    // 実際に動作するlocalStorageモックを作成
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: vi.fn((key: string) => mockLocalStorage[key] || null),
+        setItem: vi.fn((key: string, value: string) => {
+          mockLocalStorage[key] = value
+        }),
+        removeItem: vi.fn((key: string) => {
+          delete mockLocalStorage[key]
+        }),
+        clear: vi.fn(() => {
+          mockLocalStorage = {}
+        }),
+      },
+      writable: true
+    })
+    
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
