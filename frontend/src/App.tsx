@@ -42,9 +42,6 @@ export default function App() {
         <Controls
           videoId={videoId}
           setVideoId={actions.setVideoId}
-          intervalSec={intervalSec}
-          setIntervalSec={actions.setIntervalSec}
-          lastFetchTime={lastFetchTime}
           loadingStates={loadingStates}
           onSwitch={actions.onSwitch}
           onPull={actions.onPull}

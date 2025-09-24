@@ -10,9 +10,6 @@ interface LoadingStates {
 interface ControlsProps {
   videoId: string
   setVideoId: (value: string) => void
-  intervalSec: number
-  setIntervalSec: (value: number) => void
-  lastFetchTime: string
   loadingStates: LoadingStates
   onSwitch: () => Promise<void>
   onPull: () => Promise<void>
@@ -22,9 +19,6 @@ interface ControlsProps {
 export function Controls({
   videoId,
   setVideoId,
-  intervalSec,
-  setIntervalSec,
-  lastFetchTime,
   loadingStates,
   onSwitch,
   onPull,
