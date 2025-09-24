@@ -1,14 +1,11 @@
 export const logger = {
   log: (...args: unknown[]) => {
-    // テスト環境ではログを無効化
-    if (process.env.NODE_ENV !== 'test') {
-      console.log(...args)
-    }
+    // コンソールログは削除済み
   },
   error: (...args: unknown[]) => {
-    console.error(...args)
+    // コンソールエラーは削除済み
   },
   warn: (...args: unknown[]) => {
-    console.warn(...args)
+    // コンソール警告は削除済み
   },
 }

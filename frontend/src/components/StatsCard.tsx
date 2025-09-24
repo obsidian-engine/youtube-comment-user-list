@@ -22,7 +22,7 @@ const getMonitoringStartTime = (startTime?: string): string => {
       minute: '2-digit'
     })
   } catch (error) {
-    console.warn('Invalid start time format:', startTime)
+
     return '未開始'
   }
 }

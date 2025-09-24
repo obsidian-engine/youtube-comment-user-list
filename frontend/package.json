@@ -8,6 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "test:run": "vitest --run",
+    "test:unit": "vitest --run src/hooks src/utils src/components",
+    "test:integration": "vitest --run src/__tests__",
+    "test:fast": "vitest --run --reporter=dot",
+    "test:bail": "vitest --run --bail=1",
+    "test:coverage": "vitest --run --coverage",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },

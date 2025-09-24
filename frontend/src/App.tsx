@@ -23,14 +23,7 @@ export default function App() {
   } = state
 
   // デバッグログはテスト環境では無効化
-  if (process.env.NODE_ENV !== 'test') {
-    console.log('🏠 App component rendered:', { 
-      intervalSec, 
-      active, 
-      usersCount: users.length,
-      isRefreshing: loadingStates.refreshing 
-    })
-  }
+
 
   useAutoRefresh(intervalSec, actions.onPullSilent)
 
