@@ -1,5 +1,4 @@
 import { render, screen, fireEvent, within } from '@testing-library/react'
-import { render, screen } from '@testing-library/react'
 import { vi } from 'vitest'
 import { UserTable } from '../UserTable'
 

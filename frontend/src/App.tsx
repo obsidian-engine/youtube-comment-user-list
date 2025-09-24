@@ -5,7 +5,6 @@ import { QuickGuide } from './components/QuickGuide'
 import { Controls } from './components/Controls'
 import { UserTable } from './components/UserTable'
 import { Toast } from './components/Toast'
-import { useAutoRefresh } from './hooks/useAutoRefresh'
 
 export default function App() {
   const { state, actions } = useAppState()
