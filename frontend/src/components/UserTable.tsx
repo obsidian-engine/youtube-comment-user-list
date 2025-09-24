@@ -17,9 +17,10 @@ interface UserTableProps {
   users: UserData[]
   intervalSec?: number
   setIntervalSec?: (value: number) => void
-  lastUpdated?: string
 
   isRefreshing?: boolean
+  showCommentTime?: boolean
+  onToggleCommentTime?: () => void
 }
 
 type SortField = 'commentCount' | 'firstCommentedAt'
@@ -124,7 +125,7 @@ function SortButton({ field, currentSort, onSort, children }: SortButtonProps) {
 }
 
 
-export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated = '--:--:--', isRefreshing = false }: UserTableProps) {
+export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing = false, showCommentTime = true, onToggleCommentTime }: UserTableProps) {
   const [sortState, setSortState] = useState<SortState>({ field: null, order: 'asc' })
 
 
@@ -186,12 +187,7 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
 
-            <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-slate-200/50 dark:border-white/10">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">画面最終更新</div>
-              <div className="text-xs font-medium text-slate-700 dark:text-slate-200 tabular-nums">
-                {lastUpdated}
-              </div>
-            </div>
+
             <button
               onClick={handleReset}
               disabled={!isSorted || isRefreshing}
@@ -202,7 +198,7 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
               }`}
             >
-              ↻ デフォルト順
+              ↻ 参加早い人が上
             </button>
             {setIntervalSec && (
               <div className="flex items-center gap-2">
@@ -225,7 +221,16 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
             )}
           </div>
           <div className="flex items-center gap-3">
-
+            {onToggleCommentTime && (
+              <button
+                onClick={onToggleCommentTime}
+                disabled={isRefreshing}
+                aria-label="コメント時間表示切り替え"
+                className="text-[12px] px-3 py-1.5 rounded-md transition-colors bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
+              >
+                {showCommentTime ? '🕒 時間非表示' : '🕒 時間表示'}
+              </button>
+            )}
             {isRefreshing && (
               <div className="flex items-center gap-3">
                 <div 
@@ -250,12 +255,16 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
                 発言数
               </SortButton>
             </th>
-            <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase hidden md:table-cell">
-              <SortButton field="firstCommentedAt" currentSort={sortState} onSort={handleSort}>
-                初回コメント
-              </SortButton>
-            </th>
-            <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase hidden md:table-cell">最新コメント</th>
+            {showCommentTime && (
+              <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase hidden md:table-cell">
+                <SortButton field="firstCommentedAt" currentSort={sortState} onSort={handleSort}>
+                  初回コメント
+                </SortButton>
+              </th>
+            )}
+            {showCommentTime && (
+              <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase hidden md:table-cell">最新コメント</th>
+            )}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200/60 dark:divide-slate-600/40">
@@ -283,18 +292,22 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
               >
                 {getUserCommentCount(user)}
               </td>
-              <td
-                className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell"
-                data-testid={`first-comment-${i}`}
-              >
-                {getUserFirstComment(user)}
-              </td>
-              <td
-                className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell"
-                data-testid={`latest-comment-${i}`}
-              >
-                {getUserLatestComment(user)}
-              </td>
+              {showCommentTime && (
+                <td
+                  className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell"
+                  data-testid={`first-comment-${i}`}
+                >
+                  {getUserFirstComment(user)}
+                </td>
+              )}
+              {showCommentTime && (
+                <td
+                  className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell"
+                  data-testid={`latest-comment-${i}`}
+                >
+                  {getUserLatestComment(user)}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

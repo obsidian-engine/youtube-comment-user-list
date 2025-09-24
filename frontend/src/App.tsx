@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useAutoRefresh } from './hooks/useAutoRefresh'
 import { useAppState } from './hooks/useAppState'
 import { StatsCard } from './components/StatsCard'
@@ -8,6 +9,7 @@ import { Toast } from './components/Toast'
 
 export default function App() {
   const { state, actions } = useAppState()
+  const [showCommentTime, setShowCommentTime] = useState(true)
   const {
     active,
     users,
@@ -63,9 +65,16 @@ export default function App() {
           />
         )}
 
-        <StatsCard users={users} active={active} startTime={state.startTime} />
+        <StatsCard users={users} active={active} startTime={state.startTime} lastUpdated={lastUpdated} />
 
-        <UserTable users={users} intervalSec={intervalSec} setIntervalSec={actions.setIntervalSec} lastUpdated={lastUpdated} isRefreshing={loadingStates.refreshing} />
+        <UserTable 
+          users={users} 
+          intervalSec={intervalSec} 
+          setIntervalSec={actions.setIntervalSec} 
+          isRefreshing={loadingStates.refreshing}
+          showCommentTime={showCommentTime}
+          onToggleCommentTime={() => setShowCommentTime(!showCommentTime)}
+        />
       </main>
     </div>
   )

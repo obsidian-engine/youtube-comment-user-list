@@ -92,6 +92,20 @@ describe('StatsCard', () => {
     })
   })
 
+  describe('画面最終更新表示', () => {
+    test('lastUpdatedが提供された場合、その値を表示', () => {
+      render(<StatsCard users={mockUsers} active={true} lastUpdated="12:34:56" />)
+      
+      expect(screen.getByText('12:34:56')).toBeInTheDocument()
+    })
+
+    test('lastUpdatedが未提供の場合、デフォルト値を表示', () => {
+      render(<StatsCard users={mockUsers} active={true} />)
+      
+      expect(screen.getByText('--:--:--')).toBeInTheDocument()
+    })
+  })
+
   describe('エッジケース', () => {
     test('不正なstartTimeの場合、エラーにならず未開始と表示', () => {
       render(<StatsCard users={mockUsers} active={true} startTime="invalid-date" />)

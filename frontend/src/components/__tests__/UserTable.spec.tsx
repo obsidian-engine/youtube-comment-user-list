@@ -240,6 +240,76 @@ describe('UserTable コンポーネント', () => {
     expect(latestCommentCell).toHaveClass('hidden', 'md:table-cell')
   })
 
+  describe('コメント時間カラム表示切り替え', () => {
+    test('showCommentTimeがtrueの場合、初回コメントと最新コメントカラムが表示される', () => {
+      render(<UserTable users={mockUsers} showCommentTime={true} />)
+
+      // ヘッダーが表示される
+      expect(screen.getByText('初回コメント')).toBeInTheDocument()
+      expect(screen.getByText('最新コメント')).toBeInTheDocument()
+
+      // データセルが表示される
+      expect(screen.getByTestId('first-comment-0')).toBeInTheDocument()
+      expect(screen.getByTestId('latest-comment-0')).toBeInTheDocument()
+    })
+
+    test('showCommentTimeがfalseの場合、初回コメントと最新コメントカラムが非表示になる', () => {
+      render(<UserTable users={mockUsers} showCommentTime={false} />)
+
+      // ヘッダーが非表示になる
+      expect(screen.queryByText('初回コメント')).not.toBeInTheDocument()
+      expect(screen.queryByText('最新コメント')).not.toBeInTheDocument()
+
+      // データセルが非表示になる
+      expect(screen.queryByTestId('first-comment-0')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('latest-comment-0')).not.toBeInTheDocument()
+    })
+
+    test('showCommentTimeが未指定の場合、デフォルトでカラムが表示される', () => {
+      render(<UserTable users={mockUsers} />)
+
+      // ヘッダーがデフォルトで表示される
+      expect(screen.getByText('初回コメント')).toBeInTheDocument()
+      expect(screen.getByText('最新コメント')).toBeInTheDocument()
+
+      // データセルがデフォルトで表示される
+      expect(screen.getByTestId('first-comment-0')).toBeInTheDocument()
+      expect(screen.getByTestId('latest-comment-0')).toBeInTheDocument()
+    })
+
+    test('showCommentTimeがfalseの場合でもレスポンシブクラスは適用されない', () => {
+      render(<UserTable users={mockUsers} showCommentTime={false} />)
+
+      // カラムが非表示の場合、レスポンシブクラスによる制御は不要
+      // 代わりにカラム自体が条件付きレンダリングで非表示になる
+      expect(screen.queryByText('初回コメント')).not.toBeInTheDocument()
+      expect(screen.queryByText('最新コメント')).not.toBeInTheDocument()
+    })
+
+    test('表示切り替えトグルボタンが表示される', () => {
+      render(<UserTable users={mockUsers} showCommentTime={true} onToggleCommentTime={() => {}} />)
+
+      const toggleButton = screen.getByRole('button', { name: /コメント時間表示切り替え/ })
+      expect(toggleButton).toBeInTheDocument()
+    })
+
+    test('表示切り替えトグルボタンクリックでコールバックが呼ばれる', () => {
+      const mockToggle = vi.fn()
+      render(<UserTable users={mockUsers} showCommentTime={true} onToggleCommentTime={mockToggle} />)
+
+      const toggleButton = screen.getByRole('button', { name: /コメント時間表示切り替え/ })
+      fireEvent.click(toggleButton)
+
+      expect(mockToggle).toHaveBeenCalledTimes(1)
+    })
+
+    test('onToggleCommentTimeが未指定の場合、トグルボタンが表示されない', () => {
+      render(<UserTable users={mockUsers} showCommentTime={true} />)
+
+      expect(screen.queryByRole('button', { name: /コメント時間表示切り替え/ })).not.toBeInTheDocument()
+    })
+  })
+
   describe('ソート機能', () => {
     const sortTestUsers = [
       {
