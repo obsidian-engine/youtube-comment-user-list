@@ -57,7 +57,7 @@ export default function App() {
 
         <StatsCard users={users} active={active} />
 
-        <UserTable users={users} intervalSec={intervalSec} setIntervalSec={actions.setIntervalSec} lastUpdated={lastUpdated} lastFetchTime={lastFetchTime} isRefreshing={loadingStates.refreshing} />
+        <UserTable users={users} intervalSec={intervalSec} setIntervalSec={actions.setIntervalSec} lastUpdated={lastUpdated} isRefreshing={loadingStates.refreshing} />
       </main>
     </div>
   )
