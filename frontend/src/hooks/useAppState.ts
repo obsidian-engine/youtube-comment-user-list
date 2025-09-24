@@ -67,9 +67,12 @@ export function useAppState() {
   }, [])
 
   const refresh = useCallback(async () => {
+    logger.log('🎯 refresh function called from useAppState')
+    
     try {
       // 前のリクエストをキャンセル
       if (refreshControllerRef.current) {
+        logger.log('🛑 Aborting previous refresh request')
         refreshControllerRef.current.abort()
       }
 

@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { vi } from 'vitest'
 import { server } from '../mocks/setup'
 import { http, HttpResponse } from 'msw'
 import App from '../App.jsx'
@@ -96,6 +97,92 @@ describe('App Integration (MSW)', () => {
       // 環境に依存しないように時刻パターンをチェック (HH:mm形式)
       expect(screen.getByText(/^\d{2}:\d{2}$/)).toBeInTheDocument()
     })
+  })
+
+  test('自動更新がonPull処理を使用して新しいユーザーを取得する', async () => {
+    vi.useFakeTimers()
+    let users: User[] = []
+
+    server.use(
+      http.get('*/status', () => HttpResponse.json({ status: 'ACTIVE', count: users.length })),
+      http.get('*/users.json', () => HttpResponse.json(users)),
+      http.post('*/pull', () => {
+        users.push({
+          channelId: `UC${users.length + 1}`,
+          displayName: `AutoUser-${users.length + 1}`,
+          joinedAt: new Date().toISOString(),
+          commentCount: 1
+        })
+        return new HttpResponse(null, { status: 200 })
+      }),
+    )
+
+    render(<App />)
+
+    // 初期状態：ユーザー0人
+    expect(screen.getByText('ユーザーがいません。')).toBeInTheDocument()
+
+    // 更新間隔を15秒に設定（デフォルト）
+    const intervalSelect = screen.getByLabelText('更新間隔') as HTMLSelectElement
+    expect(intervalSelect.value).toBe('15')
+
+    // 15秒経過させて自動更新をトリガー
+    act(() => {
+      vi.advanceTimersByTime(15000)
+    })
+
+    // onPull処理によってユーザーが追加されることを確認
+    await waitFor(() => {
+      expect(screen.getByText('AutoUser-1')).toBeInTheDocument()
+      expect(screen.getByText('1')).toBeInTheDocument() // ユーザー数表示
+    })
+
+    // さらに15秒経過で2人目追加
+    act(() => {
+      vi.advanceTimersByTime(15000)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('AutoUser-2')).toBeInTheDocument()
+      expect(screen.getByText('2')).toBeInTheDocument() // ユーザー数表示
+    })
+
+    vi.useRealTimers()
+  })
+
+  test('自動更新間隔を0に設定すると自動更新が停止する', async () => {
+    vi.useFakeTimers()
+    let users: User[] = []
+
+    server.use(
+      http.get('*/status', () => HttpResponse.json({ status: 'ACTIVE', count: users.length })),
+      http.get('*/users.json', () => HttpResponse.json(users)),
+      http.post('*/pull', () => {
+        users.push({
+          channelId: `UC${users.length + 1}`,
+          displayName: `AutoUser-${users.length + 1}`,
+          joinedAt: new Date().toISOString()
+        })
+        return new HttpResponse(null, { status: 200 })
+      }),
+    )
+
+    render(<App />)
+
+    // 更新間隔を0（停止）に設定
+    const intervalSelect = screen.getByLabelText('更新間隔') as HTMLSelectElement
+    fireEvent.change(intervalSelect, { target: { value: '0' } })
+
+    // 15秒経過してもユーザーは追加されない
+    act(() => {
+      vi.advanceTimersByTime(15000)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('ユーザーがいません。')).toBeInTheDocument()
+    })
+
+    vi.useRealTimers()
   })
 
 })

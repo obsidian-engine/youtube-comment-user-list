@@ -20,7 +20,15 @@ export default function App() {
     loadingStates,
   } = state
 
-  useAutoRefresh(intervalSec, actions.refresh)
+  // デバッグ: Appコンポーネント初期化時のログ
+  console.log('🏠 App component rendered:', { 
+    intervalSec, 
+    active, 
+    usersCount: users.length,
+    isRefreshing: loadingStates.refreshing 
+  })
+
+  useAutoRefresh(intervalSec, actions.onPull)
 
   return (
     <div className="min-h-screen bg-canvas-light dark:bg-canvas-dark text-slate-900 dark:text-slate-100">

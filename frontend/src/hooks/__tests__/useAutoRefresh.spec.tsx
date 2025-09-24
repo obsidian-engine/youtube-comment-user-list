@@ -51,6 +51,20 @@ describe('useAutoRefresh', () => {
     expect(mockRefresh).toHaveBeenCalledTimes(2)
   })
 
+  test('actions.onPullが渡された場合、タイマーでonPullが呼ばれる', () => {
+    const mockOnPull = vi.fn().mockName('onPull')
+    
+    renderHook(() => useAutoRefresh(5, mockOnPull))
+    
+    // 5秒経過でonPullが呼ばれる
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+    
+    expect(mockOnPull).toHaveBeenCalledTimes(1)
+    expect(mockOnPull).toHaveBeenCalledWith()
+  })
+
   test('intervalSec が変更されると古いタイマーをクリアして新しいタイマーを設定', () => {
     const mockRefresh = vi.fn()
     
