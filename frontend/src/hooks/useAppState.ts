@@ -37,7 +37,7 @@ export function useAppState() {
     active: false,
     users: [],
     videoId: localStorage.getItem('videoId') || '',
-    intervalSec: 30,
+    intervalSec: 15,
     lastUpdated: '--:--:--',
     lastFetchTime: '',
     errorMsg: '',

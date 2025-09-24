@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useCurrentTime } from '../hooks/useCurrentTime'
 
 interface User {
   channelId?: string
@@ -17,6 +18,7 @@ interface UserTableProps {
   setIntervalSec?: (value: number) => void
   lastUpdated?: string
   lastFetchTime?: string
+  isRefreshing?: boolean
 }
 
 type SortField = 'commentCount' | 'firstCommentedAt'
@@ -109,8 +111,9 @@ function SortButton({ field, currentSort, onSort, children }: SortButtonProps) {
 }
 
 
-export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated = '--:--:--', lastFetchTime = '' }: UserTableProps) {
+export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated = '--:--:--', lastFetchTime = '', isRefreshing = false }: UserTableProps) {
   const [sortState, setSortState] = useState<SortState>({ field: null, order: 'asc' })
+  const currentTime = useCurrentTime()
 
   const handleSort = (field: SortField) => {
     setSortState(prevState => {
@@ -164,6 +167,18 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
       <div className="px-4 py-3 border-b border-slate-200/60 dark:border-slate-600/40 bg-slate-50/50 dark:bg-slate-800/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
+            <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-slate-200/50 dark:border-white/10">
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">現在時刻</div>
+              <div className="text-xs font-medium text-slate-700 dark:text-slate-200 tabular-nums">
+                {currentTime}
+              </div>
+            </div>
+            <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-slate-200/50 dark:border-white/10">
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">画面最終更新</div>
+              <div className="text-xs font-medium text-slate-700 dark:text-slate-200 tabular-nums">
+                {lastUpdated}
+              </div>
+            </div>
             <button
               onClick={handleReset}
               disabled={!isSorted}
@@ -178,10 +193,10 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
             </button>
             {setIntervalSec && (
               <div className="flex items-center gap-2">
-                <label htmlFor="interval-select" className="text-[11px] text-slate-500 dark:text-slate-400">API更新間隔</label>
+                <label htmlFor="interval-select" className="text-[11px] text-slate-500 dark:text-slate-400">更新間隔</label>
                 <select
                   id="interval-select"
-                  aria-label="API更新間隔"
+                  aria-label="更新間隔"
                   value={intervalSec}
                   onChange={(e) => setIntervalSec(Number(e.target.value))}
                   className="text-[12px] px-2 py-1 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10"
@@ -196,24 +211,10 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
             )}
           </div>
           <div className="flex items-center gap-3">
-            <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-slate-200/50 dark:border-white/10">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">画面更新間隔</div>
-              <div className="text-xs font-medium text-slate-700 dark:text-slate-200">
-                {intervalSec > 0 ? `${intervalSec}秒` : '停止中'}
-              </div>
-            </div>
-            <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-slate-200/50 dark:border-white/10">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">画面最終更新</div>
-              <div className="text-xs font-medium text-slate-700 dark:text-slate-200 tabular-nums">
-                {lastUpdated}
-              </div>
-            </div>
-            {lastFetchTime && (
-              <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-slate-200/50 dark:border-white/10">
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">API更新時間</div>
-                <div className="text-xs font-medium text-slate-700 dark:text-slate-200 tabular-nums">
-                  {lastFetchTime}
-                </div>
+
+            {isRefreshing && (
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300"></div>
               </div>
             )}
           </div>
