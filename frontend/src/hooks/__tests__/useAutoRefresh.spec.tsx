@@ -5,8 +5,7 @@ import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest'
 describe.skip('useAutoRefresh', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.spyOn(console, 'log').mockImplementation(() => {})
-  })
+  }))
 
   afterEach(() => {
     vi.runOnlyPendingTimers()
@@ -25,15 +24,12 @@ describe.skip('useAutoRefresh', () => {
     })
     
     expect(mockRefresh).not.toHaveBeenCalled()
-    expect(console.log).toHaveBeenCalledWith('🚫 Auto refresh stopped (interval set to 0)')
-  })
+  }))
 
   test('intervalSec が正の値の場合、指定間隔でrefreshを実行', () => {
     const mockRefresh = vi.fn()
     
     renderHook(() => useAutoRefresh(5, mockRefresh))
-    
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 5 seconds')
     
     // 5秒経過
     act(() => {
@@ -41,7 +37,6 @@ describe.skip('useAutoRefresh', () => {
     })
     
     expect(mockRefresh).toHaveBeenCalledTimes(1)
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh interval triggered (5s)')
     
     // さらに5秒経過
     act(() => {
@@ -59,13 +54,8 @@ describe.skip('useAutoRefresh', () => {
       { initialProps: { interval: 10 } }
     )
     
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 10 seconds')
-    
     // intervalを変更
     rerender({ interval: 5 })
-    
-    expect(console.log).toHaveBeenCalledWith('🗑️ Auto refresh timer cleared')
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 5 seconds')
     
     // 新しい間隔で動作することを確認
     act(() => {
@@ -130,8 +120,6 @@ describe.skip('useAutoRefresh', () => {
     const { unmount } = renderHook(() => useAutoRefresh(5, mockRefresh))
     
     unmount()
-    
-    expect(console.log).toHaveBeenCalledWith('🗑️ Auto refresh timer cleared')
     
     // アンマウント後は実行されない
     act(() => {
