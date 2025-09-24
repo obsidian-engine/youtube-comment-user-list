@@ -2,42 +2,19 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { ThemeToggle } from '../ThemeToggle'
 
-// matchMediaのモック
-const mockMatchMedia = vi.fn().mockImplementation(query => ({
-  matches: false,
-  media: query,
-  onchange: null,
-  addListener: vi.fn(),
-  removeListener: vi.fn(),
-  addEventListener: vi.fn(),
-  removeEventListener: vi.fn(),
-  dispatchEvent: vi.fn(),
-}))
-
-// localStorageのモック
-const mockLocalStorage = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
+// テスト用のモック変数
+const mockMatchMedia = window.matchMedia as ReturnType<typeof vi.fn>
+const mockLocalStorage = window.localStorage as {
+  getItem: ReturnType<typeof vi.fn>
+  setItem: ReturnType<typeof vi.fn>
+  removeItem: ReturnType<typeof vi.fn>
+  clear: ReturnType<typeof vi.fn>
 }
 
 describe('ThemeToggle', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    
-    // matchMediaをグローバルに設定
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: mockMatchMedia,
-    })
-    
-    // localStorageをグローバルに設定
-    Object.defineProperty(window, 'localStorage', {
-      writable: true,
-      value: mockLocalStorage,
-    })
-    
+
     // document.documentElementのクラスリストをモック
     document.documentElement.classList.add = vi.fn()
     document.documentElement.classList.remove = vi.fn()
@@ -51,42 +28,42 @@ describe('ThemeToggle', () => {
   it('renders theme toggle button', () => {
     mockLocalStorage.getItem.mockReturnValue(null)
     mockMatchMedia.mockReturnValue({ matches: false })
-    
+
     render(<ThemeToggle />)
-    
-    const button = screen.getByRole('button', { name: /テーマを切り替え/ })
+
+    const button = screen.getByRole('button', { name: 'ダークモードに切り替え' })
     expect(button).toBeInTheDocument()
   })
 
-  it('shows sun icon for light mode', () => {
+  it('shows moon icon for light mode (ダークモードに切り替え)', () => {
     mockLocalStorage.getItem.mockReturnValue('light')
     mockMatchMedia.mockReturnValue({ matches: false })
-    
+
     render(<ThemeToggle />)
-    
-    const sunIcon = screen.getByLabelText('Light mode')
-    expect(sunIcon).toBeInTheDocument()
+
+    const button = screen.getByRole('button', { name: 'ダークモードに切り替え' })
+    expect(button).toBeInTheDocument()
   })
 
-  it('shows moon icon for dark mode', () => {
+  it('shows sun icon for dark mode (ライトモードに切り替え)', () => {
     mockLocalStorage.getItem.mockReturnValue('dark')
     mockMatchMedia.mockReturnValue({ matches: false })
-    
+
     render(<ThemeToggle />)
-    
-    const moonIcon = screen.getByLabelText('Dark mode')
-    expect(moonIcon).toBeInTheDocument()
+
+    const button = screen.getByRole('button', { name: 'ライトモードに切り替え' })
+    expect(button).toBeInTheDocument()
   })
 
   it('toggles from light to dark mode when clicked', () => {
     mockLocalStorage.getItem.mockReturnValue('light')
     mockMatchMedia.mockReturnValue({ matches: false })
-    
+
     render(<ThemeToggle />)
-    
-    const button = screen.getByRole('button', { name: /テーマを切り替え/ })
+
+    const button = screen.getByRole('button', { name: 'ダークモードに切り替え' })
     fireEvent.click(button)
-    
+
     expect(document.documentElement.classList.add).toHaveBeenCalledWith('dark')
     expect(mockLocalStorage.setItem).toHaveBeenCalledWith('theme', 'dark')
   })
@@ -94,12 +71,12 @@ describe('ThemeToggle', () => {
   it('toggles from dark to light mode when clicked', () => {
     mockLocalStorage.getItem.mockReturnValue('dark')
     mockMatchMedia.mockReturnValue({ matches: false })
-    
+
     render(<ThemeToggle />)
-    
-    const button = screen.getByRole('button', { name: /テーマを切り替え/ })
+
+    const button = screen.getByRole('button', { name: 'ライトモードに切り替え' })
     fireEvent.click(button)
-    
+
     expect(document.documentElement.classList.remove).toHaveBeenCalledWith('dark')
     expect(mockLocalStorage.setItem).toHaveBeenCalledWith('theme', 'light')
   })

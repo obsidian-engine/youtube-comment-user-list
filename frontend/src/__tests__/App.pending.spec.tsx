@@ -1,7 +1,10 @@
 import { render, screen, fireEvent } from '@testing-library/react'
+import { vi } from 'vitest'
 import { server } from '../mocks/setup'
 import { http, HttpResponse, delay } from 'msw'
 import App from '../App.jsx'
+
+// Note: matchMedia and localStorage are mocked globally in setup.ts
 
 describe('Pending states', () => {
   test('切替ボタンが pending 中は disabled/aria-busy', async () => {

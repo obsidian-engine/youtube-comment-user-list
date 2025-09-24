@@ -5,6 +5,8 @@ import { http, HttpResponse } from 'msw'
 import App from '../App.jsx'
 import type { User } from '../utils/api'
 
+// Note: matchMedia and localStorage are mocked globally in setup.ts
+
 describe('App Integration (MSW)', () => {
   test('切替成功で監視中表示になり、pull で人数が増える', async () => {
     let currentState: 'WAITING' | 'ACTIVE' = 'WAITING'
