@@ -17,19 +17,20 @@ export default function App() {
     videoId,
     intervalSec,
     lastUpdated,
-    lastFetchTime,
     errorMsg,
     infoMsg,
     loadingStates,
   } = state
 
-  // デバッグ: Appコンポーネント初期化時のログ
-  console.log('🏠 App component rendered:', { 
-    intervalSec, 
-    active, 
-    usersCount: users.length,
-    isRefreshing: loadingStates.refreshing 
-  })
+  // デバッグログはテスト環境では無効化
+  if (process.env.NODE_ENV !== 'test') {
+    console.log('🏠 App component rendered:', { 
+      intervalSec, 
+      active, 
+      usersCount: users.length,
+      isRefreshing: loadingStates.refreshing 
+    })
+  }
 
   useAutoRefresh(intervalSec, actions.onPullSilent)
 

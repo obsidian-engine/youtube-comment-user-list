@@ -273,7 +273,7 @@ export function useAppState() {
       }))
 
     }
-  }, [refresh])
+  }, [refresh, refreshWithClear])
 
   const actions: AppActions = {
     setVideoId: useCallback((value: string) => {

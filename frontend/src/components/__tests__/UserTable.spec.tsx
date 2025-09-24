@@ -219,8 +219,6 @@ describe('UserTable コンポーネント', () => {
     // 画面幅を狭くシミュレート（CSSメディアクエリはJSでテストできないので、クラス名で確認）
     render(<UserTable users={mockUsers} />)
 
-    const table = screen.getByRole('table')
-    
     // 初回コメントと最新コメントのヘッダーにレスポンシブクラスが適用されていることを確認
     const firstCommentHeader = screen.getByText('初回コメント').closest('th')
     const latestCommentHeader = screen.getByText('最新コメント').closest('th')

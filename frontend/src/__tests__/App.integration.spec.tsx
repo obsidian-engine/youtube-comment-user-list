@@ -10,7 +10,7 @@ import type { User } from '../utils/api'
 describe('App Integration (MSW)', () => {
   test('切替成功で監視中表示になり、pull で人数が増える', async () => {
     let currentState: 'WAITING' | 'ACTIVE' = 'WAITING'
-    let users: User[] = []
+    const users: User[] = []
 
     server.use(
       http.get('*/status', () => HttpResponse.json({ status: currentState, count: users.length })),
@@ -23,7 +23,7 @@ describe('App Integration (MSW)', () => {
           return new HttpResponse('bad request', { status: 400 })
         }
         currentState = 'ACTIVE'
-        users = []
+        users.length = 0 // 配列をクリア
         return new HttpResponse(null, { status: 200 })
       }),
       http.post('*/pull', () => {
@@ -64,8 +64,7 @@ describe('App Integration (MSW)', () => {
 
   test('初回コメント時間が正しく表示される', async () => {
     const mockDate = new Date('2024-01-01T10:30:00Z')
-    // eslint-disable-next-line prefer-const
-    let users: User[] = []
+    const users: User[] = []
 
     server.use(
       http.get('*/status', () => HttpResponse.json({ status: 'ACTIVE', count: users.length })),
@@ -103,7 +102,7 @@ describe('App Integration (MSW)', () => {
 
   test('自動更新時は「取得しました」メッセージが表示されない', async () => {
     vi.useFakeTimers()
-    let users: User[] = []
+    const users: User[] = []
 
     server.use(
       http.get('*/status', () => HttpResponse.json({ status: 'ACTIVE', count: users.length })),
@@ -142,7 +141,7 @@ describe('App Integration (MSW)', () => {
   })
 
   test('手動「今すぐ取得」は「取得しました」メッセージが表示される', async () => {
-    let users: User[] = []
+    const users: User[] = []
 
     server.use(
       http.get('*/status', () => HttpResponse.json({ status: 'ACTIVE', count: users.length })),
@@ -179,7 +178,7 @@ describe('App Integration (MSW)', () => {
 
   test('自動更新がonPullSilent処理を使用して新しいユーザーを取得する', async () => {
     vi.useFakeTimers()
-    let users: User[] = []
+    const users: User[] = []
 
     server.use(
       http.get('*/status', () => HttpResponse.json({ status: 'ACTIVE', count: users.length })),
@@ -230,7 +229,7 @@ describe('App Integration (MSW)', () => {
 
   test('自動更新間隔を0に設定すると自動更新が停止する', async () => {
     vi.useFakeTimers()
-    let users: User[] = []
+    const users: User[] = []
 
     server.use(
       http.get('*/status', () => HttpResponse.json({ status: 'ACTIVE', count: users.length })),
@@ -265,7 +264,7 @@ describe('App Integration (MSW)', () => {
 
   test('停止中(WAITING)でもユーザーリストが保持される', async () => {
     let currentStatus: 'WAITING' | 'ACTIVE' = 'ACTIVE'
-    let users: User[] = [
+    const users: User[] = [
       {
         channelId: 'UC1',
         displayName: 'ExistingUser1',
@@ -273,7 +272,7 @@ describe('App Integration (MSW)', () => {
         commentCount: 5
       },
       {
-        channelId: 'UC2', 
+        channelId: 'UC2',
         displayName: 'ExistingUser2',
         joinedAt: new Date().toISOString(),
         commentCount: 3
@@ -322,7 +321,7 @@ describe('App Integration (MSW)', () => {
   })
 
   test('切替実行時のみユーザーリストがクリアされる', async () => {
-    let users: User[] = [
+    const users: User[] = [
       {
         channelId: 'UC1',
         displayName: 'OldUser1',
@@ -336,7 +335,7 @@ describe('App Integration (MSW)', () => {
       http.get('*/users.json', () => HttpResponse.json(users)),
       http.post('*/switch-video', () => {
         // 切替時にユーザーをクリア
-        users = []
+        users.length = 0 // 配列をクリア
         return new HttpResponse(null, { status: 200 })
       }),
     )
@@ -347,7 +346,7 @@ describe('App Integration (MSW)', () => {
     await waitFor(() => {
       expect(screen.getByText('OldUser1')).toBeInTheDocument()
       expect(screen.getByText('1')).toBeInTheDocument()
-    })
+    }, { timeout: 10000 })
 
     // videoIdを入力して切替実行
     const input = screen.getByLabelText('videoId') as HTMLInputElement

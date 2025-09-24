@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_BACKEND_URL || ''
+export const BASE = import.meta.env.VITE_BACKEND_URL || ''
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
