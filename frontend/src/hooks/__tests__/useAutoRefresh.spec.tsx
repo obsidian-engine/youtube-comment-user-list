@@ -1,11 +1,13 @@
 import { renderHook, act } from '@testing-library/react'
 import { useAutoRefresh } from '../useAutoRefresh'
 import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest'
+import { logger } from '../../utils/logger'
 
 describe('useAutoRefresh', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(logger, 'log').mockImplementation(() => {})
+    vi.spyOn(logger, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -25,7 +27,7 @@ describe('useAutoRefresh', () => {
     })
     
     expect(mockRefresh).not.toHaveBeenCalled()
-    expect(console.log).toHaveBeenCalledWith('🚫 Auto refresh stopped (interval set to 0)')
+    expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Auto refresh stopped'))
   })
 
   test('intervalSec が正の値の場合、指定間隔でrefreshを実行', () => {
@@ -33,7 +35,7 @@ describe('useAutoRefresh', () => {
     
     renderHook(() => useAutoRefresh(5, mockRefresh))
     
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 5 seconds')
+    expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Auto refresh timer set to 5 seconds'))
     
     // 5秒経過
     act(() => {
@@ -41,7 +43,7 @@ describe('useAutoRefresh', () => {
     })
     
     expect(mockRefresh).toHaveBeenCalledTimes(1)
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 5 seconds')
+    expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Auto refresh timer set to 5 seconds'))
     
     // さらに5秒経過
     act(() => {
@@ -49,6 +51,20 @@ describe('useAutoRefresh', () => {
     })
     
     expect(mockRefresh).toHaveBeenCalledTimes(2)
+  })
+
+  test('actions.onPullが渡された場合、タイマーでonPullが呼ばれる', () => {
+    const mockOnPull = vi.fn().mockName('onPull')
+    
+    renderHook(() => useAutoRefresh(5, mockOnPull))
+    
+    // 5秒経過でonPullが呼ばれる
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+    
+    expect(mockOnPull).toHaveBeenCalledTimes(1)
+    expect(mockOnPull).toHaveBeenCalledWith()
   })
 
   test('intervalSec が変更されると古いタイマーをクリアして新しいタイマーを設定', () => {
@@ -59,13 +75,13 @@ describe('useAutoRefresh', () => {
       { initialProps: { interval: 10 } }
     )
     
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 10 seconds')
+    expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Auto refresh timer set to 10 seconds'))
     
     // intervalを変更
     rerender({ interval: 5 })
     
-    expect(console.log).toHaveBeenCalledWith('🗑️ Clearing previous auto refresh timer')
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 5 seconds')
+    expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Clearing previous auto refresh timer'))
+    expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Auto refresh timer set to 5 seconds'))
     
     // 新しい間隔で動作することを確認
     act(() => {
@@ -104,21 +120,23 @@ describe('useAutoRefresh', () => {
     expect(mockRefresh2).toHaveBeenCalledTimes(1)
   })
 
-  test('refresh関数でエラーが発生してもタイマーは継続', () => {
+  test('refresh関数でエラーが発生してもタイマーは継続', async () => {
     const mockRefreshError = vi.fn().mockRejectedValue(new Error('Refresh failed'))
     
     renderHook(() => useAutoRefresh(5, mockRefreshError))
     
     // エラーが発生してもタイマーは継続
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(5000)
+      await vi.runAllTimersAsync()
     })
     
     expect(mockRefreshError).toHaveBeenCalledTimes(1)
     
     // 次の間隔でも実行される
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(5000)
+      await vi.runAllTimersAsync()
     })
     
     expect(mockRefreshError).toHaveBeenCalledTimes(2)
@@ -131,7 +149,7 @@ describe('useAutoRefresh', () => {
     
     unmount()
     
-    expect(console.log).toHaveBeenCalledWith('🗑️ Clearing previous auto refresh timer')
+    expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('🗑️ Auto refresh timer cleared on cleanup'))
     
     // アンマウント後は実行されない
     act(() => {

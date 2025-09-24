@@ -7,5 +7,40 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/mocks/setup.ts'],
+
+    // 並列実行設定（大幅な速度向上）
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        maxWorkers: '50%', // CPUコア数の50%を使用
+        minWorkers: 1,
+        isolate: false // スレッドレベルでも分離無効化
+      }
+    },
+
+    // タイムアウト設定の最適化
+    testTimeout: 10000, // デフォルト10秒（統合テスト用）
+    hookTimeout: 10000, // setup/teardownのタイムアウト
+
+    // キャッシュ設定は削除（警告回避）
+
+    // レポーター設定（軽量化）
+    reporter: process.env.CI ? ['junit', 'github-actions'] : ['verbose'],
+
+    // ファイル監視の最適化
+    watch: process.env.CI ? false : true,
+
+    // 並列実行時の分離設定（大幅な高速化のため無効化）
+    isolate: false,
+
+    // 依存関係最適化（バンドル化による高速化）
+    deps: {
+      optimizer: {
+        web: {
+          enabled: true,
+          include: ['react', 'react-dom', '@testing-library/react', '@testing-library/user-event']
+        }
+      }
+    }
   },
 })

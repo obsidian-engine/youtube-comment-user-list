@@ -28,4 +28,5 @@ type User struct {
 	JoinedAt          time.Time `json:"joinedAt"`
 	CommentCount      int       `json:"commentCount"`
 	FirstCommentedAt  time.Time `json:"firstCommentedAt"`
+	LatestCommentedAt time.Time `json:"latestCommentedAt"`
 }

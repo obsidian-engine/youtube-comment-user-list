@@ -250,3 +250,51 @@ func TestUserRepo_Clear_RemovesProcessedMessages(t *testing.T) {
 		t.Errorf("Expected CommentCount 1 after clear and re-add, got %d", user.CommentCount)
 	}
 }
+
+func TestUserRepo_UpsertWithMessage_LatestCommentedAt(t *testing.T) {
+	repo := NewUserRepo()
+	firstTime := time.Now().Add(-2 * time.Hour)
+	secondTime := time.Now().Add(-1 * time.Hour)
+	thirdTime := time.Now()
+
+	// First comment
+	if err := repo.UpsertWithMessage("UC1", "User1", firstTime, "msg1"); err != nil {
+		t.Fatalf("Failed to upsert UC1 first time: %v", err)
+	}
+
+	users := repo.ListUsersSortedByJoinTime()
+	user := users[0]
+	if user.LatestCommentedAt.IsZero() {
+		t.Error("LatestCommentedAt should be set on first comment")
+	}
+	if !user.LatestCommentedAt.Equal(firstTime) {
+		t.Errorf("Expected LatestCommentedAt %v, got %v", firstTime, user.LatestCommentedAt)
+	}
+
+	// Second comment (should update LatestCommentedAt)
+	if err := repo.UpsertWithMessage("UC1", "User1", secondTime, "msg2"); err != nil {
+		t.Fatalf("Failed to upsert UC1 second time: %v", err)
+	}
+
+	users = repo.ListUsersSortedByJoinTime()
+	user = users[0]
+	if !user.LatestCommentedAt.Equal(secondTime) {
+		t.Errorf("Expected LatestCommentedAt to be updated to %v, got %v", secondTime, user.LatestCommentedAt)
+	}
+
+	// Third comment (should update LatestCommentedAt again)
+	if err := repo.UpsertWithMessage("UC1", "User1", thirdTime, "msg3"); err != nil {
+		t.Fatalf("Failed to upsert UC1 third time: %v", err)
+	}
+
+	users = repo.ListUsersSortedByJoinTime()
+	user = users[0]
+	if !user.LatestCommentedAt.Equal(thirdTime) {
+		t.Errorf("Expected LatestCommentedAt to be updated to %v, got %v", thirdTime, user.LatestCommentedAt)
+	}
+
+	// Verify FirstCommentedAt remains unchanged
+	if !user.FirstCommentedAt.Equal(firstTime) {
+		t.Errorf("Expected FirstCommentedAt to remain %v, got %v", firstTime, user.FirstCommentedAt)
+	}
+}

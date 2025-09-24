@@ -1,14 +1,11 @@
-const isDevelopment = import.meta.env.DEV
-
 export const logger = {
   log: (...args: unknown[]) => {
-    // 本番環境でもデバッグのため一時的に有効化
-    console.log(...args)
+    // コンソールログは削除済み
   },
   error: (...args: unknown[]) => {
-    console.error(...args)
+    // コンソールエラーは削除済み
   },
   warn: (...args: unknown[]) => {
-    console.warn(...args)
+    // コンソール警告は削除済み
   },
 }
