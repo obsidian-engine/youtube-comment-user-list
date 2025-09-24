@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { useCurrentTime } from '../hooks/useCurrentTime'
+import { useState, useMemo, useEffect } from 'react'
+
 
 interface User {
   channelId?: string
@@ -17,7 +17,7 @@ interface UserTableProps {
   intervalSec?: number
   setIntervalSec?: (value: number) => void
   lastUpdated?: string
-  lastFetchTime?: string
+
   isRefreshing?: boolean
 }
 
@@ -111,9 +111,14 @@ function SortButton({ field, currentSort, onSort, children }: SortButtonProps) {
 }
 
 
-export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated = '--:--:--', lastFetchTime = '', isRefreshing = false }: UserTableProps) {
+export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated = '--:--:--', isRefreshing = false }: UserTableProps) {
   const [sortState, setSortState] = useState<SortState>({ field: null, order: 'asc' })
-  const currentTime = useCurrentTime()
+
+
+  // users配列が変更された時にソート状態をリセット（自動更新時の表示問題を解決）
+  useEffect(() => {
+    setSortState({ field: null, order: 'asc' })
+  }, [users])
 
   const handleSort = (field: SortField) => {
     setSortState(prevState => {
@@ -167,12 +172,7 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated 
       <div className="px-4 py-3 border-b border-slate-200/60 dark:border-slate-600/40 bg-slate-50/50 dark:bg-slate-800/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-slate-200/50 dark:border-white/10">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">現在時刻</div>
-              <div className="text-xs font-medium text-slate-700 dark:text-slate-200 tabular-nums">
-                {currentTime}
-              </div>
-            </div>
+
             <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-slate-200/50 dark:border-white/10">
               <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">画面最終更新</div>
               <div className="text-xs font-medium text-slate-700 dark:text-slate-200 tabular-nums">
