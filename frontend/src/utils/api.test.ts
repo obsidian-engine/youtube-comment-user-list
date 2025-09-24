@@ -11,7 +11,10 @@ import {
 
 // fetchのモック
 const mockFetch = vi.fn()
-global.fetch = mockFetch
+Object.defineProperty(globalThis, 'fetch', {
+  value: mockFetch,
+  writable: true
+})
 
 describe('API functions', () => {
   beforeEach(() => {
