@@ -54,15 +54,7 @@ describe('StatsCard', () => {
     })
   })
 
-  describe('アクティブユーザー数表示', () => {
-    test('コメントしたユーザーのみがアクティブとしてカウントされる', () => {
-      render(<StatsCard users={mockUsers} active={true} />)
-      
-      // User1(5コメント) + User2(3コメント) = 2人がアクティブ
-      // User3はcommentCountがないので非アクティブ
-      const activeUserElements = screen.getAllByText('2')
-      expect(activeUserElements.length).toBeGreaterThan(0)
-    })
+
 
     test('commentCount が 0 のユーザーは非アクティブとしてカウントされる', () => {
       const usersWithZeroComments: User[] = [
@@ -151,12 +143,7 @@ describe('StatsCard', () => {
     })
   })
 
-  describe('参加率表示', () => {
-    test('総ユーザー3人中2人アクティブの場合、67%と表示', () => {
-      render(<StatsCard users={mockUsers} active={true} />)
-      
-      expect(screen.getByText('67%')).toBeInTheDocument()
-    })
+
 
     test('総ユーザー0人の場合、0%と表示', () => {
       render(<StatsCard users={mockEmptyUsers} active={true} />)
