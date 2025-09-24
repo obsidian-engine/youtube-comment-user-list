@@ -66,7 +66,8 @@ func TestModuleLogger_WithContext(t *testing.T) {
 	moduleLogger := NewModuleLogger("CONTEXT_MODULE", logger)
 	
 	// コンテキスト付きでログを実行
-	ctx := context.WithValue(context.Background(), "request_id", "abc123")
+	type requestIDKey string
+	ctx := context.WithValue(context.Background(), requestIDKey("request_id"), "abc123")
 	moduleLogger.InfoContext(ctx, "processing request", "user_id", "user456")
 
 	output := buf.String()
