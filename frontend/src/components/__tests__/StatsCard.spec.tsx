@@ -54,35 +54,6 @@ describe('StatsCard', () => {
     })
   })
 
-  describe('アクティブユーザー数表示', () => {
-    test('コメントしたユーザーのみがアクティブとしてカウントされる', () => {
-      render(<StatsCard users={mockUsers} active={true} />)
-      
-      // User1(5コメント) + User2(3コメント) = 2人がアクティブ
-      // User3はcommentCountがないので非アクティブ
-      const activeUserElements = screen.getAllByText('2')
-      expect(activeUserElements.length).toBeGreaterThan(0)
-    })
-
-    test('commentCount が 0 のユーザーは非アクティブとしてカウントされる', () => {
-      const usersWithZeroComments: User[] = [
-        ...mockUsers,
-        {
-          channelId: 'channel4',
-          displayName: 'User4',
-          joinedAt: '2024-01-01T10:03:00Z',
-          commentCount: 0
-        }
-      ]
-      
-      render(<StatsCard users={usersWithZeroComments} active={true} />)
-      
-      // まだ2人がアクティブ（commentCount: 0は非アクティブ）
-      const activeUserElements = screen.getAllByText('2')
-      expect(activeUserElements.length).toBeGreaterThan(0)
-    })
-  })
-
   describe('監視時間表示', () => {
     test('activeがtrueでstartTimeが提供された場合、経過時間を表示', () => {
       const startTime = '2024-01-01T10:00:00Z' // 30分前に開始
@@ -101,13 +72,18 @@ describe('StatsCard', () => {
     test('activeがfalseの場合、停止中と表示', () => {
       render(<StatsCard users={mockUsers} active={false} />)
       
-      expect(screen.getByText('停止中')).toBeInTheDocument()
+      // 監視時間セクションとステータスインジケーター両方に停止中が表示される
+      const stopElements = screen.getAllByText('停止中')
+      expect(stopElements.length).toBe(2)
     })
 
     test('startTimeが未提供の場合、停止中と表示', () => {
       render(<StatsCard users={mockUsers} active={true} />)
       
-      expect(screen.getByText('停止中')).toBeInTheDocument()
+      // 監視時間セクションに停止中が表示される（ステータスは監視中）
+      expect(screen.getByText('監視中')).toBeInTheDocument()
+      const stopElements = screen.getAllByText('停止中')
+      expect(stopElements.length).toBe(1)
     })
   })
 
@@ -151,41 +127,6 @@ describe('StatsCard', () => {
     })
   })
 
-  describe('参加率表示', () => {
-    test('総ユーザー3人中2人アクティブの場合、67%と表示', () => {
-      render(<StatsCard users={mockUsers} active={true} />)
-      
-      expect(screen.getByText('67%')).toBeInTheDocument()
-    })
-
-    test('総ユーザー0人の場合、0%と表示', () => {
-      render(<StatsCard users={mockEmptyUsers} active={true} />)
-      
-      expect(screen.getByText('0%')).toBeInTheDocument()
-    })
-
-    test('全員がアクティブの場合、100%と表示', () => {
-      const allActiveUsers: User[] = [
-        {
-          channelId: 'channel1',
-          displayName: 'User1',
-          joinedAt: '2024-01-01T10:00:00Z',
-          commentCount: 1
-        },
-        {
-          channelId: 'channel2',
-          displayName: 'User2', 
-          joinedAt: '2024-01-01T10:01:00Z',
-          commentCount: 2
-        }
-      ]
-      
-      render(<StatsCard users={allActiveUsers} active={true} />)
-      
-      expect(screen.getByText('100%')).toBeInTheDocument()
-    })
-  })
-
   describe('ステータスインジケーター', () => {
     test('activeがtrueの場合、監視中と表示', () => {
       render(<StatsCard users={mockUsers} active={true} />)
@@ -196,7 +137,9 @@ describe('StatsCard', () => {
     test('activeがfalseの場合、停止中と表示', () => {
       render(<StatsCard users={mockUsers} active={false} />)
       
-      expect(screen.getByText('停止中')).toBeInTheDocument()
+      // 監視時間とステータスインジケーター両方に停止中が表示される
+      const stopElements = screen.getAllByText('停止中')
+      expect(stopElements.length).toBe(2)
     })
   })
 
@@ -215,7 +158,6 @@ describe('StatsCard', () => {
       render(<StatsCard users={usersWithEmptyComment} active={true} />)
       
       expect(screen.getByText('なし')).toBeInTheDocument()
-      expect(screen.getByText('0%')).toBeInTheDocument() // アクティブユーザー0人
     })
 
     test('不正なfirstCommentedAtの場合、エラーにならずなしと表示', () => {

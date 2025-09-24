@@ -6,11 +6,7 @@ interface StatsCardProps {
   startTime?: string
 }
 
-const getActiveUsersCount = (users: User[]): number => {
-  return users.filter(user => {
-    return user.commentCount !== undefined && user.commentCount > 0
-  }).length
-}
+
 
 const getLatestCommentTime = (users: User[]): string => {
   let latestTime: Date | null = null
@@ -67,14 +63,13 @@ const getMonitoringDuration = (startTime?: string): string => {
 
 export function StatsCard({ users, active, startTime }: StatsCardProps) {
   const totalUsers = users.length
-  const activeUsers = getActiveUsersCount(users)
   const latestComment = getLatestCommentTime(users)
   const monitoringDuration = getMonitoringDuration(active ? startTime : undefined)
 
   return (
     <div className="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800/50 dark:to-slate-700/50 backdrop-blur">
       <div className="px-6 py-5">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 総ユーザー数 */}
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0">
@@ -91,21 +86,7 @@ export function StatsCard({ users, active, startTime }: StatsCardProps) {
             </div>
           </div>
 
-          {/* アクティブユーザー数 */}
-          <div className="flex items-center gap-3">
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 rounded-lg bg-green-500/10 dark:bg-green-400/10 flex items-center justify-center">
-                <span className="text-lg">💬</span>
-              </div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-slate-600 dark:text-slate-400">アクティブ</div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
-                {activeUsers}
-                <span className="text-sm font-normal text-slate-500 dark:text-slate-400 ml-1">人</span>
-              </div>
-            </div>
-          </div>
+
 
           {/* 監視時間 */}
           <div className="flex items-center gap-3">
@@ -151,11 +132,7 @@ export function StatsCard({ users, active, startTime }: StatsCardProps) {
                 {active ? '監視中' : '停止中'}
               </span>
             </div>
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              参加率: <span className="font-semibold tabular-nums">
-                {totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0}%
-              </span>
-            </div>
+
           </div>
         </div>
       </div>

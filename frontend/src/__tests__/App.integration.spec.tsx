@@ -5,7 +5,7 @@ import App from '../App.jsx'
 import type { User } from '../utils/api'
 
 describe('App Integration (MSW)', () => {
-  test('切替成功で ACTIVE 表示になり、pull で人数が増える', async () => {
+  test('切替成功で監視中表示になり、pull で人数が増える', async () => {
     let currentState: 'WAITING' | 'ACTIVE' = 'WAITING'
     let users: User[] = []
 
@@ -35,10 +35,11 @@ describe('App Integration (MSW)', () => {
 
     render(<App />)
 
-    // 初期は WAITING / 0 人
-    const waitingEls = await screen.findAllByText('WAITING')
-    expect(waitingEls[0]).toBeInTheDocument()
-    expect(screen.getByTestId('counter')).toHaveTextContent('0')
+    // 初期は 停止中 / 0 人
+    const stopEls = await screen.findAllByText('停止中')
+    expect(stopEls[0]).toBeInTheDocument()
+    // ユーザー数をテキストベースで取得 (0人の表示)
+    expect(screen.getByText('0')).toBeInTheDocument()
 
     // videoId 未入力でエラー
     fireEvent.click(screen.getByRole('button', { name: '切替' }))
@@ -49,13 +50,13 @@ describe('App Integration (MSW)', () => {
     fireEvent.change(input, { target: { value: 'VID123' } })
     fireEvent.click(screen.getByRole('button', { name: '切替' }))
     await waitFor(async () => {
-      const activeEls = await screen.findAllByText('ACTIVE')
+      const activeEls = await screen.findAllByText('監視中')
       expect(activeEls[0]).toBeInTheDocument()
     })
 
     // 今すぐ取得 → 人数 1
     fireEvent.click(screen.getByRole('button', { name: '今すぐ取得' }))
-    await waitFor(() => expect(screen.getByTestId('counter')).toHaveTextContent('1'))
+    await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
   })
 
   test('初回コメント時間が正しく表示される', async () => {
