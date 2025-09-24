@@ -91,12 +91,16 @@ export function useAppState() {
       const status = st.status || st.Status || 'WAITING'
       const fetched = Array.isArray(us) ? us : []
       
-      setState(prev => ({
-        ...prev,
-        active: status === 'ACTIVE',
-        users: sortUsersStable(fetched),
-        errorMsg: ''
-      }))
+      setState(prev => {
+        const sortedUsers = sortUsersStable(fetched)
+        logger.log('📋 Updating state with users:', { count: sortedUsers.length, firstThree: sortedUsers.slice(0, 3).map(u => u.displayName) })
+        return {
+          ...prev,
+          active: status === 'ACTIVE',
+          users: sortedUsers,
+          errorMsg: ''
+        }
+      })
       
       logger.log('✅ Auto refresh completed:', { status, userCount: fetched.length })
     } catch (e) {
@@ -153,7 +157,7 @@ export function useAppState() {
       if (loadingKey === 'pulling') {
         const now = new Date()
         const pad = (n: number) => String(n).padStart(2, '0')
-        const timeString = `最終取得: ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+        const timeString = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
         setState(prev => ({ ...prev, lastFetchTime: timeString }))
       }
 

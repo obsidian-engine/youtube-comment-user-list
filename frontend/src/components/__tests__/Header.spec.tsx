@@ -3,7 +3,7 @@ import { Header } from '../Header'
 
 describe('Header コンポーネント', () => {
   test('タイトルが正しく表示される', () => {
-    render(<Header active={false} userCount={0} lastUpdated="12:34:56" />)
+    render(<Header active={false} userCount={0} />)
 
     expect(screen.getByText('YouTube Live —')).toBeInTheDocument()
     expect(screen.getByText('参加ユーザー')).toBeInTheDocument()
@@ -11,7 +11,7 @@ describe('Header コンポーネント', () => {
   })
 
   test('ACTIVE状態が正しく表示される', () => {
-    render(<Header active={true} userCount={5} lastUpdated="12:34:56" />)
+    render(<Header active={true} userCount={5} />)
 
     expect(screen.getAllByText('ACTIVE')).toHaveLength(2) // ステータスバッジと状態表示
     // 最初のACTIVEが含まれるスパンの親要素（ボーダーバッジ）をチェック
@@ -20,7 +20,7 @@ describe('Header コンポーネント', () => {
   })
 
   test('WAITING状態が正しく表示される', () => {
-    render(<Header active={false} userCount={0} lastUpdated="12:34:56" />)
+    render(<Header active={false} userCount={0} />)
 
     expect(screen.getAllByText('WAITING')).toHaveLength(2) // ステータスバッジと状態表示
     const statusBadge = screen.getAllByText('WAITING')[0].closest('.inline-flex')
@@ -28,21 +28,16 @@ describe('Header コンポーネント', () => {
   })
 
   test('参加者数が正しく表示される', () => {
-    render(<Header active={true} userCount={42} lastUpdated="12:34:56" />)
+    render(<Header active={true} userCount={42} />)
 
     expect(screen.getByTestId('counter')).toHaveTextContent('42')
     expect(screen.getByText('参加者')).toBeInTheDocument()
   })
 
-  test('最終更新時刻が正しく表示される', () => {
-    render(<Header active={false} userCount={0} lastUpdated="15:30:45" />)
 
-    expect(screen.getByText('最終更新:')).toBeInTheDocument()
-    expect(screen.getByText('15:30:45')).toBeInTheDocument()
-  })
 
   test('0人の場合も正しく表示される', () => {
-    render(<Header active={false} userCount={0} lastUpdated="12:34:56" />)
+    render(<Header active={false} userCount={0} />)
 
     expect(screen.getByTestId('counter')).toHaveTextContent('0')
   })
