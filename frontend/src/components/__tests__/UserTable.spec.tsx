@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, within } from '@testing-library/react'
+import { vi } from 'vitest'
 import { UserTable } from '../UserTable'
 
 describe('UserTable コンポーネント', () => {
@@ -48,6 +49,47 @@ describe('UserTable コンポーネント', () => {
     // 日本時間での表示を確認（UTCから+9時間）
     expect(screen.getByTestId('first-comment-0')).toHaveTextContent('21:05')
     expect(screen.getByTestId('first-comment-1')).toHaveTextContent('21:32')
+  })
+
+  test('リフレッシュ中のローディング状態が正しく表示される', () => {
+    render(<UserTable users={mockUsers} isRefreshing={true} />)
+    
+    // 大きなスピナーが表示される
+    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument()
+    expect(screen.getByTestId('loading-spinner')).toHaveClass('h-8', 'w-8')
+    
+    // 「データ更新中...」テキストが表示される
+    expect(screen.getByText('データ更新中...')).toBeInTheDocument()
+  })
+
+  test('リフレッシュ中でない場合はローディング要素が表示されない', () => {
+    render(<UserTable users={mockUsers} isRefreshing={false} />)
+    
+    // ローディング要素が表示されない
+    expect(screen.queryByTestId('loading-spinner')).not.toBeInTheDocument()
+    expect(screen.queryByText('データ更新中...')).not.toBeInTheDocument()
+  })
+
+  test('リフレッシュ中は更新間隔セレクトボックスが無効化される', () => {
+    const mockSetIntervalSec = vi.fn()
+    render(
+      <UserTable 
+        users={mockUsers} 
+        intervalSec={30} 
+        setIntervalSec={mockSetIntervalSec}
+        isRefreshing={true} 
+      />
+    )
+    
+    // セレクトボックスが無効化される
+    expect(screen.getByLabelText('更新間隔')).toBeDisabled()
+  })
+
+  test('リフレッシュ中はデフォルト順ボタンが無効化される', () => {
+    render(<UserTable users={mockUsers} isRefreshing={true} />)
+    
+    // デフォルト順ボタンが無効化される
+    expect(screen.getByLabelText('ソートリセット')).toBeDisabled()
   })
 
 

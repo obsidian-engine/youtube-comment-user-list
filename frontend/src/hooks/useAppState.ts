@@ -20,6 +20,7 @@ interface AppState {
   lastFetchTime: string
   errorMsg: string
   infoMsg: string
+  startTime?: string
   loadingStates: LoadingStates
 }
 
@@ -30,6 +31,7 @@ interface AppActions {
   onSwitch: () => Promise<void>
   onPull: () => Promise<void>
   onReset: () => Promise<void>
+  clearInfoMsg: () => void
 }
 
 export function useAppState() {
@@ -37,11 +39,12 @@ export function useAppState() {
     active: false,
     users: [],
     videoId: localStorage.getItem('videoId') || '',
-    intervalSec: 30,
+    intervalSec: 15,
     lastUpdated: '--:--:--',
     lastFetchTime: '',
     errorMsg: '',
     infoMsg: '',
+    startTime: undefined,
     loadingStates: {
       switching: false,
       pulling: false,
@@ -91,12 +94,17 @@ export function useAppState() {
       const status = st.status || st.Status || 'WAITING'
       const fetched = Array.isArray(us) ? us : []
       
-      setState(prev => ({
-        ...prev,
-        active: status === 'ACTIVE',
-        users: sortUsersStable(fetched),
-        errorMsg: ''
-      }))
+      setState(prev => {
+        const sortedUsers = sortUsersStable(fetched)
+        logger.log('📋 Updating state with users:', { count: sortedUsers.length, firstThree: sortedUsers.slice(0, 3).map(u => u.displayName) })
+        return {
+          ...prev,
+          active: status === 'ACTIVE',
+          users: sortedUsers,
+          startTime: st.startedAt,
+          errorMsg: ''
+        }
+      })
       
       logger.log('✅ Auto refresh completed:', { status, userCount: fetched.length })
     } catch (e) {
@@ -153,7 +161,7 @@ export function useAppState() {
       if (loadingKey === 'pulling') {
         const now = new Date()
         const pad = (n: number) => String(n).padStart(2, '0')
-        const timeString = `最終取得: ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+        const timeString = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
         setState(prev => ({ ...prev, lastFetchTime: timeString }))
       }
 
@@ -172,9 +180,7 @@ export function useAppState() {
         ...prev, 
         loadingStates: { ...prev.loadingStates, [loadingKey]: false }
       }))
-      setTimeout(() => {
-        setState(prev => ({ ...prev, infoMsg: '' }))
-      }, 2000)
+
     }
   }, [refresh])
 
@@ -224,7 +230,11 @@ export function useAppState() {
         'リセット',
         resetControllerRef
       )
-    }, [handleAsyncAction])
+    }, [handleAsyncAction]),
+
+    clearInfoMsg: useCallback(() => {
+      setState(prev => ({ ...prev, infoMsg: '' }))
+    }, [])
   }
 
   return { state, actions }

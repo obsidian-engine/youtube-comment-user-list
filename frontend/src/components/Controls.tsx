@@ -10,9 +10,6 @@ interface LoadingStates {
 interface ControlsProps {
   videoId: string
   setVideoId: (value: string) => void
-  intervalSec: number
-  setIntervalSec: (value: number) => void
-  lastFetchTime: string
   loadingStates: LoadingStates
   onSwitch: () => Promise<void>
   onPull: () => Promise<void>
@@ -22,9 +19,6 @@ interface ControlsProps {
 export function Controls({
   videoId,
   setVideoId,
-  intervalSec,
-  setIntervalSec,
-  lastFetchTime,
   loadingStates,
   onSwitch,
   onPull,
@@ -69,30 +63,9 @@ export function Controls({
           </div>
         </div>
 
-        <div className="mt-3 text-right">
-          <span className="text-sm text-slate-600 dark:text-slate-300" data-testid="last-fetch-time">
-            {lastFetchTime}
-          </span>
-        </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-12">
-          <div className="md:col-span-3">
-            <label htmlFor="interval" className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">自動間隔</label>
-            <select
-              id="interval"
-              aria-label="自動間隔"
-              value={intervalSec}
-              onChange={(e) => setIntervalSec(Number(e.target.value))}
-              className="w-full px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 text-[14px]"
-            >
-              <option value="0">停止</option>
-              <option value="10">10s</option>
-              <option value="15">15s</option>
-              <option value="30">30s</option>
-              <option value="60">60s</option>
-            </select>
-          </div>
-        </div>
+
+
       </div>
     </section>
   )

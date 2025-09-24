@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+
 
 interface User {
   channelId?: string
@@ -13,6 +14,11 @@ type UserData = User | string
 
 interface UserTableProps {
   users: UserData[]
+  intervalSec?: number
+  setIntervalSec?: (value: number) => void
+  lastUpdated?: string
+
+  isRefreshing?: boolean
 }
 
 type SortField = 'commentCount' | 'firstCommentedAt'
@@ -105,8 +111,14 @@ function SortButton({ field, currentSort, onSort, children }: SortButtonProps) {
 }
 
 
-export function UserTable({ users }: UserTableProps) {
+export function UserTable({ users, intervalSec = 0, setIntervalSec, lastUpdated = '--:--:--', isRefreshing = false }: UserTableProps) {
   const [sortState, setSortState] = useState<SortState>({ field: null, order: 'asc' })
+
+
+  // users配列が変更された時にソート状態をリセット（自動更新時の表示問題を解決）
+  useEffect(() => {
+    setSortState({ field: null, order: 'asc' })
+  }, [users])
 
   const handleSort = (field: SortField) => {
     setSortState(prevState => {
@@ -156,20 +168,64 @@ export function UserTable({ users }: UserTableProps) {
 
   return (
     <section className="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur">
-      {/* ソートリセットボタン */}
+      {/* コントロールヘッダー */}
       <div className="px-4 py-3 border-b border-slate-200/60 dark:border-slate-600/40 bg-slate-50/50 dark:bg-slate-800/30">
-        <button
-          onClick={handleReset}
-          disabled={!isSorted}
-          aria-label="ソートリセット"
-          className={`text-[12px] px-3 py-1.5 rounded-md transition-colors ${
-            isSorted
-              ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
-          }`}
-        >
-          ↻ デフォルト順
-        </button>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+
+            <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-slate-200/50 dark:border-white/10">
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">画面最終更新</div>
+              <div className="text-xs font-medium text-slate-700 dark:text-slate-200 tabular-nums">
+                {lastUpdated}
+              </div>
+            </div>
+            <button
+              onClick={handleReset}
+              disabled={!isSorted || isRefreshing}
+              aria-label="ソートリセット"
+              className={`text-[12px] px-3 py-1.5 rounded-md transition-colors ${
+                isSorted
+                  ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+              }`}
+            >
+              ↻ デフォルト順
+            </button>
+            {setIntervalSec && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="interval-select" className="text-[11px] text-slate-500 dark:text-slate-400">更新間隔</label>
+                <select
+                  id="interval-select"
+                  aria-label="更新間隔"
+                  value={intervalSec}
+                  onChange={(e) => setIntervalSec(Number(e.target.value))}
+                  disabled={isRefreshing}
+                  className="text-[12px] px-2 py-1 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10"
+                >
+                  <option value="0">停止</option>
+                  <option value="10">10s</option>
+                  <option value="15">15s</option>
+                  <option value="30">30s</option>
+                  <option value="60">60s</option>
+                </select>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+
+            {isRefreshing && (
+              <div className="flex items-center gap-3">
+                <div 
+                  data-testid="loading-spinner"
+                  className="animate-spin rounded-full h-8 w-8 border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300"
+                />
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  データ更新中...
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       <table className="w-full table-auto text-[14px] leading-7">
         <thead className="bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700 text-white dark:text-slate-100">
