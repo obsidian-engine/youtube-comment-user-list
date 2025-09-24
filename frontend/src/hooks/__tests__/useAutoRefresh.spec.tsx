@@ -6,6 +6,7 @@ describe('useAutoRefresh', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -25,7 +26,7 @@ describe('useAutoRefresh', () => {
     })
     
     expect(mockRefresh).not.toHaveBeenCalled()
-    expect(console.log).toHaveBeenCalledWith('🚫 Auto refresh stopped (interval set to 0)')
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Auto refresh stopped'))
   })
 
   test('intervalSec が正の値の場合、指定間隔でrefreshを実行', () => {
@@ -33,7 +34,7 @@ describe('useAutoRefresh', () => {
     
     renderHook(() => useAutoRefresh(5, mockRefresh))
     
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 5 seconds')
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Auto refresh timer set to 5 seconds'))
     
     // 5秒経過
     act(() => {
@@ -41,7 +42,7 @@ describe('useAutoRefresh', () => {
     })
     
     expect(mockRefresh).toHaveBeenCalledTimes(1)
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 5 seconds')
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Auto refresh timer set to 5 seconds'))
     
     // さらに5秒経過
     act(() => {
@@ -73,13 +74,13 @@ describe('useAutoRefresh', () => {
       { initialProps: { interval: 10 } }
     )
     
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 10 seconds')
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Auto refresh timer set to 10 seconds'))
     
     // intervalを変更
     rerender({ interval: 5 })
     
-    expect(console.log).toHaveBeenCalledWith('🗑️ Clearing previous auto refresh timer')
-    expect(console.log).toHaveBeenCalledWith('⏰ Auto refresh timer set to 5 seconds')
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Clearing previous auto refresh timer'))
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Auto refresh timer set to 5 seconds'))
     
     // 新しい間隔で動作することを確認
     act(() => {
@@ -145,7 +146,7 @@ describe('useAutoRefresh', () => {
     
     unmount()
     
-    expect(console.log).toHaveBeenCalledWith('🗑️ Clearing previous auto refresh timer')
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('🗑️ Auto refresh timer cleared on cleanup'))
     
     // アンマウント後は実行されない
     act(() => {

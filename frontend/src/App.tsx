@@ -6,6 +6,7 @@ import { QuickGuide } from './components/QuickGuide'
 import { Controls } from './components/Controls'
 import { UserTable } from './components/UserTable'
 import { Toast } from './components/Toast'
+import { ThemeToggle } from './components/ThemeToggle'
 
 export default function App() {
   const { state, actions } = useAppState()
@@ -36,7 +37,10 @@ export default function App() {
     <div className="min-h-screen bg-canvas-light dark:bg-canvas-dark text-slate-900 dark:text-slate-100">
       <div className="fixed inset-0 -z-10 bg-field" />
       <main className="mx-auto max-w-4xl px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
-        <QuickGuide />
+        <div className="flex justify-between items-center">
+          <QuickGuide />
+          <ThemeToggle />
+        </div>
         
         {errorMsg && (
           <div

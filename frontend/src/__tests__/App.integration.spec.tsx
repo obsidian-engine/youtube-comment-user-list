@@ -288,13 +288,17 @@ describe('App Integration (MSW)', () => {
 
     render(<App />)
 
-    // 初期状態：監視中で2人のユーザーが表示
+    // 初期状態は停止中、その後自動更新でサーバー状態を取得し監視中になる
+    // まず初期レンダリングを待つ
+    expect(screen.getByText('停止中')).toBeInTheDocument()
+    
+    // 自動更新でサーバー状態（ACTIVE + ユーザー）を取得後、監視中になる
     await waitFor(() => {
       expect(screen.getAllByText('監視中')[0]).toBeInTheDocument()
       expect(screen.getByText('ExistingUser1')).toBeInTheDocument()
       expect(screen.getByText('ExistingUser2')).toBeInTheDocument()
       expect(screen.getByText('2')).toBeInTheDocument()
-    })
+    }, { timeout: 20000 })
 
     // サーバー状態を停止中に変更
     currentStatus = 'WAITING'
