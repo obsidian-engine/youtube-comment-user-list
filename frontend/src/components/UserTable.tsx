@@ -248,22 +248,22 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
       <table className="w-full table-auto text-[14px] leading-7">
         <thead className="bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700 text-white dark:text-slate-100">
           <tr>
-            <th className="text-left px-4 py-3.5 w-[72px] font-semibold text-[13px] tracking-wide uppercase">#</th>
-            <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">名前</th>
-            <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase">
+            <th className="text-center px-4 py-3.5 w-[80px] font-semibold text-[13px] tracking-wide uppercase">#</th>
+            <th className="text-center px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase min-w-[250px] w-auto">名前</th>
+            <th className="text-center px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase w-[120px]">
               <SortButton field="commentCount" currentSort={sortState} onSort={handleSort}>
                 発言数
               </SortButton>
             </th>
             {showCommentTime && (
-              <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase hidden md:table-cell">
+              <th className="text-center px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase hidden md:table-cell w-[150px]">
                 <SortButton field="firstCommentedAt" currentSort={sortState} onSort={handleSort}>
                   初回コメント
                 </SortButton>
               </th>
             )}
             {showCommentTime && (
-              <th className="text-left px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase hidden md:table-cell">最新コメント</th>
+              <th className="text-center px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase hidden md:table-cell w-[150px]">最新コメント</th>
             )}
           </tr>
         </thead>
