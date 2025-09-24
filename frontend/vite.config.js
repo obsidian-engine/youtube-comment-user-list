@@ -13,7 +13,8 @@ export default defineConfig({
     poolOptions: {
       threads: {
         maxWorkers: '50%', // CPUコア数の50%を使用
-        minWorkers: 1
+        minWorkers: 1,
+        isolate: false // スレッドレベルでも分離無効化
       }
     },
 
@@ -29,7 +30,17 @@ export default defineConfig({
     // ファイル監視の最適化
     watch: process.env.CI ? false : true,
 
-    // 並列実行時の分離設定
-    isolate: true
+    // 並列実行時の分離設定（大幅な高速化のため無効化）
+    isolate: false,
+
+    // 依存関係最適化（バンドル化による高速化）
+    deps: {
+      optimizer: {
+        web: {
+          enabled: true,
+          include: ['react', 'react-dom', '@testing-library/react', '@testing-library/user-event']
+        }
+      }
+    }
   },
 })

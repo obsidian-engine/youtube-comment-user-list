@@ -14,6 +14,7 @@
     "test:fast": "vitest --run --reporter=dot",
     "test:bail": "vitest --run --bail=1",
     "test:coverage": "vitest --run --coverage",
+    "test:turbo": "vitest --run --reporter=dot --no-isolate",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
