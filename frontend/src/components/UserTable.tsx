@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Tooltip } from './Tooltip'
-import { isTextTooLong, truncateText } from '../utils/textUtils'
+import { isJapaneseTextTooLong, truncateJapaneseText } from '../utils/textUtils'
 
 
 interface User {
@@ -285,12 +285,12 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
               <td className="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">
                 <Tooltip
                   content={getUserDisplayName(user)}
-                  disabled={!isTextTooLong(getUserDisplayName(user), 20)}
+                  disabled={!isJapaneseTextTooLong(getUserDisplayName(user), 20)}
                   className="block w-full max-w-[200px]"
                 >
                   <span className="block truncate">
-                    {isTextTooLong(getUserDisplayName(user), 20) 
-                      ? truncateText(getUserDisplayName(user), 20) 
+                    {isJapaneseTextTooLong(getUserDisplayName(user), 20)
+                      ? truncateJapaneseText(getUserDisplayName(user), 20)
                       : getUserDisplayName(user)
                     }
                   </span>

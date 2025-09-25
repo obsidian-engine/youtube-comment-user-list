@@ -1,4 +1,24 @@
 /**
+ * 日本語テキストが指定した文字数を超えるかどうかを判定します（実際の文字数でカウント）
+ */
+export function isJapaneseTextTooLong(text: string, maxLength: number = 20): boolean {
+  if (!text) return false
+  return text.length > maxLength
+}
+
+/**
+ * 日本語テキストを指定した文字数で省略します（実際の文字数でカウント）
+ */
+export function truncateJapaneseText(text: string, maxLength: number = 20): string {
+  if (!text) return ''
+  if (!isJapaneseTextTooLong(text, maxLength)) {
+    return text
+  }
+
+  return text.slice(0, maxLength - 3) + '...'
+}
+
+/**
  * テキストが指定した文字数を超えるかどうかを判定します
  * 日本語文字（ひらがな、カタカナ、漢字）は2文字分として計算
  */
