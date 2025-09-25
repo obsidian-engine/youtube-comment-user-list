@@ -279,7 +279,7 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
                   : 'bg-slate-200/40 dark:bg-slate-700/25'
               }`}
             >
-              <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium">
+              <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium text-center">
                 {String(i + 1).padStart(2, '0')}
               </td>
               <td className="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">
@@ -297,14 +297,14 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
                 </Tooltip>
               </td>
               <td
-                className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium"
+                className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium text-center"
                 data-testid={`comment-count-${i}`}
               >
                 {getUserCommentCount(user)}
               </td>
               {showCommentTime && (
                 <td
-                  className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell"
+                  className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell text-center"
                   data-testid={`first-comment-${i}`}
                 >
                   {getUserFirstComment(user)}
@@ -312,7 +312,7 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
               )}
               {showCommentTime && (
                 <td
-                  className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell"
+                  className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell text-center"
                   data-testid={`latest-comment-${i}`}
                 >
                   {getUserLatestComment(user)}
