@@ -69,8 +69,8 @@ describe('textUtils', () => {
     })
 
     it('nullまたはundefinedの場合はfalse', () => {
-      expect(isJapaneseTextTooLong(null as any, 20)).toBe(false)
-      expect(isJapaneseTextTooLong(undefined as any, 20)).toBe(false)
+      expect(isJapaneseTextTooLong(null as unknown as string, 20)).toBe(false)
+      expect(isJapaneseTextTooLong(undefined as unknown as string, 20)).toBe(false)
     })
   })
 
@@ -104,8 +104,8 @@ describe('textUtils', () => {
     })
 
     it('nullまたはundefinedの場合は空文字を返す', () => {
-      expect(truncateJapaneseText(null as any, 20)).toBe('')
-      expect(truncateJapaneseText(undefined as any, 20)).toBe('')
+      expect(truncateJapaneseText(null as unknown as string, 20)).toBe('')
+      expect(truncateJapaneseText(undefined as unknown as string, 20)).toBe('')
     })
   })
 
