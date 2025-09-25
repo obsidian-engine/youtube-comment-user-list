@@ -9,7 +9,7 @@ import type { User } from '../utils/api'
 
 describe('App Integration (MSW)', () => {
   // 統合テスト用に長めのタイムアウトを設定
-  vi.setConfig({ testTimeout: 30000 })
+  vi.setConfig({ testTimeout: 12000 })
   test('切替成功で監視中表示になり、pull で人数が増える', async () => {
     let currentState: 'WAITING' | 'ACTIVE' = 'WAITING'
     const users: User[] = []
@@ -226,7 +226,7 @@ describe('App Integration (MSW)', () => {
       expect(screen.getByText('ExistingUser1')).toBeInTheDocument()
       expect(screen.getByText('ExistingUser2')).toBeInTheDocument()
       expect(screen.getByText('2')).toBeInTheDocument()
-    }, { timeout: 20000 })
+    }, { timeout: 12000 })
 
     // サーバー状態を停止中に変更
     currentStatus = 'WAITING'
@@ -282,7 +282,7 @@ describe('App Integration (MSW)', () => {
       // screen.debug()
       expect(screen.getByText('OldUser1')).toBeInTheDocument()
       expect(screen.getByText('1')).toBeInTheDocument()
-    }, { timeout: 20000 })
+    }, { timeout: 10000 })
 
     // videoIdを入力して切替実行
     const input = screen.getByLabelText('videoId') as HTMLInputElement
