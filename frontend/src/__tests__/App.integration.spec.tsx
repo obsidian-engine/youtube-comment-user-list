@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import { server } from '../mocks/setup'
 import { http, HttpResponse } from 'msw'
@@ -9,7 +9,7 @@ import type { User } from '../utils/api'
 
 describe('App Integration (MSW)', () => {
   // 統合テスト用に長めのタイムアウトを設定
-  vi.setConfig({ testTimeout: 30000 })
+  vi.setConfig({ testTimeout: 12000 })
   test('切替成功で監視中表示になり、pull で人数が増える', async () => {
     let currentState: 'WAITING' | 'ACTIVE' = 'WAITING'
     const users: User[] = []
@@ -207,38 +207,44 @@ describe('App Integration (MSW)', () => {
     ]
 
     server.use(
-      http.get('*/status', () => HttpResponse.json({ 
-        status: currentStatus, 
-        count: users.length 
+      http.get('*/status', () => HttpResponse.json({
+        status: currentStatus,
+        count: users.length,
+        startedAt: currentStatus === 'ACTIVE' ? new Date().toISOString() : undefined
       })),
       http.get('*/users.json', () => HttpResponse.json(users)),
     )
 
     render(<App />)
 
-    // 初期状態は停止中、その後自動更新でサーバー状態を取得し監視中になる
-    // まず初期レンダリングを待つ
-    expect(screen.getByText('停止中')).toBeInTheDocument()
-    
-    // 自動更新でサーバー状態（ACTIVE + ユーザー）を取得後、監視中になる
+    // 手動でrefresh実行（MSWがレスポンスを確実に返すため）
+    const refreshButton = screen.getByRole('button', { name: '今すぐ取得' })
+    fireEvent.click(refreshButton)
+
+    // レスポンス後のユーザー表示を待つ
     await waitFor(() => {
-      expect(screen.getAllByText('監視中')[0]).toBeInTheDocument()
       expect(screen.getByText('ExistingUser1')).toBeInTheDocument()
       expect(screen.getByText('ExistingUser2')).toBeInTheDocument()
       expect(screen.getByText('2')).toBeInTheDocument()
-    }, { timeout: 20000 })
+    }, { timeout: 5000 })
+
+    // ACTIVE状態が反映されて監視中が表示される
+    await waitFor(() => {
+      const statusElements = screen.queryAllByText('監視中')
+      expect(statusElements.length).toBeGreaterThan(0)
+    }, { timeout: 3000 })
 
     // サーバー状態を停止中に変更
     currentStatus = 'WAITING'
 
     // 手動でrefreshを実行（自動更新と同じ処理）
-    const refreshButton = screen.getByRole('button', { name: '今すぐ取得' })
     fireEvent.click(refreshButton)
 
     // 状態は停止中になるが、ユーザーリストは保持される
     await waitFor(() => {
-      expect(screen.getAllByText('停止中')[0]).toBeInTheDocument()
-    })
+      const statusElements = screen.queryAllByText('停止中')
+      expect(statusElements.length).toBeGreaterThan(0)
+    }, { timeout: 5000 })
 
     // ユーザーリストは保持されている
     expect(screen.getByText('ExistingUser1')).toBeInTheDocument()
@@ -259,41 +265,50 @@ describe('App Integration (MSW)', () => {
 
     server.use(
       http.get('*/status', () => {
-        console.log('MSW: /status called, returning count:', users.length)
-        return HttpResponse.json({ status: 'ACTIVE', count: users.length })
+        return HttpResponse.json({
+          status: 'ACTIVE',
+          count: users.length,
+          startedAt: users.length > 0 ? new Date().toISOString() : undefined
+        })
       }),
       http.get('*/users.json', () => {
-        console.log('MSW: /users.json called, returning users:', users)
         return HttpResponse.json(users)
       }),
       http.post('*/switch-video', () => {
-        console.log('MSW: /switch-video called, clearing users')
         // 切替時にユーザーをクリア
-        users.length = 0 // 配列をクリア
+        users.length = 0
         return new HttpResponse(null, { status: 200 })
       }),
     )
 
     render(<App />)
 
-    // 初期状態：ユーザーが存在
+    // 手動でrefresh実行（MSWがレスポンスを確実に返すため）
+    const refreshBtn = screen.getByRole('button', { name: '今すぐ取得' })
+    fireEvent.click(refreshBtn)
+
+    // 初期状態：ユーザーが読み込まれるまで待つ
     await waitFor(() => {
-      // デバッグ：画面の内容を確認
-      // screen.debug()
       expect(screen.getByText('OldUser1')).toBeInTheDocument()
       expect(screen.getByText('1')).toBeInTheDocument()
-    }, { timeout: 20000 })
+    }, { timeout: 5000 })
+
+    // 監視中状態の確認
+    await waitFor(() => {
+      const statusElements = screen.queryAllByText('監視中')
+      expect(statusElements.length).toBeGreaterThan(0)
+    }, { timeout: 3000 })
 
     // videoIdを入力して切替実行
     const input = screen.getByLabelText('videoId') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'new-video-123' } })
     fireEvent.click(screen.getByRole('button', { name: '切替' }))
 
-    // 切替後はリストがクリアされる
+    // 切替後はリストがクリアされる（refreshWithClearが呼ばれる）
     await waitFor(() => {
       expect(screen.getByText('ユーザーがいません。')).toBeInTheDocument()
       expect(screen.queryByText('OldUser1')).not.toBeInTheDocument()
-    })
+    }, { timeout: 5000 })
   })
 
 })

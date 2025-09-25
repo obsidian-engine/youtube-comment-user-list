@@ -1,11 +1,11 @@
 export const logger = {
-  log: (...args: unknown[]) => {
+  log: (..._args: unknown[]) => {
     // コンソールログは削除済み
   },
-  error: (...args: unknown[]) => {
+  error: (..._args: unknown[]) => {
     // コンソールエラーは削除済み
   },
-  warn: (...args: unknown[]) => {
+  warn: (..._args: unknown[]) => {
     // コンソール警告は削除済み
   },
 }
