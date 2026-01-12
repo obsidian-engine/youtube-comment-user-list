@@ -73,13 +73,15 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		}
 
 		// コメント保存
-		uc.Comments.Add(domain.Comment{
+		if err := uc.Comments.Add(domain.Comment{
 			ID:          msg.ID,
 			ChannelID:   msg.ChannelID,
 			DisplayName: msg.DisplayName,
 			Message:     msg.Message,
 			PublishedAt: msg.PublishedAt,
-		})
+		}); err != nil {
+			return PullOutput{}, err
+		}
 	}
 
 	// 最終取得日時と次ページトークンを更新
