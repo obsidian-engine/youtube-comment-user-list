@@ -7,7 +7,6 @@ async function json<T>(res: Response): Promise<T> {
 
 export type StatusResponse = {
   status?: 'WAITING' | 'ACTIVE'
-  Status?: 'WAITING' | 'ACTIVE'
   count?: number
   videoId?: string
   startedAt?: string

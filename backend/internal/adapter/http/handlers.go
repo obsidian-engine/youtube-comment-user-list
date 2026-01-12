@@ -176,11 +176,22 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			return
 		}
 
+		const maxKeywordLength = 100
+		const maxKeywords = 20
+
 		keywords := []string{}
 		for _, keyword := range strings.Split(keywordsParam, ",") {
 			trimmed := strings.TrimSpace(keyword)
 			if trimmed != "" {
+				if len(trimmed) > maxKeywordLength {
+					renderBadRequest(w, r, "keyword too long (max 100 characters)")
+					return
+				}
 				keywords = append(keywords, trimmed)
+				if len(keywords) > maxKeywords {
+					renderBadRequest(w, r, "too many keywords (max 20)")
+					return
+				}
 			}
 		}
 
