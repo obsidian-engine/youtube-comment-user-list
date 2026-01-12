@@ -60,7 +60,8 @@ func TestPull_AddsUsers_NormalFlow(t *testing.T) {
 	yt := &fakeYTForPull{items: []port.ChatMessage{{ID: "msg1", ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)}}, ended: false}
 	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
-	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
+	comments := memory.NewCommentRepo()
+	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock}
 	out, err := uc.Execute(ctx)
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
@@ -105,7 +106,8 @@ func TestPull_MultipleComments_IncrementCount(t *testing.T) {
 	}, ended: false}
 	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
-	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
+	comments := memory.NewCommentRepo()
+	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock}
 	_, err := uc.Execute(ctx)
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
@@ -154,7 +156,8 @@ func TestPull_Ended_AutoReset(t *testing.T) {
 	endedAt := time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)
 	clock := &fakeClock{now: endedAt}
 
-	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
+	comments := memory.NewCommentRepo()
+	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock}
 	out, err := uc.Execute(ctx)
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
@@ -190,7 +193,8 @@ func TestPull_WaitingState_NoOperation(t *testing.T) {
 	yt := &fakeYTForPull{items: []port.ChatMessage{{ID: "msg1", ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)}}, ended: false}
 	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
-	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
+	comments := memory.NewCommentRepo()
+	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock}
 	out, err := uc.Execute(ctx)
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
@@ -221,7 +225,8 @@ func TestPull_SavesNextPageToken(t *testing.T) {
 		t.Fatalf("state set error: %v", err)
 	}
 
-	uc := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
+	comments := memory.NewCommentRepo()
+	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock}
 	if _, err := uc.Execute(context.Background()); err != nil {
 		t.Fatalf("execute error: %v", err)
 	}
@@ -295,11 +300,13 @@ func TestPull_MinimumPollingInterval(t *testing.T) {
 				StartedAt:  time.Now(),
 			})
 
+			comments := memory.NewCommentRepo()
 			uc := &usecase.Pull{
-				YT:    yt,
-				Users: users,
-				State: state,
-				Clock: clock,
+				YT:       yt,
+				Users:    users,
+				Comments: comments,
+				State:    state,
+				Clock:    clock,
 			}
 
 			// 実行

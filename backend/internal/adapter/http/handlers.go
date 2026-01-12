@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	stdhttp "net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -17,6 +18,7 @@ type Handlers struct {
 	Pull        *usecase.Pull
 	Reset       *usecase.Reset
 	Users       port.UserRepo
+	Comments    port.CommentRepo
 }
 
 // StatusResponse represents the response for /status endpoint
@@ -165,6 +167,40 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			Status: string(out.State.Status),
 		}
 		render.JSON(w, r, response)
+	})
+
+	r.Get("/comments", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		keywordsParam := r.URL.Query().Get("keywords")
+		if keywordsParam == "" {
+			renderBadRequest(w, r, "keywords parameter is required")
+			return
+		}
+
+		keywords := []string{}
+		for _, keyword := range strings.Split(keywordsParam, ",") {
+			trimmed := strings.TrimSpace(keyword)
+			if trimmed != "" {
+				keywords = append(keywords, trimmed)
+			}
+		}
+
+		if len(keywords) == 0 {
+			renderBadRequest(w, r, "at least one keyword is required")
+			return
+		}
+
+		// CommentRepo未初期化チェック
+		if h.Comments == nil {
+			log.Printf("[COMMENTS] CommentRepo not initialized")
+			renderInternalError(w, r, "comment search is not available")
+			return
+		}
+
+		log.Printf("[COMMENTS] Searching comments with keywords: %v", keywords)
+		comments := h.Comments.SearchByKeywords(keywords)
+		log.Printf("[COMMENTS] Found %d comments", len(comments))
+
+		render.JSON(w, r, comments)
 	})
 
 	return r

@@ -36,6 +36,7 @@ func main() {
 
 	// Adapters
 	users := memory.NewUserRepo()
+	comments := memory.NewCommentRepo()
 	state := memory.NewStateRepo()
 	yt := youtube.New(cfg.YouTubeAPIKey)
 	clock := system.NewSystemClock()
@@ -43,10 +44,10 @@ func main() {
 	// UseCases
 	ucStatus := &usecase.Status{Users: users, State: state}
 	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock}
-	ucPull := &usecase.Pull{YT: yt, Users: users, State: state, Clock: clock}
+	ucPull := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock}
 	ucReset := &usecase.Reset{Users: users, State: state}
 
-	h := &ahttp.Handlers{Status: ucStatus, SwitchVideo: ucSwitch, Pull: ucPull, Reset: ucReset, Users: users}
+	h := &ahttp.Handlers{Status: ucStatus, SwitchVideo: ucSwitch, Pull: ucPull, Reset: ucReset, Users: users, Comments: comments}
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: ahttp.NewRouter(h, cfg.FrontendOrigin)}
 
 	// グレースフルシャットダウンのためのコンテキスト設定

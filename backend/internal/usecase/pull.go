@@ -8,16 +8,17 @@ import (
 )
 
 type PullOutput struct {
-    AddedCount           int
-    AutoReset            bool
-    PollingIntervalMillis int64
+	AddedCount            int
+	AutoReset             bool
+	PollingIntervalMillis int64
 }
 
 type Pull struct {
-	YT    port.YouTubePort
-	Users port.UserRepo
-	State port.StateRepo
-	Clock port.Clock
+	YT       port.YouTubePort
+	Users    port.UserRepo
+	Comments port.CommentRepo
+	State    port.StateRepo
+	Clock    port.Clock
 }
 
 // Execute: コメント取得・ユーザー追加、終了検知→WAITING へ（autoReset）。
@@ -34,15 +35,18 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 	}
 
 	// YouTube APIからメッセージを取得（ページトークン対応）
-    items, nextToken, pollMs, isEnded, err := uc.YT.ListLiveChatMessages(ctx, state.LiveChatID, state.NextPageToken)
-    if err != nil {
-        return PullOutput{}, err
-    }
+	items, nextToken, pollMs, isEnded, err := uc.YT.ListLiveChatMessages(ctx, state.LiveChatID, state.NextPageToken)
+	if err != nil {
+		return PullOutput{}, err
+	}
 
 	// 配信終了検知
 	if isEnded {
 		// ユーザークリア
 		uc.Users.Clear()
+
+		// コメントクリア
+		uc.Comments.Clear()
 
 		// WAITINGに戻す（現在時刻を終了時刻として設定）
 		state.Status = domain.StatusWaiting
@@ -52,8 +56,8 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 			return PullOutput{}, err
 		}
 
-        return PullOutput{AddedCount: 0, AutoReset: true, PollingIntervalMillis: 0}, nil
-    }
+		return PullOutput{AddedCount: 0, AutoReset: true, PollingIntervalMillis: 0}, nil
+	}
 
 	// ユーザー追加 - メッセージIDによる重複チェックを使用
 	addedCount := 0
@@ -67,6 +71,15 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		if updated {
 			addedCount++
 		}
+
+		// コメント保存
+		uc.Comments.Add(domain.Comment{
+			ID:          msg.ID,
+			ChannelID:   msg.ChannelID,
+			DisplayName: msg.DisplayName,
+			Message:     msg.Message,
+			PublishedAt: msg.PublishedAt,
+		})
 	}
 
 	// 最終取得日時と次ページトークンを更新
@@ -82,5 +95,5 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		pollMs = minPollingIntervalMillis
 	}
 
-    return PullOutput{AddedCount: addedCount, AutoReset: false, PollingIntervalMillis: pollMs}, nil
+	return PullOutput{AddedCount: addedCount, AutoReset: false, PollingIntervalMillis: pollMs}, nil
 }
