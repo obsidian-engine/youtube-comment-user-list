@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LoadingButton } from './LoadingButton'
 
 interface WordListManagerProps {
   keywords: string[]
@@ -39,13 +40,9 @@ export function WordListManager({ keywords, onAdd, onRemove, disabled }: WordLis
           disabled={disabled}
           className="flex-1 px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]"
         />
-        <button
-          onClick={handleAdd}
-          disabled={disabled || !input.trim()}
-          className="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
-        >
+        <LoadingButton onClick={handleAdd} disabled={disabled || !input.trim()} variant="primary">
           追加
-        </button>
+        </LoadingButton>
       </div>
 
       <div className="flex flex-wrap gap-2">
