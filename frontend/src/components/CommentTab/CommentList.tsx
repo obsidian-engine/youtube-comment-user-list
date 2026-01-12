@@ -1,5 +1,5 @@
 import { CommentRow } from './CommentRow'
-import type { Comment } from '../types'
+import type { Comment } from '../../utils/api'
 
 interface CommentListProps {
   comments: Comment[]

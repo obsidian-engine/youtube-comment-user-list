@@ -1,4 +1,4 @@
-import type { Comment } from '../types'
+import type { Comment } from '../../utils/api'
 
 interface CommentRowProps {
   comment: Comment

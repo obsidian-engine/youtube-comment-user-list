@@ -1,7 +1,16 @@
 import { useState, useCallback, useRef } from 'react'
-import { searchComments } from '../utils/api'
-import { loadKeywords, saveKeywords } from '../utils/storage'
-import type { Comment } from '../types'
+import { searchComments, type Comment } from '../utils/api'
+
+const KEYWORDS_KEY = 'comment-search-keywords'
+
+const loadKeywords = (): string[] => {
+  const data = localStorage.getItem(KEYWORDS_KEY)
+  return data ? JSON.parse(data) : ['メモ'] // デフォルト値
+}
+
+const saveKeywords = (keywords: string[]): void => {
+  localStorage.setItem(KEYWORDS_KEY, JSON.stringify(keywords))
+}
 
 interface SearchState {
   keywords: string[]
@@ -9,15 +18,17 @@ interface SearchState {
   isLoading: boolean
   errorMsg: string
   lastUpdated: string
+  intervalSec: number
 }
 
-export function useSearchState() {
+export function useCommentSearch() {
   const [state, setState] = useState<SearchState>({
     keywords: loadKeywords(),
     comments: [],
     isLoading: false,
     errorMsg: '',
     lastUpdated: '--:--:--',
+    intervalSec: 0, // デフォルトOFF
   })
 
   const controllerRef = useRef<AbortController | null>(null)
@@ -40,6 +51,10 @@ export function useSearchState() {
       saveKeywords(updated)
       return { ...prev, keywords: updated }
     })
+  }, [])
+
+  const setIntervalSec = useCallback((value: number) => {
+    setState((prev) => ({ ...prev, intervalSec: value }))
   }, [])
 
   const search = useCallback(async () => {
@@ -104,6 +119,7 @@ export function useSearchState() {
     ...state,
     addKeyword,
     removeKeyword,
+    setIntervalSec,
     search,
   }
 }

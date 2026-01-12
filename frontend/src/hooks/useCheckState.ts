@@ -1,5 +1,19 @@
 import { useState, useCallback, useEffect } from 'react'
-import { loadChecked, saveChecked, clearChecked } from '../utils/storage'
+
+const CHECKED_KEY = 'comment-search-checked'
+
+const loadChecked = (): Record<string, boolean> => {
+  const data = localStorage.getItem(CHECKED_KEY)
+  return data ? JSON.parse(data) : {}
+}
+
+const saveChecked = (checked: Record<string, boolean>): void => {
+  localStorage.setItem(CHECKED_KEY, JSON.stringify(checked))
+}
+
+const clearChecked = (): void => {
+  localStorage.removeItem(CHECKED_KEY)
+}
 
 export function useCheckState() {
   const [checked, setChecked] = useState<Record<string, boolean>>(() => loadChecked())
