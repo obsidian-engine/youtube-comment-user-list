@@ -6,7 +6,7 @@ interface CommentControlsProps {
   onAddKeyword: (word: string) => void
   onRemoveKeyword: (word: string) => void
   onSearch: () => void
-  onClearChecked: () => void
+  onReset: () => void
   isLoading: boolean
   intervalSec: number
   setIntervalSec: (value: number) => void
@@ -20,7 +20,7 @@ export function CommentControls({
   onAddKeyword,
   onRemoveKeyword,
   onSearch,
-  onClearChecked,
+  onReset,
   isLoading,
   intervalSec,
   setIntervalSec,
@@ -101,8 +101,8 @@ export function CommentControls({
           >
             今すぐ検索
           </LoadingButton>
-          <LoadingButton onClick={onClearChecked} variant="outline">
-            チェックをリセット
+          <LoadingButton onClick={onReset} variant="outline">
+            リセット
           </LoadingButton>
           <select
             aria-label="自動更新間隔"

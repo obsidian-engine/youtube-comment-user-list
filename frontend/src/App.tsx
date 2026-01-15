@@ -3,6 +3,7 @@ import { useAutoRefresh } from './hooks/useAutoRefresh'
 import { useAppState } from './hooks/useAppState'
 import { useCommentSearch } from './hooks/useCommentSearch'
 import { useCheckState } from './hooks/useCheckState'
+import { useHiddenState } from './hooks/useHiddenState'
 import { StatsCard } from './components/StatsCard'
 import { QuickGuide } from './components/QuickGuide'
 import { Controls } from './components/Controls'
@@ -19,6 +20,7 @@ export default function App() {
   const { state, actions } = useAppState()
   const commentSearch = useCommentSearch()
   const checkState = useCheckState()
+  const hiddenState = useHiddenState()
   const [showCommentTime, setShowCommentTime] = useState(true)
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     const saved = localStorage.getItem('activeTab')
@@ -29,6 +31,16 @@ export default function App() {
     setActiveTab(tab)
     localStorage.setItem('activeTab', tab)
   }
+
+  // フィルター適用（非表示コメントを除外）
+  const visibleComments = commentSearch.comments.filter((c) => !hiddenState.isHidden(c.id))
+
+  // リセット: 表示中の全コメントを非表示
+  const handleReset = () => {
+    const visibleIds = visibleComments.map((c) => c.id)
+    hiddenState.hideAll(visibleIds)
+  }
+
   const { active, users, videoId, intervalSec, lastUpdated, errorMsg, infoMsg, loadingStates } =
     state
 
@@ -108,7 +120,7 @@ export default function App() {
               onAddKeyword={commentSearch.addKeyword}
               onRemoveKeyword={commentSearch.removeKeyword}
               onSearch={commentSearch.search}
-              onClearChecked={checkState.clear}
+              onReset={handleReset}
               isLoading={commentSearch.isLoading}
               intervalSec={commentSearch.intervalSec}
               setIntervalSec={commentSearch.setIntervalSec}
@@ -118,7 +130,7 @@ export default function App() {
             />
 
             <CommentList
-              comments={commentSearch.comments}
+              comments={visibleComments}
               isChecked={checkState.isChecked}
               onToggle={checkState.toggle}
               isLoading={commentSearch.isLoading}
