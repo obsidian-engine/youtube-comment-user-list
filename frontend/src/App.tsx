@@ -33,7 +33,7 @@ export default function App() {
   }
 
   // フィルター適用（非表示コメントを除外）
-  const visibleComments = commentSearch.comments.filter((c) => !hiddenState.isHidden(c.id))
+  const visibleComments = (commentSearch.comments || []).filter((c) => !hiddenState.isHidden(c.id))
 
   // リセット: 表示中の全コメントを非表示
   const handleReset = () => {
