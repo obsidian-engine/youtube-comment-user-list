@@ -37,11 +37,7 @@ export function CommentControls({
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleAdd()
-    }
-  }
+
 
   return (
     <div className="space-y-4">
@@ -56,7 +52,6 @@ export function CommentControls({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
             placeholder="キーワードを入力"
             disabled={isLoading}
             className="flex-1 px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]"
