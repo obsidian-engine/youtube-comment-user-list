@@ -3,12 +3,21 @@ import { useState, useCallback, useEffect } from 'react'
 const HIDDEN_KEY = 'comment-search-hidden'
 
 const loadHidden = (): Record<string, boolean> => {
-  const data = localStorage.getItem(HIDDEN_KEY)
-  return data ? JSON.parse(data) : {}
+  try {
+    const data = localStorage.getItem(HIDDEN_KEY)
+    return data ? JSON.parse(data) : {}
+  } catch (e) {
+    console.warn('Failed to load hidden state from localStorage', e)
+    return {}
+  }
 }
 
 const saveHidden = (hidden: Record<string, boolean>): void => {
-  localStorage.setItem(HIDDEN_KEY, JSON.stringify(hidden))
+  try {
+    localStorage.setItem(HIDDEN_KEY, JSON.stringify(hidden))
+  } catch (e) {
+    console.error('Failed to save hidden state to localStorage', e)
+  }
 }
 
 const clearHidden = (): void => {
@@ -18,9 +27,12 @@ const clearHidden = (): void => {
 export function useHiddenState() {
   const [hidden, setHidden] = useState<Record<string, boolean>>(() => loadHidden())
 
-  // LocalStorageへの保存
+  // LocalStorageへの保存（デバウンス付き）
   useEffect(() => {
-    saveHidden(hidden)
+    const timer = setTimeout(() => {
+      saveHidden(hidden)
+    }, 300)
+    return () => clearTimeout(timer)
   }, [hidden])
 
   const hide = useCallback((commentId: string) => {
@@ -31,13 +43,10 @@ export function useHiddenState() {
   }, [])
 
   const hideAll = useCallback((commentIds: string[]) => {
-    setHidden((prev) => {
-      const newHidden = { ...prev }
-      commentIds.forEach((id) => {
-        newHidden[id] = true
-      })
-      return newHidden
-    })
+    setHidden((prev) => ({
+      ...prev,
+      ...Object.fromEntries(commentIds.map((id) => [id, true])),
+    }))
   }, [])
 
   const isHidden = useCallback(
