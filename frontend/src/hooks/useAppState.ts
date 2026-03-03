@@ -292,6 +292,22 @@ export function useAppState(addEntry?: AddEntryFn) {
     [refresh, refreshWithClear, addEntry],
   )
 
+  const pullAction = useCallback(
+    async (signal: AbortSignal) => {
+      const res = await postPull(signal)
+      setState((prev) => ({ ...prev, skippedCount: prev.skippedCount + res.skippedCount }))
+      if (res.autoReset) {
+        addEntry?.('warn', '配信終了を検知しました。再度切替してください。')
+      }
+      const level = res.skippedCount > 0 ? 'warn' : 'info'
+      addEntry?.(level, res.skippedCount > 0 ? 'Pull完了（スキップあり）' : 'Pull完了', {
+        addedCount: res.addedCount,
+        skippedCount: res.skippedCount,
+      })
+    },
+    [addEntry],
+  )
+
   const actions: AppActions = {
     setVideoId: useCallback((value: string) => {
       setState((prev) => ({ ...prev, videoId: value }))
@@ -325,45 +341,23 @@ export function useAppState(addEntry?: AddEntryFn) {
 
     onPull: useCallback(async () => {
       await handleAsyncAction(
-        async (signal) => {
-          const res = await postPull(signal)
-          setState((prev) => ({ ...prev, skippedCount: prev.skippedCount + res.skippedCount }))
-          if (res.autoReset) {
-            addEntry?.('warn', '配信終了を検知しました。再度切替してください。')
-          }
-          const level = res.skippedCount > 0 ? 'warn' : 'info'
-          addEntry?.(level, res.skippedCount > 0 ? 'Pull完了（スキップあり）' : 'Pull完了', {
-            addedCount: res.addedCount,
-            skippedCount: res.skippedCount,
-          })
-        },
+        pullAction,
         'pulling',
         '取得しました',
         '取得',
         pullControllerRef,
       )
-    }, [handleAsyncAction, addEntry]),
+    }, [handleAsyncAction, pullAction]),
 
     onPullSilent: useCallback(async () => {
       await handleAsyncAction(
-        async (signal) => {
-          const res = await postPull(signal)
-          setState((prev) => ({ ...prev, skippedCount: prev.skippedCount + res.skippedCount }))
-          if (res.autoReset) {
-            addEntry?.('warn', '配信終了を検知しました。再度切替してください。')
-          }
-          const level = res.skippedCount > 0 ? 'warn' : 'info'
-          addEntry?.(level, res.skippedCount > 0 ? 'Pull完了（スキップあり）' : 'Pull完了', {
-            addedCount: res.addedCount,
-            skippedCount: res.skippedCount,
-          })
-        },
+        pullAction,
         'pulling',
         '', // 自動更新時はメッセージなし
         '取得',
         pullControllerRef,
       )
-    }, [handleAsyncAction, addEntry]),
+    }, [handleAsyncAction, pullAction]),
 
     onReset: useCallback(async () => {
       setState((prev) => ({ ...prev, skippedCount: 0 }))
