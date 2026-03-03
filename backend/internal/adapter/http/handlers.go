@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
 )
@@ -40,17 +41,34 @@ type SwitchVideoResponse struct {
 	StartedAt  interface{} `json:"startedAt"`
 }
 
+// LogDetail represents a single log entry in the response
+type LogDetail struct {
+	Level   string `json:"level"`
+	Source  string `json:"source"`
+	Message string `json:"message"`
+}
+
 // PullResponse represents the response for /pull endpoint
 type PullResponse struct {
-	AddedCount            int   `json:"addedCount"`
-	SkippedCount          int   `json:"skippedCount"`
-	AutoReset             bool  `json:"autoReset"`
-	PollingIntervalMillis int64 `json:"pollingIntervalMillis"`
+	AddedCount            int         `json:"addedCount"`
+	SkippedCount          int         `json:"skippedCount"`
+	AutoReset             bool        `json:"autoReset"`
+	PollingIntervalMillis int64       `json:"pollingIntervalMillis"`
+	Logs                  []LogDetail `json:"logs"`
 }
 
 // ResetResponse represents the response for /reset endpoint
 type ResetResponse struct {
 	Status string `json:"status"`
+}
+
+func collectLogs(collector *logging.Collector) []LogDetail {
+	entries := collector.Entries()
+	logs := make([]LogDetail, len(entries))
+	for i, e := range entries {
+		logs[i] = LogDetail{Level: e.Level, Source: e.Source, Message: e.Message}
+	}
+	return logs
 }
 
 func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
@@ -138,10 +156,14 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 
 	r.Post("/pull", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		log.Printf("[PULL] Processing pull request")
-		out, err := h.Pull.Execute(r.Context())
+		collector := logging.NewCollector()
+		ctx := logging.WithCollector(r.Context(), collector)
+		out, err := h.Pull.Execute(ctx)
 		if err != nil {
 			log.Printf("[PULL] Error: %v", err)
-			renderInternalError(w, r, "Failed to pull messages")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(stdhttp.StatusInternalServerError)
+			render.JSON(w, r, PullResponse{Logs: collectLogs(collector)})
 			return
 		}
 
@@ -151,6 +173,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			SkippedCount:          out.SkippedCount,
 			AutoReset:             out.AutoReset,
 			PollingIntervalMillis: out.PollingIntervalMillis,
+			Logs:                  collectLogs(collector),
 		}
 		render.JSON(w, r, response)
 	})

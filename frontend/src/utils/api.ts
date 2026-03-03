@@ -42,11 +42,18 @@ export async function postSwitchVideo(videoId: string, signal?: AbortSignal): Pr
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }
 
+export type BackendLog = {
+  level: 'info' | 'warn' | 'error'
+  source: string
+  message: string
+}
+
 export type PullResponse = {
   addedCount: number
   skippedCount: number
   autoReset: boolean
   pollingIntervalMillis: number
+  logs: BackendLog[]
 }
 
 export async function postPull(signal?: AbortSignal): Promise<PullResponse> {

@@ -304,6 +304,11 @@ export function useAppState(addEntry?: AddEntryFn) {
         addedCount: res.addedCount,
         skippedCount: res.skippedCount,
       })
+      res.logs?.forEach((entry) => {
+        const level: LogLevel =
+          entry.level === 'warn' || entry.level === 'error' ? entry.level : 'info'
+        addEntry?.(level, `[${entry.source}] ${entry.message}`)
+      })
     },
     [addEntry],
   )
@@ -340,13 +345,7 @@ export function useAppState(addEntry?: AddEntryFn) {
     }, [state.videoId, handleAsyncAction, addEntry]),
 
     onPull: useCallback(async () => {
-      await handleAsyncAction(
-        pullAction,
-        'pulling',
-        '取得しました',
-        '取得',
-        pullControllerRef,
-      )
+      await handleAsyncAction(pullAction, 'pulling', '取得しました', '取得', pullControllerRef)
     }, [handleAsyncAction, pullAction]),
 
     onPullSilent: useCallback(async () => {

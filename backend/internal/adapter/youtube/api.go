@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
@@ -168,16 +169,16 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 			break
 		}
 
-		log.Printf("[YOUTUBE_API] API call failed (attempt %d/%d): %v", attempt, maxAttempts, err)
+		logging.Log(ctx, "warn", "YOUTUBE_API", "API call failed (attempt %d/%d): %v", attempt, maxAttempts, err)
 
 		if isLiveChatEnded(err) {
-			log.Printf("[YOUTUBE_API] Live chat ended or disabled")
+			logging.Log(ctx, "warn", "YOUTUBE_API", "Live chat ended or disabled")
 			return nil, "", 0, 0, true, nil
 		}
 
 		if attempt < maxAttempts && isTransientError(err) {
 			backoff := time.Duration(1<<uint(attempt-1)) * time.Second // 1s, 2s, 4s
-			log.Printf("[YOUTUBE_API] Retrying after %v...", backoff)
+			logging.Log(ctx, "warn", "YOUTUBE_API", "Retrying after %v...", backoff)
 			select {
 			case <-time.After(backoff):
 				continue
@@ -215,11 +216,11 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 			})
 		} else {
 			skippedCount++
-			log.Printf("[YOUTUBE_API] Skipped message in chat %s (AuthorDetails=%v, Snippet=%v, ID=%s)", liveChatID, item.AuthorDetails != nil, item.Snippet != nil, item.Id)
+			logging.Log(ctx, "warn", "YOUTUBE_API", "Skipped message in chat %s (AuthorDetails=%v, Snippet=%v, ID=%s)", liveChatID, item.AuthorDetails != nil, item.Snippet != nil, item.Id)
 		}
 	}
 
-	log.Printf("[YOUTUBE_API] Retrieved %d messages, skipped %d (total=%d, pageToken=%s, next=%s, pollingIntervalMillis=%d)", len(messages), skippedCount, len(response.Items), pageToken, response.NextPageToken, response.PollingIntervalMillis)
+	logging.Log(ctx, "info", "YOUTUBE_API", "Retrieved %d messages, skipped %d (total=%d, pageToken=%s, next=%s, pollingIntervalMillis=%d)", len(messages), skippedCount, len(response.Items), pageToken, response.NextPageToken, response.PollingIntervalMillis)
 
 	return messages, response.NextPageToken, int64(response.PollingIntervalMillis), skippedCount, false, nil
 }
