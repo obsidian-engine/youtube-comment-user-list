@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
 )
@@ -18,7 +19,8 @@ type API struct {
 
 func New(apiKey string) *API { return &API{APIKey: apiKey} }
 
-// isLiveChatEnded はエラーがライブチャットの終了または無効化を示すかどうかを判定します
+// isLiveChatEnded はエラーがライブチャットの終了または無効化を示すかどうかを判定します。
+// "forbidden" は rate limit や quota 超過でも返されるため、終了判定には使用しない。
 func isLiveChatEnded(err error) bool {
 	if err == nil {
 		return false
@@ -26,7 +28,6 @@ func isLiveChatEnded(err error) bool {
 
 	errMsg := strings.ToLower(err.Error())
 	endedKeywords := []string{
-		"forbidden",
 		"livechatdisabled",
 		"livechatended",
 		"livechatnotfound",
@@ -42,6 +43,39 @@ func isLiveChatEnded(err error) bool {
 
 	// "notfound" + "livechat" の組み合わせもチェック
 	return strings.Contains(errMsg, "notfound") && strings.Contains(errMsg, "livechat")
+}
+
+// isTransientError は一時的なエラー（リトライで解消される可能性があるもの）かどうかを判定します。
+// 永続的な認証エラー（APIキー不正等）はリトライしない。
+func isTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// googleapi.Error の構造体でHTTPステータスコードを判定
+	var apiErr *googleapi.Error
+	if errors.As(err, &apiErr) {
+		switch apiErr.Code {
+		case 429, 500, 503:
+			return true
+		}
+	}
+
+	errMsg := strings.ToLower(err.Error())
+	transientKeywords := []string{
+		"ratelimit",
+		"quota",
+		"backend error",
+		"service unavailable",
+	}
+
+	for _, keyword := range transientKeywords {
+		if strings.Contains(errMsg, keyword) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
@@ -126,27 +160,49 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 	// 最大値に設定してより多くのコメントを一度に取得
 	call = call.MaxResults(2000)
 
-	response, err := call.Do()
-	if err != nil {
-		log.Printf("[YOUTUBE_API] API call failed: %v", err)
+	const maxAttempts = 4
+	var response *youtube.LiveChatMessageListResponse
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		response, err = call.Do()
+		if err == nil {
+			break
+		}
+
+		log.Printf("[YOUTUBE_API] API call failed (attempt %d/%d): %v", attempt, maxAttempts, err)
 
 		if isLiveChatEnded(err) {
 			log.Printf("[YOUTUBE_API] Live chat ended or disabled")
 			return nil, "", 0, true, nil
 		}
 
+		if attempt < maxAttempts && isTransientError(err) {
+			backoff := time.Duration(1<<uint(attempt-1)) * time.Second // 1s, 2s, 4s
+			log.Printf("[YOUTUBE_API] Retrying after %v...", backoff)
+			select {
+			case <-time.After(backoff):
+				continue
+			case <-ctx.Done():
+				log.Printf("[YOUTUBE_API] Context cancelled during retry backoff: %v", ctx.Err())
+				return nil, "", 0, false, ctx.Err()
+			}
+		}
+
 		return nil, "", 0, false, err
+	}
+
+	if response == nil {
+		return nil, "", 0, false, errors.New("youtube API returned nil response")
 	}
 
 	// レスポンスからメッセージを変換
 	var messages []port.ChatMessage
+	skippedCount := 0
 	for _, item := range response.Items {
 		if item.AuthorDetails != nil && item.Snippet != nil {
 			// publishedAtを解析
 			publishedAt, err := time.Parse(time.RFC3339, item.Snippet.PublishedAt)
 			if err != nil {
-				log.Printf("[YOUTUBE_API] Failed to parse publishedAt: %v", err)
-				// エラーの場合は現在時刻を使用
+				log.Printf("[YOUTUBE_API] Failed to parse publishedAt for message %s: raw=%q err=%v", item.Id, item.Snippet.PublishedAt, err)
 				publishedAt = time.Now()
 			}
 
@@ -157,10 +213,13 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 				Message:     item.Snippet.DisplayMessage,
 				PublishedAt: publishedAt,
 			})
+		} else {
+			skippedCount++
+			log.Printf("[YOUTUBE_API] Skipped message in chat %s (AuthorDetails=%v, Snippet=%v, ID=%s)", liveChatID, item.AuthorDetails != nil, item.Snippet != nil, item.Id)
 		}
 	}
 
-	log.Printf("[YOUTUBE_API] Successfully retrieved %d messages (pageToken=%s next=%s, pollingIntervalMillis=%d)", len(messages), pageToken, response.NextPageToken, response.PollingIntervalMillis)
+	log.Printf("[YOUTUBE_API] Retrieved %d messages, skipped %d (total=%d, pageToken=%s, next=%s, pollingIntervalMillis=%d)", len(messages), skippedCount, len(response.Items), pageToken, response.NextPageToken, response.PollingIntervalMillis)
 
 	return messages, response.NextPageToken, int64(response.PollingIntervalMillis), false, nil
 }

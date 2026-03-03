@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
+	"google.golang.org/api/googleapi"
 )
 
 // モックHTTPサーバーのレスポンス構造体
@@ -219,9 +220,9 @@ func TestIsLiveChatEnded(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "forbidden error",
+			name:     "forbidden error should not be treated as ended",
 			err:      errors.New("googleapi: Error 403: Forbidden"),
-			expected: true,
+			expected: false,
 		},
 		{
 			name:     "liveChatDisabled",
@@ -478,4 +479,72 @@ func TestPaginationLogic(t *testing.T) {
 			t.Errorf("最後のユーザーが期待と異なる: got %s, want User%d", allMessages[len(allMessages)-1].DisplayName, expectedTotal)
 		}
 	})
+}
+
+func TestIsTransientError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "forbidden error is not transient",
+			err:      errors.New("googleapi: Error 403: Forbidden"),
+			expected: false,
+		},
+		{
+			name:     "rate limit error",
+			err:      errors.New("rateLimitExceeded"),
+			expected: true,
+		},
+		{
+			name:     "quota exceeded",
+			err:      errors.New("quotaExceeded"),
+			expected: true,
+		},
+		{
+			name:     "429 too many requests",
+			err:      &googleapi.Error{Code: 429, Message: "Too Many Requests"},
+			expected: true,
+		},
+		{
+			name:     "500 internal server error",
+			err:      &googleapi.Error{Code: 500, Message: "Internal Server Error"},
+			expected: true,
+		},
+		{
+			name:     "503 service unavailable",
+			err:      &googleapi.Error{Code: 503, Message: "Service Unavailable"},
+			expected: true,
+		},
+		{
+			name:     "backend error",
+			err:      errors.New("backend error"),
+			expected: true,
+		},
+		{
+			name:     "liveChatEnded is not transient",
+			err:      errors.New("liveChatEnded"),
+			expected: false,
+		},
+		{
+			name:     "network timeout is not transient",
+			err:      errors.New("network timeout"),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isTransientError(tt.err)
+			if result != tt.expected {
+				t.Errorf("isTransientError(%v) = %v, want %v", tt.err, result, tt.expected)
+			}
+		})
+	}
 }
