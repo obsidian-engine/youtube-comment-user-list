@@ -1,14 +1,14 @@
 import { describe, test, expect, beforeEach } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { server } from '../mocks/setup'
-import { 
-  getStatus, 
-  getUsers, 
-  postSwitchVideo, 
-  postPull, 
+import {
+  getStatus,
+  getUsers,
+  postSwitchVideo,
+  postPull,
   postReset,
   type StatusResponse,
-  type User
+  type User,
 } from './api'
 
 describe('API functions', () => {
@@ -20,14 +20,14 @@ describe('API functions', () => {
     test('正常なレスポンスを返す', async () => {
       const mockResponse: StatusResponse = {
         status: 'ACTIVE',
-        count: 5
+        count: 5,
       }
 
       // MSWハンドラーでレスポンスを設定
       server.use(
         http.get('*/status', () => {
           return HttpResponse.json(mockResponse)
-        })
+        }),
       )
 
       const result = await getStatus()
@@ -41,7 +41,7 @@ describe('API functions', () => {
       server.use(
         http.get('*/status', () => {
           return HttpResponse.json(mockResponse)
-        })
+        }),
       )
 
       await getStatus(controller.signal)
@@ -52,7 +52,7 @@ describe('API functions', () => {
       server.use(
         http.get('*/status', () => {
           return new HttpResponse(null, { status: 500 })
-        })
+        }),
       )
 
       await expect(getStatus()).rejects.toThrow('HTTP 500')
@@ -65,14 +65,14 @@ describe('API functions', () => {
         {
           channelId: 'UC123',
           displayName: 'TestUser',
-          joinedAt: '2024-01-01T10:00:00Z'
-        }
+          joinedAt: '2024-01-01T10:00:00Z',
+        },
       ]
 
       server.use(
         http.get('*/users.json', () => {
           return HttpResponse.json(mockUsers)
-        })
+        }),
       )
 
       const result = await getUsers()
@@ -85,7 +85,7 @@ describe('API functions', () => {
       server.use(
         http.get('*/users.json', () => {
           return HttpResponse.json([])
-        })
+        }),
       )
 
       await getUsers(controller.signal)
@@ -98,7 +98,7 @@ describe('API functions', () => {
       server.use(
         http.post('*/switch-video', () => {
           return new HttpResponse(null, { status: 200 })
-        })
+        }),
       )
 
       await postSwitchVideo('test-video')
@@ -111,7 +111,7 @@ describe('API functions', () => {
       server.use(
         http.post('*/switch-video', () => {
           return new HttpResponse(null, { status: 200 })
-        })
+        }),
       )
 
       await postSwitchVideo('test-video', controller.signal)
@@ -122,7 +122,7 @@ describe('API functions', () => {
       server.use(
         http.post('*/switch-video', () => {
           return new HttpResponse(null, { status: 400 })
-        })
+        }),
       )
 
       await expect(postSwitchVideo('test-video')).rejects.toThrow('HTTP 400')
@@ -131,27 +131,40 @@ describe('API functions', () => {
 
   describe('postPull', () => {
     test('正常にプルリクエストを送信', async () => {
+      const mockResponse = {
+        addedCount: 1,
+        skippedCount: 0,
+        autoReset: false,
+        pollingIntervalMillis: 15000,
+      }
+
       server.use(
         http.post('*/pull', () => {
-          return new HttpResponse(null, { status: 200 })
-        })
+          return HttpResponse.json(mockResponse)
+        }),
       )
 
-      await postPull()
-      // 例外が投げられなければ成功
+      const result = await postPull()
+      expect(result).toEqual(mockResponse)
     })
 
     test('AbortSignalを正しく渡す', async () => {
       const controller = new AbortController()
+      const mockResponse = {
+        addedCount: 0,
+        skippedCount: 0,
+        autoReset: false,
+        pollingIntervalMillis: 15000,
+      }
 
       server.use(
         http.post('*/pull', () => {
-          return new HttpResponse(null, { status: 200 })
-        })
+          return HttpResponse.json(mockResponse)
+        }),
       )
 
-      await postPull(controller.signal)
-      // 例外が投げられなければ成功
+      const result = await postPull(controller.signal)
+      expect(result).toEqual(mockResponse)
     })
   })
 
@@ -160,7 +173,7 @@ describe('API functions', () => {
       server.use(
         http.post('*/reset', () => {
           return new HttpResponse(null, { status: 200 })
-        })
+        }),
       )
 
       await postReset()
@@ -173,7 +186,7 @@ describe('API functions', () => {
       server.use(
         http.post('*/reset', () => {
           return new HttpResponse(null, { status: 200 })
-        })
+        }),
       )
 
       await postReset(controller.signal)
@@ -186,7 +199,7 @@ describe('API functions', () => {
       server.use(
         http.get('*/status', () => {
           return HttpResponse.error()
-        })
+        }),
       )
 
       await expect(getStatus()).rejects.toThrow()

@@ -23,7 +23,7 @@ describe('useAppState', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockLocalStorage = {}
-    
+
     // 実際に動作するlocalStorageモックを作成
     Object.defineProperty(window, 'localStorage', {
       value: {
@@ -38,9 +38,9 @@ describe('useAppState', () => {
           mockLocalStorage = {}
         }),
       },
-      writable: true
+      writable: true,
     })
-    
+
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
@@ -51,7 +51,7 @@ describe('useAppState', () => {
 
   test('初期状態が正しく設定される', () => {
     const { result } = renderHook(() => useAppState())
-    
+
     expect(result.current.state).toEqual({
       active: false,
       users: [],
@@ -61,31 +61,32 @@ describe('useAppState', () => {
       lastFetchTime: '',
       errorMsg: '',
       infoMsg: '',
+      skippedCount: 0,
       loadingStates: {
         switching: false,
         pulling: false,
         resetting: false,
-        refreshing: false
-      }
+        refreshing: false,
+      },
     })
   })
 
   test('localStorage からvideoIdを復元する', () => {
     localStorage.setItem('videoId', 'test-video-id')
-    
+
     const { result } = renderHook(() => useAppState())
-    
+
     expect(result.current.state.videoId).toBe('test-video-id')
   })
 
   test('refresh関数がAPIを呼び出して状態を更新する', async () => {
     mockGetStatus.mockResolvedValue({ status: 'ACTIVE', count: 5 })
     mockGetUsers.mockResolvedValue([
-      { channelId: 'UC1', displayName: 'User1', joinedAt: '2024-01-01T09:00:00.000Z' }
+      { channelId: 'UC1', displayName: 'User1', joinedAt: '2024-01-01T09:00:00.000Z' },
     ])
 
     const { result } = renderHook(() => useAppState())
-    
+
     await act(async () => {
       await result.current.actions.refresh()
     })
@@ -101,17 +102,19 @@ describe('useAppState', () => {
     mockGetStatus.mockRejectedValue(new Error('API Error'))
 
     const { result } = renderHook(() => useAppState())
-    
+
     await act(async () => {
       await result.current.actions.refresh()
     })
 
-    expect(result.current.state.errorMsg).toBe('更新に失敗しました。しばらくしてから再試行してください。')
+    expect(result.current.state.errorMsg).toBe(
+      '更新に失敗しました。しばらくしてから再試行してください。',
+    )
   })
 
   test('setVideoId関数が状態を更新する', () => {
     const { result } = renderHook(() => useAppState())
-    
+
     act(() => {
       result.current.actions.setVideoId('new-video-id')
     })
@@ -121,7 +124,7 @@ describe('useAppState', () => {
 
   test('setIntervalSec関数が状態を更新する', () => {
     const { result } = renderHook(() => useAppState())
-    
+
     act(() => {
       result.current.actions.setIntervalSec(60)
     })
@@ -131,7 +134,7 @@ describe('useAppState', () => {
 
   test('onSwitch関数がvideoIdなしでエラーメッセージを設定する', async () => {
     const { result } = renderHook(() => useAppState())
-    
+
     await act(async () => {
       await result.current.actions.onSwitch()
     })
@@ -146,7 +149,7 @@ describe('useAppState', () => {
     mockGetUsers.mockResolvedValue([])
 
     const { result } = renderHook(() => useAppState())
-    
+
     act(() => {
       result.current.actions.setVideoId('test-video')
     })
@@ -164,12 +167,17 @@ describe('useAppState', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2024-01-01T10:15:30'))
 
-    mockPostPull.mockResolvedValue(undefined)
+    mockPostPull.mockResolvedValue({
+      addedCount: 0,
+      skippedCount: 0,
+      autoReset: false,
+      pollingIntervalMillis: 15000,
+    })
     mockGetStatus.mockResolvedValue({ status: 'ACTIVE' })
     mockGetUsers.mockResolvedValue([])
 
     const { result } = renderHook(() => useAppState())
-    
+
     await act(async () => {
       await result.current.actions.onPull()
     })
@@ -187,7 +195,7 @@ describe('useAppState', () => {
     mockGetUsers.mockResolvedValue([])
 
     const { result } = renderHook(() => useAppState())
-    
+
     await act(async () => {
       await result.current.actions.onReset()
     })
@@ -197,23 +205,34 @@ describe('useAppState', () => {
   })
 
   test('ローディング状態が正しく管理される', async () => {
-    let resolvePromise: () => void
-    const delayedPromise = new Promise<void>(resolve => {
+    type ResolveType = (value: {
+      addedCount: number
+      skippedCount: number
+      autoReset: boolean
+      pollingIntervalMillis: number
+    }) => void
+    let resolvePromise: ResolveType
+    const delayedPromise = new Promise<{
+      addedCount: number
+      skippedCount: number
+      autoReset: boolean
+      pollingIntervalMillis: number
+    }>((resolve) => {
       resolvePromise = resolve
     })
-    
+
     mockPostPull.mockReturnValue(delayedPromise)
     mockGetStatus.mockResolvedValue({ status: 'ACTIVE' })
     mockGetUsers.mockResolvedValue([])
 
     const { result } = renderHook(() => useAppState())
-    
+
     // onPullを開始（まだ完了しない）
     const pullPromise = result.current.actions.onPull()
 
     // 少し待ってからローディング状態をチェック
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0))
+      await new Promise((resolve) => setTimeout(resolve, 0))
     })
 
     // ローディング中
@@ -221,7 +240,12 @@ describe('useAppState', () => {
 
     // プロミスを解決
     act(() => {
-      resolvePromise!()
+      resolvePromise!({
+        addedCount: 0,
+        skippedCount: 0,
+        autoReset: false,
+        pollingIntervalMillis: 15000,
+      })
     })
 
     await act(async () => {
@@ -234,10 +258,10 @@ describe('useAppState', () => {
 
   test('API更新間隔を変更すると画面更新間隔も同じ値に設定される', () => {
     const { result } = renderHook(() => useAppState())
-    
+
     // 初期値の確認
     expect(result.current.state.intervalSec).toBe(15)
-    
+
     // API更新間隔を60秒に変更
     act(() => {
       result.current.actions.setIntervalSec(60)
@@ -249,13 +273,13 @@ describe('useAppState', () => {
 
   test('API更新間隔を0(停止)に設定すると画面更新間隔も停止される', () => {
     const { result } = renderHook(() => useAppState())
-    
+
     // 最初に値を設定
     act(() => {
       result.current.actions.setIntervalSec(30)
     })
     expect(result.current.state.intervalSec).toBe(30)
-    
+
     // 0に設定
     act(() => {
       result.current.actions.setIntervalSec(0)
@@ -266,12 +290,17 @@ describe('useAppState', () => {
   })
 
   test('onPullSilentは成功メッセージを表示しない', async () => {
-    mockPostPull.mockResolvedValue(undefined)
+    mockPostPull.mockResolvedValue({
+      addedCount: 0,
+      skippedCount: 0,
+      autoReset: false,
+      pollingIntervalMillis: 15000,
+    })
     mockGetStatus.mockResolvedValue({ status: 'ACTIVE' })
     mockGetUsers.mockResolvedValue([])
 
     const { result } = renderHook(() => useAppState())
-    
+
     await act(async () => {
       await result.current.actions.onPullSilent()
     })
@@ -282,12 +311,17 @@ describe('useAppState', () => {
   })
 
   test('onPullは成功メッセージを表示する', async () => {
-    mockPostPull.mockResolvedValue(undefined)
+    mockPostPull.mockResolvedValue({
+      addedCount: 0,
+      skippedCount: 0,
+      autoReset: false,
+      pollingIntervalMillis: 15000,
+    })
     mockGetStatus.mockResolvedValue({ status: 'ACTIVE' })
     mockGetUsers.mockResolvedValue([])
 
     const { result } = renderHook(() => useAppState())
-    
+
     await act(async () => {
       await result.current.actions.onPull()
     })

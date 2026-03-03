@@ -43,6 +43,7 @@ type SwitchVideoResponse struct {
 // PullResponse represents the response for /pull endpoint
 type PullResponse struct {
 	AddedCount            int   `json:"addedCount"`
+	SkippedCount          int   `json:"skippedCount"`
 	AutoReset             bool  `json:"autoReset"`
 	PollingIntervalMillis int64 `json:"pollingIntervalMillis"`
 }
@@ -147,6 +148,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		log.Printf("[PULL] Added %d messages, AutoReset: %v, Polling(ms): %d", out.AddedCount, out.AutoReset, out.PollingIntervalMillis)
 		response := PullResponse{
 			AddedCount:            out.AddedCount,
+			SkippedCount:          out.SkippedCount,
 			AutoReset:             out.AutoReset,
 			PollingIntervalMillis: out.PollingIntervalMillis,
 		}

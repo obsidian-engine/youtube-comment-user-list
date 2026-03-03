@@ -127,24 +127,24 @@ func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (string, 
 	return liveChatID, nil
 }
 
-func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) (items []port.ChatMessage, nextPageToken string, pollingIntervalMillis int64, isEnded bool, err error) {
+func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) (items []port.ChatMessage, nextPageToken string, pollingIntervalMillis int64, skippedCount int, isEnded bool, err error) {
 	log.Printf("[YOUTUBE_API] ListLiveChatMessages called with liveChatID: %s", liveChatID)
 
 	if a.APIKey == "" {
 		log.Printf("[YOUTUBE_API] Error: API key is empty")
-		return nil, "", 0, false, errors.New("youtube api key is required")
+		return nil, "", 0, 0, false, errors.New("youtube api key is required")
 	}
 
 	if liveChatID == "" {
 		log.Printf("[YOUTUBE_API] Error: liveChatID is empty")
-		return nil, "", 0, false, errors.New("live chat ID is required")
+		return nil, "", 0, 0, false, errors.New("live chat ID is required")
 	}
 
 	// YouTube Data API v3を使用してライブチャットメッセージを取得
 	service, err := youtube.NewService(ctx, option.WithAPIKey(a.APIKey))
 	if err != nil {
 		log.Printf("[YOUTUBE_API] Failed to create YouTube service: %v", err)
-		return nil, "", 0, false, err
+		return nil, "", 0, 0, false, err
 	}
 
 	// Live Chat APIは1回の呼び出しで増分取得を行う設計
@@ -172,7 +172,7 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 
 		if isLiveChatEnded(err) {
 			log.Printf("[YOUTUBE_API] Live chat ended or disabled")
-			return nil, "", 0, true, nil
+			return nil, "", 0, 0, true, nil
 		}
 
 		if attempt < maxAttempts && isTransientError(err) {
@@ -183,20 +183,20 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 				continue
 			case <-ctx.Done():
 				log.Printf("[YOUTUBE_API] Context cancelled during retry backoff: %v", ctx.Err())
-				return nil, "", 0, false, ctx.Err()
+				return nil, "", 0, 0, false, ctx.Err()
 			}
 		}
 
-		return nil, "", 0, false, err
+		return nil, "", 0, 0, false, err
 	}
 
 	if response == nil {
-		return nil, "", 0, false, errors.New("youtube API returned nil response")
+		return nil, "", 0, 0, false, errors.New("youtube API returned nil response")
 	}
 
 	// レスポンスからメッセージを変換
 	var messages []port.ChatMessage
-	skippedCount := 0
+	skippedCount = 0
 	for _, item := range response.Items {
 		if item.AuthorDetails != nil && item.Snippet != nil {
 			// publishedAtを解析
@@ -221,5 +221,5 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 
 	log.Printf("[YOUTUBE_API] Retrieved %d messages, skipped %d (total=%d, pageToken=%s, next=%s, pollingIntervalMillis=%d)", len(messages), skippedCount, len(response.Items), pageToken, response.NextPageToken, response.PollingIntervalMillis)
 
-	return messages, response.NextPageToken, int64(response.PollingIntervalMillis), false, nil
+	return messages, response.NextPageToken, int64(response.PollingIntervalMillis), skippedCount, false, nil
 }

@@ -25,13 +25,13 @@ type fakeYTWithToken struct {
 }
 
 func (f *fakeYTWithToken) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) { return "", nil }
-func (f *fakeYTWithToken) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, bool, error) {
+func (f *fakeYTWithToken) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
 	// messagesフィールドがある場合はそれを使用（新しいテスト用）
 	if f.messages != nil {
-		return f.messages, f.nextPageToken, f.pollingIntervalMillis, false, nil
+		return f.messages, f.nextPageToken, f.pollingIntervalMillis, 0, false, nil
 	}
 	// 既存のテストとの互換性のため、itemsフィールドを使用
-	return f.items, "nxt", 1500, false, nil
+	return f.items, "nxt", 1500, 0, false, nil
 }
 
 // ページトークンを保存・読み出しする簡易フェイク（必要なら）
@@ -40,8 +40,8 @@ func (f *fakeYTWithToken) ListLiveChatMessages(ctx context.Context, liveChatID s
 func (f *fakeYTForPull) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
 	return "live:abc", nil
 }
-func (f *fakeYTForPull) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, bool, error) {
-	return f.items, "", 0, f.ended, nil
+func (f *fakeYTForPull) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
+	return f.items, "", 0, 0, f.ended, nil
 }
 
 type fakeClock struct {

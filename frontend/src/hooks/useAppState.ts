@@ -21,6 +21,7 @@ interface AppState {
   errorMsg: string
   infoMsg: string
   startTime?: string
+  skippedCount: number
   loadingStates: LoadingStates
 }
 
@@ -46,6 +47,7 @@ export function useAppState() {
     errorMsg: '',
     infoMsg: '',
     startTime: undefined,
+    skippedCount: 0,
     loadingStates: {
       switching: false,
       pulling: false,
@@ -296,6 +298,7 @@ export function useAppState() {
         setState((prev) => ({ ...prev, errorMsg: 'videoId を入力してください。' }))
         return
       }
+      setState((prev) => ({ ...prev, skippedCount: 0 }))
       await handleAsyncAction(
         async (signal) => {
           await postSwitchVideo(state.videoId, signal)
@@ -311,7 +314,10 @@ export function useAppState() {
 
     onPull: useCallback(async () => {
       await handleAsyncAction(
-        (signal) => postPull(signal),
+        async (signal) => {
+          const res = await postPull(signal)
+          setState((prev) => ({ ...prev, skippedCount: prev.skippedCount + res.skippedCount }))
+        },
         'pulling',
         '取得しました',
         '取得',
@@ -321,7 +327,10 @@ export function useAppState() {
 
     onPullSilent: useCallback(async () => {
       await handleAsyncAction(
-        (signal) => postPull(signal),
+        async (signal) => {
+          const res = await postPull(signal)
+          setState((prev) => ({ ...prev, skippedCount: prev.skippedCount + res.skippedCount }))
+        },
         'pulling',
         '', // 自動更新時はメッセージなし
         '取得',
@@ -330,6 +339,7 @@ export function useAppState() {
     }, [handleAsyncAction]),
 
     onReset: useCallback(async () => {
+      setState((prev) => ({ ...prev, skippedCount: 0 }))
       await handleAsyncAction(
         (signal) => postReset(signal),
         'resetting',

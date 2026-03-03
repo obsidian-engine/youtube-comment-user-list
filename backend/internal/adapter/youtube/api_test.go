@@ -180,7 +180,7 @@ func TestListLiveChatMessages_ErrorHandling(t *testing.T) {
 				APIKey: tt.apiKey,
 			}
 
-    items, next, pollMs, isEnded, err := api.ListLiveChatMessages(context.Background(), tt.liveChatID, "")
+    items, next, pollMs, _, isEnded, err := api.ListLiveChatMessages(context.Background(), tt.liveChatID, "")
 
 			if tt.wantErr {
 				if err == nil {

@@ -32,9 +32,14 @@ describe('App Integration (MSW)', () => {
         users.push({
           channelId: `UC${users.length + 1}`,
           displayName: `User-${users.length + 1}`,
-          joinedAt: new Date().toISOString()
+          joinedAt: new Date().toISOString(),
         })
-        return new HttpResponse(null, { status: 200 })
+        return HttpResponse.json({
+          addedCount: 1,
+          skippedCount: 0,
+          autoReset: false,
+          pollingIntervalMillis: 15000,
+        })
       }),
     )
 
@@ -77,9 +82,14 @@ describe('App Integration (MSW)', () => {
           displayName: `TestUser-${users.length + 1}`,
           joinedAt: mockDate.toISOString(),
           commentCount: 1,
-          firstCommentedAt: mockDate.toISOString()
+          firstCommentedAt: mockDate.toISOString(),
         })
-        return new HttpResponse(null, { status: 200 })
+        return HttpResponse.json({
+          addedCount: 1,
+          skippedCount: 0,
+          autoReset: false,
+          pollingIntervalMillis: 15000,
+        })
       }),
     )
 
@@ -129,9 +139,14 @@ describe('App Integration (MSW)', () => {
           channelId: `UC${users.length + 1}`,
           displayName: `ManualUser-${users.length + 1}`,
           joinedAt: new Date().toISOString(),
-          commentCount: 1
+          commentCount: 1,
         })
-        return new HttpResponse(null, { status: 200 })
+        return HttpResponse.json({
+          addedCount: 1,
+          skippedCount: 0,
+          autoReset: false,
+          pollingIntervalMillis: 15000,
+        })
       }),
     )
 
@@ -196,23 +211,33 @@ describe('App Integration (MSW)', () => {
         channelId: 'UC1',
         displayName: 'ExistingUser1',
         joinedAt: new Date().toISOString(),
-        commentCount: 5
+        commentCount: 5,
       },
       {
         channelId: 'UC2',
         displayName: 'ExistingUser2',
         joinedAt: new Date().toISOString(),
-        commentCount: 3
-      }
+        commentCount: 3,
+      },
     ]
 
     server.use(
-      http.get('*/status', () => HttpResponse.json({
-        status: currentStatus,
-        count: users.length,
-        startedAt: currentStatus === 'ACTIVE' ? new Date().toISOString() : undefined
-      })),
+      http.get('*/status', () =>
+        HttpResponse.json({
+          status: currentStatus,
+          count: users.length,
+          startedAt: currentStatus === 'ACTIVE' ? new Date().toISOString() : undefined,
+        }),
+      ),
       http.get('*/users.json', () => HttpResponse.json(users)),
+      http.post('*/pull', () =>
+        HttpResponse.json({
+          addedCount: 0,
+          skippedCount: 0,
+          autoReset: false,
+          pollingIntervalMillis: 15000,
+        }),
+      ),
     )
 
     render(<App />)
@@ -222,17 +247,23 @@ describe('App Integration (MSW)', () => {
     fireEvent.click(refreshButton)
 
     // レスポンス後のユーザー表示を待つ
-    await waitFor(() => {
-      expect(screen.getByText('ExistingUser1')).toBeInTheDocument()
-      expect(screen.getByText('ExistingUser2')).toBeInTheDocument()
-      expect(screen.getByText('2')).toBeInTheDocument()
-    }, { timeout: 5000 })
+    await waitFor(
+      () => {
+        expect(screen.getByText('ExistingUser1')).toBeInTheDocument()
+        expect(screen.getByText('ExistingUser2')).toBeInTheDocument()
+        expect(screen.getByText('2')).toBeInTheDocument()
+      },
+      { timeout: 5000 },
+    )
 
     // ACTIVE状態が反映されて監視中が表示される
-    await waitFor(() => {
-      const statusElements = screen.queryAllByText('監視中')
-      expect(statusElements.length).toBeGreaterThan(0)
-    }, { timeout: 3000 })
+    await waitFor(
+      () => {
+        const statusElements = screen.queryAllByText('監視中')
+        expect(statusElements.length).toBeGreaterThan(0)
+      },
+      { timeout: 3000 },
+    )
 
     // サーバー状態を停止中に変更
     currentStatus = 'WAITING'
@@ -241,10 +272,13 @@ describe('App Integration (MSW)', () => {
     fireEvent.click(refreshButton)
 
     // 状態は停止中になるが、ユーザーリストは保持される
-    await waitFor(() => {
-      const statusElements = screen.queryAllByText('停止中')
-      expect(statusElements.length).toBeGreaterThan(0)
-    }, { timeout: 5000 })
+    await waitFor(
+      () => {
+        const statusElements = screen.queryAllByText('停止中')
+        expect(statusElements.length).toBeGreaterThan(0)
+      },
+      { timeout: 5000 },
+    )
 
     // ユーザーリストは保持されている
     expect(screen.getByText('ExistingUser1')).toBeInTheDocument()
@@ -259,8 +293,8 @@ describe('App Integration (MSW)', () => {
         channelId: 'UC1',
         displayName: 'OldUser1',
         joinedAt: new Date().toISOString(),
-        commentCount: 2
-      }
+        commentCount: 2,
+      },
     ]
 
     server.use(
@@ -268,7 +302,7 @@ describe('App Integration (MSW)', () => {
         return HttpResponse.json({
           status: 'ACTIVE',
           count: users.length,
-          startedAt: users.length > 0 ? new Date().toISOString() : undefined
+          startedAt: users.length > 0 ? new Date().toISOString() : undefined,
         })
       }),
       http.get('*/users.json', () => {
@@ -279,6 +313,14 @@ describe('App Integration (MSW)', () => {
         users.length = 0
         return new HttpResponse(null, { status: 200 })
       }),
+      http.post('*/pull', () =>
+        HttpResponse.json({
+          addedCount: 0,
+          skippedCount: 0,
+          autoReset: false,
+          pollingIntervalMillis: 15000,
+        }),
+      ),
     )
 
     render(<App />)
@@ -288,16 +330,22 @@ describe('App Integration (MSW)', () => {
     fireEvent.click(refreshBtn)
 
     // 初期状態：ユーザーが読み込まれるまで待つ
-    await waitFor(() => {
-      expect(screen.getByText('OldUser1')).toBeInTheDocument()
-      expect(screen.getByText('1')).toBeInTheDocument()
-    }, { timeout: 5000 })
+    await waitFor(
+      () => {
+        expect(screen.getByText('OldUser1')).toBeInTheDocument()
+        expect(screen.getByText('1')).toBeInTheDocument()
+      },
+      { timeout: 5000 },
+    )
 
     // 監視中状態の確認
-    await waitFor(() => {
-      const statusElements = screen.queryAllByText('監視中')
-      expect(statusElements.length).toBeGreaterThan(0)
-    }, { timeout: 3000 })
+    await waitFor(
+      () => {
+        const statusElements = screen.queryAllByText('監視中')
+        expect(statusElements.length).toBeGreaterThan(0)
+      },
+      { timeout: 3000 },
+    )
 
     // videoIdを入力して切替実行
     const input = screen.getByLabelText('videoId') as HTMLInputElement
@@ -305,10 +353,12 @@ describe('App Integration (MSW)', () => {
     fireEvent.click(screen.getByRole('button', { name: '切替' }))
 
     // 切替後はリストがクリアされる（refreshWithClearが呼ばれる）
-    await waitFor(() => {
-      expect(screen.getByText('ユーザーがいません。')).toBeInTheDocument()
-      expect(screen.queryByText('OldUser1')).not.toBeInTheDocument()
-    }, { timeout: 5000 })
+    await waitFor(
+      () => {
+        expect(screen.getByText('ユーザーがいません。')).toBeInTheDocument()
+        expect(screen.queryByText('OldUser1')).not.toBeInTheDocument()
+      },
+      { timeout: 5000 },
+    )
   })
-
 })

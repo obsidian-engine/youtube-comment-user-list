@@ -16,8 +16,8 @@ type fakeYT struct{}
 func (f *fakeYT) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
 	return "live:abc", nil
 }
-func (f *fakeYT) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, bool, error) {
-	return nil, "", 0, false, nil
+func (f *fakeYT) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
+	return nil, "", 0, 0, false, nil
 }
 
 type fixedClock struct{ t time.Time }

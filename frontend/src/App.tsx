@@ -92,6 +92,7 @@ export default function App() {
               active={active}
               startTime={state.startTime}
               lastUpdated={lastUpdated}
+              skippedCount={state.skippedCount}
             />
 
             <UserTable

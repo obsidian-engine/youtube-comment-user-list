@@ -42,9 +42,16 @@ export async function postSwitchVideo(videoId: string, signal?: AbortSignal): Pr
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }
 
-export async function postPull(signal?: AbortSignal): Promise<void> {
+export type PullResponse = {
+  addedCount: number
+  skippedCount: number
+  autoReset: boolean
+  pollingIntervalMillis: number
+}
+
+export async function postPull(signal?: AbortSignal): Promise<PullResponse> {
   const res = await fetch(`${BASE}/pull`, { method: 'POST', signal })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return json<PullResponse>(res)
 }
 
 export async function postReset(signal?: AbortSignal): Promise<void> {

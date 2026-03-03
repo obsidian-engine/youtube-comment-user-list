@@ -194,6 +194,7 @@ func TestResponseStructuresBackwardCompatibility(t *testing.T) {
 		// Old map approach
 		oldMap := map[string]interface{}{
 			"addedCount":            5,
+			"skippedCount":          0,
 			"autoReset":             true,
 			"pollingIntervalMillis": 5000,
 		}
@@ -201,6 +202,7 @@ func TestResponseStructuresBackwardCompatibility(t *testing.T) {
 		// New struct approach
 		newStruct := PullResponse{
 			AddedCount:            5,
+			SkippedCount:          0,
 			AutoReset:             true,
 			PollingIntervalMillis: 5000,
 		}
@@ -216,9 +218,23 @@ func TestResponseStructuresBackwardCompatibility(t *testing.T) {
 			t.Fatalf("Failed to marshal new struct: %v", err)
 		}
 
-		// Compare JSON strings
-		if string(oldJSON) != string(newJSON) {
-			t.Errorf("JSON output differs:\nOld: %s\nNew: %s", oldJSON, newJSON)
+		// Unmarshal both and compare key-value pairs (order-independent)
+		var oldUnmarshaled, newUnmarshaled map[string]interface{}
+		if err := json.Unmarshal(oldJSON, &oldUnmarshaled); err != nil {
+			t.Fatalf("Failed to unmarshal old JSON: %v", err)
+		}
+		if err := json.Unmarshal(newJSON, &newUnmarshaled); err != nil {
+			t.Fatalf("Failed to unmarshal new JSON: %v", err)
+		}
+		for key, oldValue := range oldUnmarshaled {
+			newValue, exists := newUnmarshaled[key]
+			if !exists {
+				t.Errorf("Missing key %q in new struct", key)
+				continue
+			}
+			if oldValue != newValue {
+				t.Errorf("Value mismatch for key %q: old=%v, new=%v", key, oldValue, newValue)
+			}
 		}
 	})
 }

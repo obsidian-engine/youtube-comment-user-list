@@ -21,8 +21,8 @@ func (f *fakeYTForURL) GetActiveLiveChatID(ctx context.Context, videoID string) 
 	return "live:chat:" + videoID, nil
 }
 
-func (f *fakeYTForURL) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, bool, error) {
-	return nil, "", 0, false, nil
+func (f *fakeYTForURL) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
+	return nil, "", 0, 0, false, nil
 }
 
 type fakeClockForURL struct{}
