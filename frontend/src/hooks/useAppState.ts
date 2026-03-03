@@ -3,6 +3,7 @@ import { getStatus, getUsers, postPull, postReset, postSwitchVideo } from '../ut
 import { sortUsersStable } from '../utils/sortUsers'
 import { logger } from '../utils/logger'
 import type { User } from '../utils/api'
+import type { LogLevel } from './useLogEntries'
 
 interface LoadingStates {
   switching: boolean
@@ -36,7 +37,13 @@ interface AppActions {
   clearInfoMsg: () => void
 }
 
-export function useAppState() {
+type AddEntryFn = (
+  level: LogLevel,
+  message: string,
+  data?: { addedCount?: number; skippedCount?: number },
+) => void
+
+export function useAppState(addEntry?: AddEntryFn) {
   const [state, setState] = useState<AppState>({
     active: false,
     users: [],
@@ -176,8 +183,10 @@ export function useAppState() {
 
         // ユーザーリスト保持ロジック：
         // 1. サーバーから新しいユーザーがある場合は更新
-        // 2. サーバーが空でも既存ユーザーがいれば保持（停止中でもリストを保持）
-        const shouldKeepExistingUsers = fetched.length === 0 && prev.users.length > 0
+        // 2. サーバーが空でも既存ユーザーがいれば保持（ACTIVE時のみ、一時的な通信中断対策）
+        // 3. WAITING/IDLE時はサーバーの空リストをそのまま反映（自動リセット後の整合性確保）
+        const shouldKeepExistingUsers =
+          fetched.length === 0 && prev.users.length > 0 && status === 'ACTIVE'
         const finalUsers = shouldKeepExistingUsers ? prev.users : sortedUsers
 
         logger.log('📋 User list decision:', {
@@ -272,6 +281,7 @@ export function useAppState() {
 
         const errorMessage = `${errorMsgPrefix}に失敗しました。${loadingKey === 'switching' ? '配信開始後に再度お試しください。' : ''}`
         setState((prev) => ({ ...prev, errorMsg: errorMessage }))
+        addEntry?.('error', `${errorMsgPrefix}に失敗しました`)
       } finally {
         setState((prev) => ({
           ...prev,
@@ -279,7 +289,7 @@ export function useAppState() {
         }))
       }
     },
-    [refresh, refreshWithClear],
+    [refresh, refreshWithClear, addEntry],
   )
 
   const actions: AppActions = {
@@ -303,6 +313,7 @@ export function useAppState() {
         async (signal) => {
           await postSwitchVideo(state.videoId, signal)
           localStorage.setItem('videoId', state.videoId)
+          addEntry?.('info', `配信切替: ${state.videoId}`)
         },
         'switching',
         '切替しました',
@@ -310,45 +321,64 @@ export function useAppState() {
         switchControllerRef,
         true, // 切替時はユーザーリストをクリア
       )
-    }, [state.videoId, handleAsyncAction]),
+    }, [state.videoId, handleAsyncAction, addEntry]),
 
     onPull: useCallback(async () => {
       await handleAsyncAction(
         async (signal) => {
           const res = await postPull(signal)
           setState((prev) => ({ ...prev, skippedCount: prev.skippedCount + res.skippedCount }))
+          if (res.autoReset) {
+            addEntry?.('warn', '配信終了を検知しました。再度切替してください。')
+          }
+          const level = res.skippedCount > 0 ? 'warn' : 'info'
+          addEntry?.(level, res.skippedCount > 0 ? 'Pull完了（スキップあり）' : 'Pull完了', {
+            addedCount: res.addedCount,
+            skippedCount: res.skippedCount,
+          })
         },
         'pulling',
         '取得しました',
         '取得',
         pullControllerRef,
       )
-    }, [handleAsyncAction]),
+    }, [handleAsyncAction, addEntry]),
 
     onPullSilent: useCallback(async () => {
       await handleAsyncAction(
         async (signal) => {
           const res = await postPull(signal)
           setState((prev) => ({ ...prev, skippedCount: prev.skippedCount + res.skippedCount }))
+          if (res.autoReset) {
+            addEntry?.('warn', '配信終了を検知しました。再度切替してください。')
+          }
+          const level = res.skippedCount > 0 ? 'warn' : 'info'
+          addEntry?.(level, res.skippedCount > 0 ? 'Pull完了（スキップあり）' : 'Pull完了', {
+            addedCount: res.addedCount,
+            skippedCount: res.skippedCount,
+          })
         },
         'pulling',
         '', // 自動更新時はメッセージなし
         '取得',
         pullControllerRef,
       )
-    }, [handleAsyncAction]),
+    }, [handleAsyncAction, addEntry]),
 
     onReset: useCallback(async () => {
       setState((prev) => ({ ...prev, skippedCount: 0 }))
       await handleAsyncAction(
-        (signal) => postReset(signal),
+        async (signal) => {
+          await postReset(signal)
+          addEntry?.('info', 'リセット')
+        },
         'resetting',
         'リセットしました',
         'リセット',
         resetControllerRef,
         true, // リセット時もユーザーリストをクリア
       )
-    }, [handleAsyncAction]),
+    }, [handleAsyncAction, addEntry]),
 
     clearInfoMsg: useCallback(() => {
       setState((prev) => ({ ...prev, infoMsg: '' }))

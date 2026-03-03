@@ -4,6 +4,7 @@ import { useAppState } from './hooks/useAppState'
 import { useCommentSearch } from './hooks/useCommentSearch'
 import { useCheckState } from './hooks/useCheckState'
 import { useHiddenState } from './hooks/useHiddenState'
+import { useLogEntries } from './hooks/useLogEntries'
 import { StatsCard } from './components/StatsCard'
 import { QuickGuide } from './components/QuickGuide'
 import { Controls } from './components/Controls'
@@ -13,11 +14,13 @@ import { ThemeToggle } from './components/ThemeToggle'
 import { Tabs } from './components/Tabs'
 import { CommentControls } from './components/CommentTab/CommentControls'
 import { CommentList } from './components/CommentTab/CommentList'
+import { LogPanel } from './components/LogPanel'
 
-type TabType = 'users' | 'comments'
+type TabType = 'users' | 'comments' | 'logs'
 
 export default function App() {
-  const { state, actions } = useAppState()
+  const logEntries = useLogEntries()
+  const { state, actions } = useAppState(logEntries.addEntry)
   const commentSearch = useCommentSearch()
   const checkState = useCheckState()
   const hiddenState = useHiddenState()
@@ -30,6 +33,11 @@ export default function App() {
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab)
     localStorage.setItem('activeTab', tab)
+  }
+
+  const handleSwitch = async () => {
+    logEntries.clear()
+    await actions.onSwitch()
   }
 
   // フィルター適用（非表示コメントを除外）
@@ -74,13 +82,13 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'users' ? (
+        {activeTab === 'users' && (
           <>
             <Controls
               videoId={videoId}
               setVideoId={actions.setVideoId}
               loadingStates={loadingStates}
-              onSwitch={actions.onSwitch}
+              onSwitch={handleSwitch}
               onPull={actions.onPull}
               onReset={actions.onReset}
             />
@@ -104,7 +112,9 @@ export default function App() {
               onToggleCommentTime={() => setShowCommentTime(!showCommentTime)}
             />
           </>
-        ) : (
+        )}
+
+        {activeTab === 'comments' && (
           <>
             {commentSearch.errorMsg && (
               <div
@@ -137,6 +147,10 @@ export default function App() {
               isLoading={commentSearch.isLoading}
             />
           </>
+        )}
+
+        {activeTab === 'logs' && (
+          <LogPanel entries={logEntries.entries} onClear={logEntries.clear} />
         )}
       </main>
     </div>
