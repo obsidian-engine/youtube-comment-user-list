@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,9 +41,9 @@ func TestListLiveChatMessages_Pagination(t *testing.T) {
 	if os.Getenv("CI") == "" {
 		t.Skip("ローカル環境ではスキップ（CIでのみ実行）")
 	}
-    // モックサーバーのセットアップ
-    requestCount := 0
-    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// モックサーバーのセットアップ
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// APIキーのチェック
 		apiKey := r.URL.Query().Get("key")
 		if apiKey != "test-api-key" {
@@ -180,7 +181,7 @@ func TestListLiveChatMessages_ErrorHandling(t *testing.T) {
 				APIKey: tt.apiKey,
 			}
 
-    items, next, pollMs, _, isEnded, err := api.ListLiveChatMessages(context.Background(), tt.liveChatID, "")
+			items, next, pollMs, _, isEnded, err := api.ListLiveChatMessages(context.Background(), tt.liveChatID, "")
 
 			if tt.wantErr {
 				if err == nil {
@@ -196,17 +197,16 @@ func TestListLiveChatMessages_ErrorHandling(t *testing.T) {
 				t.Errorf("isEnded = %v, want %v", isEnded, tt.wantEnded)
 			}
 
-            if tt.wantErr && items != nil {
-                t.Errorf("エラー時にitemsがnilでない: %v", items)
-            }
-            _ = pollMs
-            if err != nil && next != "" {
-                t.Errorf("エラー時にnextPageTokenが空でない: %q", next)
-            }
-        })
-    }
+			if tt.wantErr && items != nil {
+				t.Errorf("エラー時にitemsがnilでない: %v", items)
+			}
+			_ = pollMs
+			if err != nil && next != "" {
+				t.Errorf("エラー時にnextPageTokenが空でない: %q", next)
+			}
+		})
+	}
 }
-
 
 func TestIsLiveChatEnded(t *testing.T) {
 	tests := []struct {
@@ -338,6 +338,19 @@ func TestMessageConversion(t *testing.T) {
 		}
 	})
 
+	t.Run("@handle prefix is stripped from displayName", func(t *testing.T) {
+		displayName := strings.TrimPrefix("@TestHandle", "@")
+		if displayName != "TestHandle" {
+			t.Errorf("DisplayName = %s, want TestHandle", displayName)
+		}
+
+		// @なしの場合はそのまま
+		displayName2 := strings.TrimPrefix("NormalUser", "@")
+		if displayName2 != "NormalUser" {
+			t.Errorf("DisplayName = %s, want NormalUser", displayName2)
+		}
+	})
+
 	t.Run("invalid publishedAt fallback", func(t *testing.T) {
 		// 不正なpublishedAtフォーマットのテスト
 		invalidTime := "invalid-time-format"
@@ -420,8 +433,8 @@ func TestPaginationLogic(t *testing.T) {
 		}
 		page3 := []port.ChatMessage{
 			{ChannelID: "UC005", DisplayName: "User5", PublishedAt: time.Now()},
-}
- 
+		}
+
 		// 全ページを結合した結果を検証
 		allMessages := append(append(page1, page2...), page3...)
 

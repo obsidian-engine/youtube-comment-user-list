@@ -207,10 +207,12 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 				publishedAt = time.Now()
 			}
 
+			displayName := strings.TrimPrefix(item.AuthorDetails.DisplayName, "@")
+
 			messages = append(messages, port.ChatMessage{
 				ID:          item.Id,
 				ChannelID:   item.AuthorDetails.ChannelId,
-				DisplayName: item.AuthorDetails.DisplayName,
+				DisplayName: displayName,
 				Message:     item.Snippet.DisplayMessage,
 				PublishedAt: publishedAt,
 			})
