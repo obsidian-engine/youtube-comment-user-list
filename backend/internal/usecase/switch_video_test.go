@@ -19,6 +19,9 @@ func (f *fakeYT) GetActiveLiveChatID(ctx context.Context, videoID string) (strin
 func (f *fakeYT) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
 	return nil, "", 0, 0, false, nil
 }
+func (f *fakeYT) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error) {
+	return nil, nil
+}
 
 type fixedClock struct{ t time.Time }
 

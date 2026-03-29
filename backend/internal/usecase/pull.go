@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"strings"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
@@ -58,6 +59,29 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		}
 
 		return PullOutput{AddedCount: 0, AutoReset: true, PollingIntervalMillis: 0}, nil
+	}
+
+	// @ハンドルのチャンネルIDを収集してChannels APIで名前解決
+	var handleChannelIDs []string
+	for _, msg := range items {
+		if strings.HasPrefix(msg.DisplayName, "@") {
+			handleChannelIDs = append(handleChannelIDs, msg.ChannelID)
+		}
+	}
+	var channelNames map[string]string
+	if len(handleChannelIDs) > 0 {
+		channelNames, _ = uc.YT.GetChannelDisplayNames(ctx, handleChannelIDs)
+	}
+
+	// 解決した名前で置換、失敗時は@除去でフォールバック
+	for i, msg := range items {
+		if strings.HasPrefix(msg.DisplayName, "@") {
+			if name, ok := channelNames[msg.ChannelID]; ok {
+				items[i].DisplayName = name
+			} else {
+				items[i].DisplayName = strings.TrimPrefix(msg.DisplayName, "@")
+			}
+		}
 	}
 
 	// ユーザー追加 - メッセージIDによる重複チェックを使用

@@ -24,6 +24,9 @@ func (f *fakeYTForURL) GetActiveLiveChatID(ctx context.Context, videoID string) 
 func (f *fakeYTForURL) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
 	return nil, "", 0, 0, false, nil
 }
+func (f *fakeYTForURL) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error) {
+	return nil, nil
+}
 
 type fakeClockForURL struct{}
 
@@ -46,40 +49,40 @@ func TestSwitchVideoWithURL(t *testing.T) {
 	router := NewRouter(handlers, "*")
 
 	tests := []struct {
-		name           string
-		input          string
+		name            string
+		input           string
 		expectedVideoID string
-		shouldSucceed  bool
+		shouldSucceed   bool
 	}{
 		{
-			name:           "ライブチャットURL",
-			input:          "https://www.youtube.com/live_chat?is_popout=1&v=Qw3tyIFqKrg",
+			name:            "ライブチャットURL",
+			input:           "https://www.youtube.com/live_chat?is_popout=1&v=Qw3tyIFqKrg",
 			expectedVideoID: "Qw3tyIFqKrg",
-			shouldSucceed:  true,
+			shouldSucceed:   true,
 		},
 		{
-			name:           "通常の動画URL",
-			input:          "https://www.youtube.com/watch?v=Qw3tyIFqKrg",
+			name:            "通常の動画URL",
+			input:           "https://www.youtube.com/watch?v=Qw3tyIFqKrg",
 			expectedVideoID: "Qw3tyIFqKrg",
-			shouldSucceed:  true,
+			shouldSucceed:   true,
 		},
 		{
-			name:           "短縮URL",
-			input:          "https://youtu.be/Qw3tyIFqKrg",
+			name:            "短縮URL",
+			input:           "https://youtu.be/Qw3tyIFqKrg",
 			expectedVideoID: "Qw3tyIFqKrg",
-			shouldSucceed:  true,
+			shouldSucceed:   true,
 		},
 		{
-			name:           "video_idのみ（既存動作）",
-			input:          "Qw3tyIFqKrg",
+			name:            "video_idのみ（既存動作）",
+			input:           "Qw3tyIFqKrg",
 			expectedVideoID: "Qw3tyIFqKrg",
-			shouldSucceed:  true,
+			shouldSucceed:   true,
 		},
 		{
-			name:           "無効なURL",
-			input:          "invalid-url",
+			name:            "無効なURL",
+			input:           "invalid-url",
 			expectedVideoID: "invalid-url",
-			shouldSucceed:  true,
+			shouldSucceed:   true,
 		},
 		{
 			name:          "YouTube以外のURL",

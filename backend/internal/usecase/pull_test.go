@@ -24,7 +24,12 @@ type fakeYTWithToken struct {
 	pollingIntervalMillis int64
 }
 
-func (f *fakeYTWithToken) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) { return "", nil }
+func (f *fakeYTWithToken) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
+	return "", nil
+}
+func (f *fakeYTWithToken) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error) {
+	return nil, nil
+}
 func (f *fakeYTWithToken) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
 	// messagesフィールドがある場合はそれを使用（新しいテスト用）
 	if f.messages != nil {
@@ -42,6 +47,9 @@ func (f *fakeYTForPull) GetActiveLiveChatID(ctx context.Context, videoID string)
 }
 func (f *fakeYTForPull) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
 	return f.items, "", 0, 0, f.ended, nil
+}
+func (f *fakeYTForPull) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error) {
+	return nil, nil
 }
 
 type fakeClock struct {
@@ -77,7 +85,7 @@ func TestPull_AddsUsers_NormalFlow(t *testing.T) {
 	if users.Count() != 1 {
 		t.Errorf("Users.Count() = %d, want 1", users.Count())
 	}
-	
+
 	// 発言数が1であることを確認
 	userList := users.ListUsersSortedByJoinTime()
 	if len(userList) != 1 {
@@ -97,7 +105,7 @@ func TestPull_MultipleComments_IncrementCount(t *testing.T) {
 	users := memory.NewUserRepo()
 	state := memory.NewStateRepo()
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v", LiveChatID: "live:abc"})
-	
+
 	// ch1が2回、ch2が1回コメントするシナリオ
 	yt := &fakeYTForPull{items: []port.ChatMessage{
 		{ID: "msg1", ChannelID: "ch1", DisplayName: "Alice", PublishedAt: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)},
@@ -117,7 +125,7 @@ func TestPull_MultipleComments_IncrementCount(t *testing.T) {
 	if users.Count() != 2 {
 		t.Errorf("Users.Count() = %d, want 2", users.Count())
 	}
-	
+
 	userList := users.ListUsersSortedByJoinTime()
 	// ch1の発言数が2であることを確認
 	for _, user := range userList {
@@ -240,9 +248,9 @@ func TestPull_SavesNextPageToken(t *testing.T) {
 
 func TestPull_MinimumPollingInterval(t *testing.T) {
 	tests := []struct {
-		name                   string
-		apiPollingMillis       int64
-		expectedPollingMillis  int64
+		name                  string
+		apiPollingMillis      int64
+		expectedPollingMillis int64
 	}{
 		{
 			name:                  "APIが5秒を返した場合は15秒に調整",
@@ -277,7 +285,7 @@ func TestPull_MinimumPollingInterval(t *testing.T) {
 			users := memory.NewUserRepo()
 			state := memory.NewStateRepo()
 			clock := &fakeClock{}
-			
+
 			// APIのモックを作成（pollingIntervalMillisを返す）
 			yt := &fakeYTWithToken{
 				messages: []port.ChatMessage{
@@ -288,7 +296,7 @@ func TestPull_MinimumPollingInterval(t *testing.T) {
 						PublishedAt: time.Now(),
 					},
 				},
-				nextPageToken: "token123",
+				nextPageToken:         "token123",
 				pollingIntervalMillis: tt.apiPollingMillis,
 			}
 
@@ -317,7 +325,7 @@ func TestPull_MinimumPollingInterval(t *testing.T) {
 
 			// 検証: pollingIntervalMillisが期待値と一致
 			if output.PollingIntervalMillis != tt.expectedPollingMillis {
-				t.Errorf("PollingIntervalMillis = %d, want %d", 
+				t.Errorf("PollingIntervalMillis = %d, want %d",
 					output.PollingIntervalMillis, tt.expectedPollingMillis)
 			}
 		})

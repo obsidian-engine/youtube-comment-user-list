@@ -15,10 +15,16 @@ import (
 )
 
 type API struct {
-	APIKey string
+	APIKey           string
+	channelNameCache map[string]string // channelID -> チャンネル名キャッシュ
 }
 
-func New(apiKey string) *API { return &API{APIKey: apiKey} }
+func New(apiKey string) *API {
+	return &API{
+		APIKey:           apiKey,
+		channelNameCache: make(map[string]string),
+	}
+}
 
 // isLiveChatEnded はエラーがライブチャットの終了または無効化を示すかどうかを判定します。
 // "forbidden" は rate limit や quota 超過でも返されるため、終了判定には使用しない。
@@ -207,12 +213,10 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 				publishedAt = time.Now()
 			}
 
-			displayName := strings.TrimPrefix(item.AuthorDetails.DisplayName, "@")
-
 			messages = append(messages, port.ChatMessage{
 				ID:          item.Id,
 				ChannelID:   item.AuthorDetails.ChannelId,
-				DisplayName: displayName,
+				DisplayName: item.AuthorDetails.DisplayName,
 				Message:     item.Snippet.DisplayMessage,
 				PublishedAt: publishedAt,
 			})
@@ -225,4 +229,57 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 	logging.Log(ctx, "info", "YOUTUBE_API", "Retrieved %d messages, skipped %d (total=%d, pageToken=%s, next=%s, pollingIntervalMillis=%d)", len(messages), skippedCount, len(response.Items), pageToken, response.NextPageToken, response.PollingIntervalMillis)
 
 	return messages, response.NextPageToken, int64(response.PollingIntervalMillis), skippedCount, false, nil
+}
+
+func (a *API) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error) {
+	result := make(map[string]string)
+	if len(channelIDs) == 0 {
+		return result, nil
+	}
+
+	// キャッシュ済みを返し、未キャッシュを収集
+	var uncached []string
+	for _, id := range channelIDs {
+		if name, ok := a.channelNameCache[id]; ok {
+			result[id] = name
+		} else {
+			uncached = append(uncached, id)
+		}
+	}
+
+	if len(uncached) == 0 || a.APIKey == "" {
+		return result, nil
+	}
+
+	// YouTube Channels API: 1リクエストあたり最大50件
+	const batchSize = 50
+	for i := 0; i < len(uncached); i += batchSize {
+		end := i + batchSize
+		if end > len(uncached) {
+			end = len(uncached)
+		}
+		batch := uncached[i:end]
+
+		service, err := youtube.NewService(ctx, option.WithAPIKey(a.APIKey))
+		if err != nil {
+			logging.Log(ctx, "warn", "YOUTUBE_API", "Failed to create service for channel names: %v", err)
+			continue
+		}
+
+		call := service.Channels.List([]string{"snippet"}).Id(strings.Join(batch, ","))
+		response, err := call.Do()
+		if err != nil {
+			logging.Log(ctx, "warn", "YOUTUBE_API", "Failed to get channel names: %v", err)
+			continue
+		}
+
+		for _, item := range response.Items {
+			name := item.Snippet.Title
+			a.channelNameCache[item.Id] = name
+			result[item.Id] = name
+		}
+	}
+
+	logging.Log(ctx, "info", "YOUTUBE_API", "Resolved %d/%d channel display names (cache size: %d)", len(result), len(channelIDs), len(a.channelNameCache))
+	return result, nil
 }

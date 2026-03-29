@@ -21,4 +21,6 @@ type YouTubePort interface {
 	// liveChatId のメッセージを取得します。ページング対応のため、pageToken を受け取り、nextPageToken を返します。
 	// 配信終了検知は isEnded で返します。
 	ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) (items []ChatMessage, nextPageToken string, pollingIntervalMillis int64, skippedCount int, isEnded bool, err error)
+	// チャンネルIDからチャンネル名（snippet.title）を一括取得します。
+	GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error)
 }

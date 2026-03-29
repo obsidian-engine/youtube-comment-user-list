@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -338,16 +337,37 @@ func TestMessageConversion(t *testing.T) {
 		}
 	})
 
-	t.Run("@handle prefix is stripped from displayName", func(t *testing.T) {
-		displayName := strings.TrimPrefix("@TestHandle", "@")
-		if displayName != "TestHandle" {
-			t.Errorf("DisplayName = %s, want TestHandle", displayName)
+	t.Run("GetChannelDisplayNames caching", func(t *testing.T) {
+		api := &API{
+			APIKey:           "",
+			channelNameCache: make(map[string]string),
+		}
+		// APIキーなしの場合は空マップを返す
+		result, err := api.GetChannelDisplayNames(context.Background(), []string{"UC123"})
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if len(result) != 0 {
+			t.Errorf("expected empty result without API key, got %v", result)
 		}
 
-		// @なしの場合はそのまま
-		displayName2 := strings.TrimPrefix("NormalUser", "@")
-		if displayName2 != "NormalUser" {
-			t.Errorf("DisplayName = %s, want NormalUser", displayName2)
+		// キャッシュに手動設定した場合はそれを返す
+		api.channelNameCache["UC123"] = "CachedUser"
+		result, err = api.GetChannelDisplayNames(context.Background(), []string{"UC123"})
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if result["UC123"] != "CachedUser" {
+			t.Errorf("expected CachedUser, got %s", result["UC123"])
+		}
+
+		// 空のchannelIDリストの場合は空マップを返す
+		result, err = api.GetChannelDisplayNames(context.Background(), nil)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if len(result) != 0 {
+			t.Errorf("expected empty result for nil channelIDs, got %v", result)
 		}
 	})
 
