@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react'
 import { Tooltip } from './Tooltip'
 import { isJapaneseTextTooLong, truncateJapaneseText } from '../utils/textUtils'
 
-
 interface User {
   channelId?: string
   displayName?: string
@@ -55,7 +54,7 @@ const getUserFirstComment = (user: UserData): string => {
     return new Date(user.firstCommentedAt).toLocaleTimeString('ja-JP', {
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'Asia/Tokyo'
+      timeZone: 'Asia/Tokyo',
     })
   }
   return '--:--'
@@ -67,7 +66,7 @@ const getUserLatestComment = (user: UserData): string => {
     return new Date(user.latestCommentedAt).toLocaleTimeString('ja-JP', {
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'Asia/Tokyo'
+      timeZone: 'Asia/Tokyo',
     })
   }
   return '--:--'
@@ -104,18 +103,14 @@ function SortButton({ field, currentSort, onSort, children }: SortButtonProps) {
       {children}
       <span className="flex flex-col w-3 h-3">
         <svg
-          className={`w-3 h-1.5 transition-colors ${
-            isAsc ? 'text-white' : 'text-white/40'
-          }`}
+          className={`w-3 h-1.5 transition-colors ${isAsc ? 'text-white' : 'text-white/40'}`}
           fill="currentColor"
           viewBox="0 0 12 6"
         >
           <path d="M6 0L12 6H0z" />
         </svg>
         <svg
-          className={`w-3 h-1.5 transition-colors ${
-            isDesc ? 'text-white' : 'text-white/40'
-          }`}
+          className={`w-3 h-1.5 transition-colors ${isDesc ? 'text-white' : 'text-white/40'}`}
           fill="currentColor"
           viewBox="0 0 12 6"
         >
@@ -126,10 +121,15 @@ function SortButton({ field, currentSort, onSort, children }: SortButtonProps) {
   )
 }
 
-
-export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing = false, showCommentTime = true, onToggleCommentTime }: UserTableProps) {
+export function UserTable({
+  users,
+  intervalSec = 0,
+  setIntervalSec,
+  isRefreshing = false,
+  showCommentTime = true,
+  onToggleCommentTime,
+}: UserTableProps) {
   const [sortState, setSortState] = useState<SortState>({ field: null, order: 'asc' })
-
 
   // users配列が変更された時にソート状態をリセット（自動更新時の表示問題を解決）
   useEffect(() => {
@@ -137,7 +137,7 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
   }, [users])
 
   const handleSort = (field: SortField) => {
-    setSortState(prevState => {
+    setSortState((prevState) => {
       if (prevState.field === field) {
         return { field, order: prevState.order === 'asc' ? 'desc' : 'asc' }
       } else {
@@ -188,8 +188,6 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
       <div className="px-4 py-3 border-b border-slate-200/60 dark:border-slate-600/40 bg-slate-50/50 dark:bg-slate-800/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-
-
             <button
               onClick={handleReset}
               disabled={!isSorted || isRefreshing}
@@ -204,7 +202,12 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
             </button>
             {setIntervalSec && (
               <div className="flex items-center gap-2">
-                <label htmlFor="interval-select" className="text-[11px] text-slate-500 dark:text-slate-400">更新間隔</label>
+                <label
+                  htmlFor="interval-select"
+                  className="text-[11px] text-slate-500 dark:text-slate-400"
+                >
+                  更新間隔
+                </label>
                 <select
                   id="interval-select"
                   aria-label="更新間隔"
@@ -235,13 +238,11 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
             )}
             {isRefreshing && (
               <div className="flex items-center gap-3">
-                <div 
+                <div
                   data-testid="loading-spinner"
                   className="animate-spin rounded-full h-8 w-8 border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300"
                 />
-                <span className="text-sm text-slate-600 dark:text-slate-400">
-                  データ更新中...
-                </span>
+                <span className="text-sm text-slate-600 dark:text-slate-400">データ更新中...</span>
               </div>
             )}
           </div>
@@ -250,8 +251,12 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
       <table className="w-full table-fixed text-[14px] leading-7">
         <thead className="bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700 text-white dark:text-slate-100">
           <tr>
-            <th className="text-center px-4 py-3.5 w-[80px] font-semibold text-[13px] tracking-wide uppercase">#</th>
-            <th className="text-center px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase w-[250px] max-w-[250px]">名前</th>
+            <th className="text-center px-4 py-3.5 w-[80px] font-semibold text-[13px] tracking-wide uppercase">
+              #
+            </th>
+            <th className="text-center px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase w-[350px] max-w-[350px]">
+              名前
+            </th>
             <th className="text-center px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase w-[120px]">
               <SortButton field="commentCount" currentSort={sortState} onSort={handleSort}>
                 発言数
@@ -265,7 +270,9 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
               </th>
             )}
             {showCommentTime && (
-              <th className="text-center px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase hidden md:table-cell w-[150px]">最新コメント</th>
+              <th className="text-center px-4 py-3.5 font-semibold text-[13px] tracking-wide uppercase hidden md:table-cell w-[150px]">
+                最新コメント
+              </th>
             )}
           </tr>
         </thead>
@@ -285,14 +292,13 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
               <td className="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">
                 <Tooltip
                   content={getUserDisplayName(user)}
-                  disabled={!isJapaneseTextTooLong(getUserDisplayName(user), 20)}
-                  className="block w-full max-w-[200px]"
+                  disabled={!isJapaneseTextTooLong(getUserDisplayName(user), 30)}
+                  className="block w-full max-w-[300px]"
                 >
                   <span className="block truncate">
-                    {isJapaneseTextTooLong(getUserDisplayName(user), 20)
-                      ? truncateJapaneseText(getUserDisplayName(user), 20)
-                      : getUserDisplayName(user)
-                    }
+                    {isJapaneseTextTooLong(getUserDisplayName(user), 30)
+                      ? truncateJapaneseText(getUserDisplayName(user), 30)
+                      : getUserDisplayName(user)}
                   </span>
                 </Tooltip>
               </td>
@@ -323,7 +329,9 @@ export function UserTable({ users, intervalSec = 0, setIntervalSec, isRefreshing
         </tbody>
       </table>
       {sortedUsers.length === 0 && (
-        <p className="px-4 py-5 text-[13px] text-slate-500 dark:text-slate-400">ユーザーがいません。</p>
+        <p className="px-4 py-5 text-[13px] text-slate-500 dark:text-slate-400">
+          ユーザーがいません。
+        </p>
       )}
     </section>
   )
