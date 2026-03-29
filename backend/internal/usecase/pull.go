@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"log"
 	"strings"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
@@ -61,16 +62,22 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		return PullOutput{AddedCount: 0, AutoReset: true, PollingIntervalMillis: 0}, nil
 	}
 
-	// @ハンドルのチャンネルIDを収集してChannels APIで名前解決
+	// @ハンドルのチャンネルIDを収集してChannels APIで名前解決（重複排除）
+	seen := make(map[string]bool)
 	var handleChannelIDs []string
 	for _, msg := range items {
-		if strings.HasPrefix(msg.DisplayName, "@") {
+		if strings.HasPrefix(msg.DisplayName, "@") && !seen[msg.ChannelID] {
+			seen[msg.ChannelID] = true
 			handleChannelIDs = append(handleChannelIDs, msg.ChannelID)
 		}
 	}
 	var channelNames map[string]string
 	if len(handleChannelIDs) > 0 {
-		channelNames, _ = uc.YT.GetChannelDisplayNames(ctx, handleChannelIDs)
+		var err error
+		channelNames, err = uc.YT.GetChannelDisplayNames(ctx, handleChannelIDs)
+		if err != nil {
+			log.Printf("[PULL] Failed to resolve channel display names: %v", err)
+		}
 	}
 
 	// 解決した名前で置換、失敗時は@除去でフォールバック
