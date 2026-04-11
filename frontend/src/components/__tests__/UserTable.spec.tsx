@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import { UserTable } from '../UserTable'
 
@@ -9,15 +9,15 @@ describe('UserTable コンポーネント', () => {
       displayName: 'TestUser1',
       joinedAt: '2024-01-01T12:00:00Z',
       commentCount: 5,
-      firstCommentedAt: '2024-01-01T12:05:00Z'
+      firstCommentedAt: '2024-01-01T12:05:00Z',
     },
     {
       channelId: 'UC2',
       displayName: 'TestUser2',
       joinedAt: '2024-01-01T12:30:00Z',
       commentCount: 3,
-      firstCommentedAt: '2024-01-01T12:32:00Z'
-    }
+      firstCommentedAt: '2024-01-01T12:32:00Z',
+    },
   ]
 
   test('テーブルヘッダーが正しく表示される', () => {
@@ -60,7 +60,7 @@ describe('UserTable コンポーネント', () => {
         joinedAt: '2024-01-01T12:00:00Z',
         commentCount: 5,
         firstCommentedAt: '2024-01-01T12:05:00Z',
-        latestCommentedAt: '2024-01-01T15:30:00Z' // 最新コメント時間
+        latestCommentedAt: '2024-01-01T15:30:00Z', // 最新コメント時間
       },
       {
         channelId: 'UC2',
@@ -68,8 +68,8 @@ describe('UserTable コンポーネント', () => {
         joinedAt: '2024-01-01T12:30:00Z',
         commentCount: 3,
         firstCommentedAt: '2024-01-01T12:32:00Z',
-        latestCommentedAt: '2024-01-01T14:15:00Z' // 最新コメント時間
-      }
+        latestCommentedAt: '2024-01-01T14:15:00Z', // 最新コメント時間
+      },
     ]
     render(<UserTable users={usersWithLatestComment} />)
 
@@ -88,18 +88,18 @@ describe('UserTable コンポーネント', () => {
 
   test('リフレッシュ中のローディング状態が正しく表示される', () => {
     render(<UserTable users={mockUsers} isRefreshing={true} />)
-    
+
     // 大きなスピナーが表示される
     expect(screen.getByTestId('loading-spinner')).toBeInTheDocument()
     expect(screen.getByTestId('loading-spinner')).toHaveClass('h-8', 'w-8')
-    
+
     // 「データ更新中...」テキストが表示される
     expect(screen.getByText('データ更新中...')).toBeInTheDocument()
   })
 
   test('リフレッシュ中でない場合はローディング要素が表示されない', () => {
     render(<UserTable users={mockUsers} isRefreshing={false} />)
-    
+
     // ローディング要素が表示されない
     expect(screen.queryByTestId('loading-spinner')).not.toBeInTheDocument()
     expect(screen.queryByText('データ更新中...')).not.toBeInTheDocument()
@@ -108,25 +108,24 @@ describe('UserTable コンポーネント', () => {
   test('リフレッシュ中は更新間隔セレクトボックスが無効化される', () => {
     const mockSetIntervalSec = vi.fn()
     render(
-      <UserTable 
-        users={mockUsers} 
-        intervalSec={30} 
+      <UserTable
+        users={mockUsers}
+        intervalSec={30}
         setIntervalSec={mockSetIntervalSec}
-        isRefreshing={true} 
-      />
+        isRefreshing={true}
+      />,
     )
-    
+
     // セレクトボックスが無効化される
     expect(screen.getByLabelText('更新間隔')).toBeDisabled()
   })
 
   test('リフレッシュ中はデフォルト順ボタンが無効化される', () => {
     render(<UserTable users={mockUsers} isRefreshing={true} />)
-    
+
     // デフォルト順ボタンが無効化される
     expect(screen.getByLabelText('ソートリセット')).toBeDisabled()
   })
-
 
   test('firstCommentedAtがない場合--:--が表示される', () => {
     const usersWithoutFirstComment = [
@@ -134,8 +133,8 @@ describe('UserTable コンポーネント', () => {
         channelId: 'UC1',
         displayName: 'TestUser1',
         joinedAt: '2024-01-01T12:00:00Z',
-        commentCount: 0
-      }
+        commentCount: 0,
+      },
     ]
     render(<UserTable users={usersWithoutFirstComment} />)
 
@@ -149,8 +148,8 @@ describe('UserTable コンポーネント', () => {
         displayName: 'TestUser1',
         joinedAt: '2024-01-01T12:00:00Z',
         commentCount: 0,
-        firstCommentedAt: ''
-      }
+        firstCommentedAt: '',
+      },
     ]
     render(<UserTable users={usersWithEmptyFirstComment} />)
 
@@ -162,8 +161,8 @@ describe('UserTable コンポーネント', () => {
       {
         channelId: 'UC1',
         displayName: 'TestUser1',
-        joinedAt: '2024-01-01T12:00:00Z'
-      }
+        joinedAt: '2024-01-01T12:00:00Z',
+      },
     ]
     render(<UserTable users={usersWithoutCommentCount} />)
 
@@ -191,8 +190,8 @@ describe('UserTable コンポーネント', () => {
       {
         channelId: 'UC1',
         joinedAt: '2024-01-01T12:00:00Z',
-        commentCount: 1
-      }
+        commentCount: 1,
+      },
     ]
     render(<UserTable users={usersWithoutDisplayName} />)
 
@@ -205,7 +204,7 @@ describe('UserTable コンポーネント', () => {
       channelId: `UC${i + 1}`,
       displayName: `User${i + 1}`,
       joinedAt: '2024-01-01T12:00:00Z',
-      commentCount: 1
+      commentCount: 1,
     }))
     render(<UserTable users={manyUsers} />)
 
@@ -222,7 +221,7 @@ describe('UserTable コンポーネント', () => {
     // 初回コメントと最新コメントのヘッダーにレスポンシブクラスが適用されていることを確認
     const firstCommentHeader = screen.getByText('初回コメント').closest('th')
     const latestCommentHeader = screen.getByText('最新コメント').closest('th')
-    
+
     expect(firstCommentHeader).toHaveClass('hidden', 'md:table-cell')
     expect(latestCommentHeader).toHaveClass('hidden', 'md:table-cell')
   })
@@ -233,7 +232,7 @@ describe('UserTable コンポーネント', () => {
     // 初回コメントと最新コメントのセルにレスポンシブクラスが適用されていることを確認
     const firstCommentCell = screen.getByTestId('first-comment-0')
     const latestCommentCell = screen.getByTestId('latest-comment-0')
-    
+
     expect(firstCommentCell).toHaveClass('hidden', 'md:table-cell')
     expect(latestCommentCell).toHaveClass('hidden', 'md:table-cell')
   })
@@ -293,7 +292,9 @@ describe('UserTable コンポーネント', () => {
 
     test('表示切り替えトグルボタンクリックでコールバックが呼ばれる', () => {
       const mockToggle = vi.fn()
-      render(<UserTable users={mockUsers} showCommentTime={true} onToggleCommentTime={mockToggle} />)
+      render(
+        <UserTable users={mockUsers} showCommentTime={true} onToggleCommentTime={mockToggle} />,
+      )
 
       const toggleButton = screen.getByRole('button', { name: /コメント時間表示切り替え/ })
       fireEvent.click(toggleButton)
@@ -304,7 +305,73 @@ describe('UserTable コンポーネント', () => {
     test('onToggleCommentTimeが未指定の場合、トグルボタンが表示されない', () => {
       render(<UserTable users={mockUsers} showCommentTime={true} />)
 
-      expect(screen.queryByRole('button', { name: /コメント時間表示切り替え/ })).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: /コメント時間表示切り替え/ }),
+      ).not.toBeInTheDocument()
+    })
+  })
+
+  describe('チャンネルURLコピー機能', () => {
+    const mockWriteText = vi.fn().mockResolvedValue(undefined)
+
+    beforeEach(() => {
+      Object.assign(navigator, {
+        clipboard: { writeText: mockWriteText },
+      })
+      mockWriteText.mockClear()
+    })
+
+    test('channelIdを持つユーザーにコピーボタンが表示される', () => {
+      render(<UserTable users={mockUsers} />)
+
+      const copyButtons = screen.getAllByRole('button', { name: 'チャンネルURLをコピー' })
+      expect(copyButtons).toHaveLength(2)
+    })
+
+    test('string型ユーザーにはコピーボタンが表示されない', () => {
+      render(<UserTable users={['StringUser1', 'StringUser2']} />)
+
+      expect(
+        screen.queryByRole('button', { name: 'チャンネルURLをコピー' }),
+      ).not.toBeInTheDocument()
+    })
+
+    test('channelIdがないユーザーにはコピーボタンが表示されない', () => {
+      const usersWithoutChannelId = [
+        { displayName: 'NoChannelUser', joinedAt: '2024-01-01T12:00:00Z', commentCount: 1 },
+      ]
+      render(<UserTable users={usersWithoutChannelId} />)
+
+      expect(
+        screen.queryByRole('button', { name: 'チャンネルURLをコピー' }),
+      ).not.toBeInTheDocument()
+    })
+
+    test('コピーボタンクリックで正しいURLがクリップボードにコピーされる', async () => {
+      render(<UserTable users={[mockUsers[0]]} />)
+
+      const copyButton = screen.getByRole('button', { name: 'チャンネルURLをコピー' })
+      fireEvent.click(copyButton)
+
+      expect(mockWriteText).toHaveBeenCalledWith('https://www.youtube.com/channel/UC1')
+    })
+
+    test('コピー後にアイコンがチェックマークに変化する', async () => {
+      render(<UserTable users={[mockUsers[0]]} />)
+
+      const copyButton = screen.getByRole('button', { name: 'チャンネルURLをコピー' })
+
+      // コピー前: リンクアイコン
+      const linkPath = copyButton.querySelector('path')
+      expect(linkPath?.getAttribute('d')).toContain('M13.828')
+
+      fireEvent.click(copyButton)
+
+      // コピー後: チェックマークアイコン
+      await waitFor(() => {
+        const checkPath = copyButton.querySelector('path')
+        expect(checkPath?.getAttribute('d')).toContain('M5 13l4 4L19 7')
+      })
     })
   })
 
@@ -315,22 +382,22 @@ describe('UserTable コンポーネント', () => {
         displayName: 'User1',
         joinedAt: '2024-01-01T12:00:00Z',
         commentCount: 5,
-        firstCommentedAt: '2024-01-01T12:05:00Z'
+        firstCommentedAt: '2024-01-01T12:05:00Z',
       },
       {
         channelId: 'UC2',
         displayName: 'User2',
         joinedAt: '2024-01-01T12:10:00Z',
         commentCount: 2,
-        firstCommentedAt: '2024-01-01T12:15:00Z'
+        firstCommentedAt: '2024-01-01T12:15:00Z',
       },
       {
         channelId: 'UC3',
         displayName: 'User3',
         joinedAt: '2024-01-01T12:05:00Z',
         commentCount: 8,
-        firstCommentedAt: '2024-01-01T12:08:00Z'
-      }
+        firstCommentedAt: '2024-01-01T12:08:00Z',
+      },
     ]
 
     test('発言数ヘッダーにソートボタンが表示される', () => {
@@ -345,14 +412,18 @@ describe('UserTable コンポーネント', () => {
       render(<UserTable users={sortTestUsers} />)
 
       const firstCommentHeader = screen.getByText('初回コメント').closest('th')
-      const sortButton = within(firstCommentHeader!).getByRole('button', { name: /初回コメントでソート/ })
+      const sortButton = within(firstCommentHeader!).getByRole('button', {
+        name: /初回コメントでソート/,
+      })
       expect(sortButton).toBeInTheDocument()
     })
 
     test('発言数ソートボタンクリックで降順にソートされる', () => {
       render(<UserTable users={sortTestUsers} />)
 
-      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole('button')
+      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole(
+        'button',
+      )
       fireEvent.click(commentCountSortButton)
 
       const rows = screen.getAllByRole('row')
@@ -365,7 +436,9 @@ describe('UserTable コンポーネント', () => {
     test('発言数ソートボタン2回クリックで昇順にソートされる', () => {
       render(<UserTable users={sortTestUsers} />)
 
-      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole('button')
+      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole(
+        'button',
+      )
       fireEvent.click(commentCountSortButton) // 降順
       fireEvent.click(commentCountSortButton) // 昇順
 
@@ -378,7 +451,9 @@ describe('UserTable コンポーネント', () => {
     test('初回コメントソートボタンクリックで昇順にソートされる', () => {
       render(<UserTable users={sortTestUsers} />)
 
-      const firstCommentSortButton = within(screen.getByText('初回コメント').closest('th')!).getByRole('button')
+      const firstCommentSortButton = within(
+        screen.getByText('初回コメント').closest('th')!,
+      ).getByRole('button')
       fireEvent.click(firstCommentSortButton)
 
       const rows = screen.getAllByRole('row')
@@ -390,7 +465,9 @@ describe('UserTable コンポーネント', () => {
     test('初回コメントソートボタン2回クリックで降順にソートされる', () => {
       render(<UserTable users={sortTestUsers} />)
 
-      const firstCommentSortButton = within(screen.getByText('初回コメント').closest('th')!).getByRole('button')
+      const firstCommentSortButton = within(
+        screen.getByText('初回コメント').closest('th')!,
+      ).getByRole('button')
       fireEvent.click(firstCommentSortButton) // 昇順
       fireEvent.click(firstCommentSortButton) // 降順
 
@@ -403,7 +480,9 @@ describe('UserTable コンポーネント', () => {
     test('ソート後も行番号が正しく表示される', () => {
       render(<UserTable users={sortTestUsers} />)
 
-      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole('button')
+      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole(
+        'button',
+      )
       fireEvent.click(commentCountSortButton)
 
       expect(screen.getByText('01')).toBeInTheDocument()
@@ -422,7 +501,9 @@ describe('UserTable コンポーネント', () => {
       render(<UserTable users={sortTestUsers} />)
 
       // まず発言数でソート
-      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole('button')
+      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole(
+        'button',
+      )
       fireEvent.click(commentCountSortButton)
 
       // ソート後の確認
@@ -454,7 +535,9 @@ describe('UserTable コンポーネント', () => {
       expect(resetButton).toBeDisabled()
 
       // 発言数でソート
-      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole('button')
+      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole(
+        'button',
+      )
       fireEvent.click(commentCountSortButton)
 
       expect(resetButton).not.toBeDisabled()
@@ -464,7 +547,9 @@ describe('UserTable コンポーネント', () => {
       render(<UserTable users={sortTestUsers} />)
 
       // ソート実行
-      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole('button')
+      const commentCountSortButton = within(screen.getByText('発言数').closest('th')!).getByRole(
+        'button',
+      )
       fireEvent.click(commentCountSortButton)
 
       const resetButton = screen.getByRole('button', { name: 'ソートリセット' })

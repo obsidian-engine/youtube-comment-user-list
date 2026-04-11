@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Tooltip } from './Tooltip'
 import { isJapaneseTextTooLong, truncateJapaneseText } from '../utils/textUtils'
 
@@ -72,12 +72,81 @@ const getUserLatestComment = (user: UserData): string => {
   return '--:--'
 }
 
+const getUserChannelUrl = (user: UserData): string | null => {
+  if (typeof user === 'string') return null
+  if (!user.channelId) return null
+  return `https://www.youtube.com/channel/${user.channelId}`
+}
+
 const getUserFirstCommentTime = (user: UserData): Date | null => {
   if (typeof user === 'string') return null
   if (user.firstCommentedAt && user.firstCommentedAt !== '') {
     return new Date(user.firstCommentedAt)
   }
   return null
+}
+
+function CopyLinkButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Fallback for older browsers
+      const textarea = document.createElement('textarea')
+      textarea.value = url
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
+  }, [url])
+
+  return (
+    <button
+      onClick={handleCopy}
+      title="チャンネルURLをコピー"
+      aria-label="チャンネルURLをコピー"
+      className={`flex-shrink-0 transition-colors ${
+        copied
+          ? 'text-green-500'
+          : 'text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400'
+      }`}
+    >
+      {copied ? (
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+          />
+        </svg>
+      )}
+    </button>
+  )
 }
 
 interface SortButtonProps {
@@ -290,17 +359,20 @@ export function UserTable({
                 {String(i + 1).padStart(2, '0')}
               </td>
               <td className="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">
-                <Tooltip
-                  content={getUserDisplayName(user)}
-                  disabled={!isJapaneseTextTooLong(getUserDisplayName(user), 30)}
-                  className="block w-full max-w-[300px]"
-                >
-                  <span className="block truncate">
-                    {isJapaneseTextTooLong(getUserDisplayName(user), 30)
-                      ? truncateJapaneseText(getUserDisplayName(user), 30)
-                      : getUserDisplayName(user)}
-                  </span>
-                </Tooltip>
+                <div className="flex items-center gap-1.5">
+                  <Tooltip
+                    content={getUserDisplayName(user)}
+                    disabled={!isJapaneseTextTooLong(getUserDisplayName(user), 30)}
+                    className="block min-w-0 flex-1 max-w-[280px]"
+                  >
+                    <span className="block truncate">
+                      {isJapaneseTextTooLong(getUserDisplayName(user), 30)
+                        ? truncateJapaneseText(getUserDisplayName(user), 30)
+                        : getUserDisplayName(user)}
+                    </span>
+                  </Tooltip>
+                  {getUserChannelUrl(user) && <CopyLinkButton url={getUserChannelUrl(user)!} />}
+                </div>
               </td>
               <td
                 className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium text-center"
