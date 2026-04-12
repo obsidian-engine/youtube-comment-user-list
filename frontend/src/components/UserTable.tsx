@@ -121,7 +121,7 @@ function CopyLinkButton({ url }: { url: string }) {
       className={`flex-shrink-0 rounded p-0.5 transition-all duration-200 ${
         copied
           ? 'text-green-500 bg-green-50 dark:bg-green-900/30'
-          : 'text-slate-400 dark:text-slate-500 hover:text-blue-700 hover:bg-blue-200 dark:hover:text-blue-200 dark:hover:bg-blue-800/50'
+          : 'text-slate-400 dark:text-slate-500 hover:text-blue-600 hover:bg-slate-200 dark:hover:text-blue-200 dark:hover:bg-slate-700'
       }`}
     >
       {copied ? (
