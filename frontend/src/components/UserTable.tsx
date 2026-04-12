@@ -355,7 +355,7 @@ export function UserTable({
             return (
               <tr
                 key={getUserKey(user, i)}
-                className={`transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-900/30 ${
+                className={`transition-colors duration-150 hover:bg-blue-200 dark:hover:bg-blue-900/40 ${
                   i % 2 === 0
                     ? 'bg-slate-100/50 dark:bg-slate-800/20'
                     : 'bg-slate-200/40 dark:bg-slate-700/25'
