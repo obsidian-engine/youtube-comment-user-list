@@ -96,16 +96,20 @@ function CopyLinkButton({ url }: { url: string }) {
       setTimeout(() => setCopied(false), 1500)
     } catch {
       // Fallback for older browsers
-      const textarea = document.createElement('textarea')
-      textarea.value = url
-      textarea.style.position = 'fixed'
-      textarea.style.opacity = '0'
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = url
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      } catch {
+        // Copy failed silently - no user-facing action needed
+      }
     }
   }, [url])
 
@@ -346,58 +350,61 @@ export function UserTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200/60 dark:divide-slate-600/40">
-          {sortedUsers.map((user, i) => (
-            <tr
-              key={getUserKey(user, i)}
-              className={`transition-colors duration-150 hover:bg-slate-200/40 dark:hover:bg-slate-700/20 ${
-                i % 2 === 0
-                  ? 'bg-slate-100/50 dark:bg-slate-800/20'
-                  : 'bg-slate-200/40 dark:bg-slate-700/25'
-              }`}
-            >
-              <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium text-center">
-                {String(i + 1).padStart(2, '0')}
-              </td>
-              <td className="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">
-                <div className="flex items-center gap-1.5">
-                  <Tooltip
-                    content={getUserDisplayName(user)}
-                    disabled={!isJapaneseTextTooLong(getUserDisplayName(user), 30)}
-                    className="block min-w-0 flex-1 max-w-[280px]"
-                  >
-                    <span className="block truncate">
-                      {isJapaneseTextTooLong(getUserDisplayName(user), 30)
-                        ? truncateJapaneseText(getUserDisplayName(user), 30)
-                        : getUserDisplayName(user)}
-                    </span>
-                  </Tooltip>
-                  {getUserChannelUrl(user) && <CopyLinkButton url={getUserChannelUrl(user)!} />}
-                </div>
-              </td>
-              <td
-                className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium text-center"
-                data-testid={`comment-count-${i}`}
+          {sortedUsers.map((user, i) => {
+            const channelUrl = getUserChannelUrl(user)
+            return (
+              <tr
+                key={getUserKey(user, i)}
+                className={`transition-colors duration-150 hover:bg-slate-200/40 dark:hover:bg-slate-700/20 ${
+                  i % 2 === 0
+                    ? 'bg-slate-100/50 dark:bg-slate-800/20'
+                    : 'bg-slate-200/40 dark:bg-slate-700/25'
+                }`}
               >
-                {getUserCommentCount(user)}
-              </td>
-              {showCommentTime && (
-                <td
-                  className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell text-center"
-                  data-testid={`first-comment-${i}`}
-                >
-                  {getUserFirstComment(user)}
+                <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium text-center">
+                  {String(i + 1).padStart(2, '0')}
                 </td>
-              )}
-              {showCommentTime && (
-                <td
-                  className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell text-center"
-                  data-testid={`latest-comment-${i}`}
-                >
-                  {getUserLatestComment(user)}
+                <td className="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <Tooltip
+                      content={getUserDisplayName(user)}
+                      disabled={!isJapaneseTextTooLong(getUserDisplayName(user), 30)}
+                      className="block min-w-0 flex-1 max-w-[280px]"
+                    >
+                      <span className="block truncate">
+                        {isJapaneseTextTooLong(getUserDisplayName(user), 30)
+                          ? truncateJapaneseText(getUserDisplayName(user), 30)
+                          : getUserDisplayName(user)}
+                      </span>
+                    </Tooltip>
+                    {channelUrl && <CopyLinkButton url={channelUrl} />}
+                  </div>
                 </td>
-              )}
-            </tr>
-          ))}
+                <td
+                  className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium text-center"
+                  data-testid={`comment-count-${i}`}
+                >
+                  {getUserCommentCount(user)}
+                </td>
+                {showCommentTime && (
+                  <td
+                    className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell text-center"
+                    data-testid={`first-comment-${i}`}
+                  >
+                    {getUserFirstComment(user)}
+                  </td>
+                )}
+                {showCommentTime && (
+                  <td
+                    className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell text-center"
+                    data-testid={`latest-comment-${i}`}
+                  >
+                    {getUserLatestComment(user)}
+                  </td>
+                )}
+              </tr>
+            )
+          })}
         </tbody>
       </table>
       {sortedUsers.length === 0 && (
