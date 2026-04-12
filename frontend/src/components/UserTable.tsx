@@ -118,10 +118,10 @@ function CopyLinkButton({ url }: { url: string }) {
       onClick={handleCopy}
       title="チャンネルURLをコピー"
       aria-label="チャンネルURLをコピー"
-      className={`flex-shrink-0 rounded p-0.5 transition-all duration-200 ${
+      className={`flex-shrink-0 transition-colors ${
         copied
-          ? 'text-green-500 bg-green-50 dark:bg-green-900/30'
-          : 'text-slate-400 dark:text-slate-500 hover:text-blue-600 hover:bg-slate-200 dark:hover:text-blue-200 dark:hover:bg-slate-700'
+          ? 'text-green-500'
+          : 'text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-300'
       }`}
     >
       {copied ? (
@@ -355,7 +355,7 @@ export function UserTable({
             return (
               <tr
                 key={getUserKey(user, i)}
-                className={`transition-colors duration-150 hover:bg-slate-200/40 dark:hover:bg-slate-700/20 ${
+                className={`transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-900/30 ${
                   i % 2 === 0
                     ? 'bg-slate-100/50 dark:bg-slate-800/20'
                     : 'bg-slate-200/40 dark:bg-slate-700/25'
