@@ -86,19 +86,21 @@ const getUserFirstCommentTime = (user: UserData): Date | null => {
   return null
 }
 
-function CopyLinkButton({ url }: { url: string }) {
+function CopyLinkButton({ url, displayName }: { url: string; displayName: string }) {
   const [copied, setCopied] = useState(false)
+
+  const copyText = `${displayName}さん ${url}`
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(copyText)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
       // Fallback for older browsers
       try {
         const textarea = document.createElement('textarea')
-        textarea.value = url
+        textarea.value = copyText
         textarea.style.position = 'fixed'
         textarea.style.opacity = '0'
         document.body.appendChild(textarea)
@@ -111,7 +113,7 @@ function CopyLinkButton({ url }: { url: string }) {
         // Copy failed silently - no user-facing action needed
       }
     }
-  }, [url])
+  }, [copyText])
 
   return (
     <button
@@ -377,7 +379,9 @@ export function UserTable({
                           : getUserDisplayName(user)}
                       </span>
                     </Tooltip>
-                    {channelUrl && <CopyLinkButton url={channelUrl} />}
+                    {channelUrl && (
+                      <CopyLinkButton url={channelUrl} displayName={getUserDisplayName(user)} />
+                    )}
                   </div>
                 </td>
                 <td

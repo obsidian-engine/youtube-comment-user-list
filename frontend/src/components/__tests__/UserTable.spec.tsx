@@ -353,7 +353,9 @@ describe('UserTable コンポーネント', () => {
       const copyButton = screen.getByRole('button', { name: 'チャンネルURLをコピー' })
       fireEvent.click(copyButton)
 
-      expect(mockWriteText).toHaveBeenCalledWith('https://www.youtube.com/channel/UC1')
+      expect(mockWriteText).toHaveBeenCalledWith(
+        'TestUser1さん https://www.youtube.com/channel/UC1',
+      )
     })
 
     test('コピー後にアイコンがチェックマークに変化する', async () => {
