@@ -47,4 +47,5 @@ jobs:
             --concurrency 80 \
             --min-instances 0 \
             --max-instances 2 \
-            --set-env-vars YT_API_KEY=${{ secrets.YT_API_KEY }},FRONTEND_ORIGIN=${{ secrets.FRONTEND_ORIGIN }},POLL_SEC=${{ secrets.POLL_SEC }}
+            --set-env-vars FRONTEND_ORIGIN=${{ secrets.FRONTEND_ORIGIN }},POLL_SEC=${{ secrets.POLL_SEC }} \
+            --set-secrets YT_API_KEY=yt-api-key:latest
