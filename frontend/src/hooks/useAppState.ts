@@ -335,6 +335,7 @@ export function useAppState(addEntry?: AddEntryFn) {
           await postSwitchVideo(state.videoId, signal)
           localStorage.setItem('videoId', state.videoId)
           addEntry?.('info', `配信切替: ${state.videoId}`)
+          await pullAction(signal)
         },
         'switching',
         '切替しました',
@@ -342,7 +343,7 @@ export function useAppState(addEntry?: AddEntryFn) {
         switchControllerRef,
         true, // 切替時はユーザーリストをクリア
       )
-    }, [state.videoId, handleAsyncAction, addEntry]),
+    }, [state.videoId, handleAsyncAction, addEntry, pullAction]),
 
     onPull: useCallback(async () => {
       await handleAsyncAction(pullAction, 'pulling', '取得しました', '取得', pullControllerRef)

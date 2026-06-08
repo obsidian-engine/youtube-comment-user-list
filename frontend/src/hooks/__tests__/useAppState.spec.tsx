@@ -145,6 +145,7 @@ describe('useAppState', () => {
 
   test('onSwitch関数がvideoIdありで成功する', async () => {
     mockPostSwitchVideo.mockResolvedValue(undefined)
+    mockPostPull.mockResolvedValue({ addedCount: 0, skippedCount: 0, autoReset: false })
     mockGetStatus.mockResolvedValue({ status: 'ACTIVE' })
     mockGetUsers.mockResolvedValue([])
 
