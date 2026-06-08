@@ -4,10 +4,23 @@ import { handlers, resetMockState } from './handlers'
 import 'whatwg-fetch'
 import '@testing-library/jest-dom/vitest'
 
+// whatwg-fetch が jsdom の File.text() を壊すため再定義
+// File.prototype.text が未定義の場合に Blob の実装を継承させる
+if (typeof File !== 'undefined' && !File.prototype.text) {
+  File.prototype.text = function () {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(reader.error)
+      reader.readAsText(this)
+    })
+  }
+}
+
 // matchMediaのグローバルモック
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation(query => ({
+  value: vi.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,

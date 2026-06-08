@@ -2,6 +2,7 @@
 .env
 vendor
 .serena
+.claude
 bin
 youtube-comment-user-list
 /.playwright-mcp/

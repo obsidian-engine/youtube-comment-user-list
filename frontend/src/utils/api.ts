@@ -1,5 +1,15 @@
 export const BASE = import.meta.env.VITE_BACKEND_URL || ''
 
+export class HttpError extends Error {
+  constructor(
+    public readonly status: number,
+    message?: string,
+  ) {
+    super(message ?? `HTTP ${status}`)
+    this.name = 'HttpError'
+  }
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json() as Promise<T>

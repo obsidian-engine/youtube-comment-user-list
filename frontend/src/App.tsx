@@ -15,8 +15,11 @@ import { Tabs } from './components/Tabs'
 import { CommentControls } from './components/CommentTab/CommentControls'
 import { CommentList } from './components/CommentTab/CommentList'
 import { LogPanel } from './components/LogPanel'
+import { PollControls } from './components/PollTab/PollControls'
+import { PollResults } from './components/PollTab/PollResults'
+import { usePollCount } from './hooks/usePollCount'
 
-type TabType = 'users' | 'comments' | 'logs'
+type TabType = 'users' | 'comments' | 'votes' | 'logs'
 
 export default function App() {
   const logEntries = useLogEntries()
@@ -24,6 +27,7 @@ export default function App() {
   const commentSearch = useCommentSearch()
   const checkState = useCheckState()
   const hiddenState = useHiddenState()
+  const pollCount = usePollCount()
   const [showCommentTime, setShowCommentTime] = useState(true)
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     const saved = localStorage.getItem('activeTab')
@@ -59,6 +63,9 @@ export default function App() {
 
   // コメント検索タブの自動更新
   useAutoRefresh(commentSearch.intervalSec, commentSearch.search)
+
+  // 投票タブの自動更新（15秒間隔、votes タブ表示中かつキーワード設定済みの場合のみ）
+  useAutoRefresh(activeTab === 'votes' && pollCount.keywords.length > 0 ? 15 : 0, pollCount.recount)
 
   return (
     <div className="min-h-screen bg-canvas-light dark:bg-canvas-dark text-slate-900 dark:text-slate-100">
@@ -145,6 +152,34 @@ export default function App() {
               isChecked={checkState.isChecked}
               onToggle={checkState.toggle}
               isLoading={commentSearch.isLoading}
+            />
+          </>
+        )}
+
+        {activeTab === 'votes' && (
+          <>
+            {pollCount.errorMsg && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="rounded-lg ring-1 ring-rose-300/60 bg-rose-50 text-rose-800 px-4 py-3"
+              >
+                {pollCount.errorMsg}
+              </div>
+            )}
+            <PollControls
+              keywords={pollCount.keywords}
+              onLoadFile={pollCount.loadKeywordsFromFile}
+              onClear={pollCount.clearKeywords}
+              onRecount={pollCount.recount}
+              isLoading={pollCount.isLoading}
+              lastUpdated={pollCount.lastUpdated}
+            />
+            <PollResults
+              keywords={pollCount.keywords}
+              counts={pollCount.counts}
+              totalVotes={pollCount.totalVotes}
+              isLoading={pollCount.isLoading}
             />
           </>
         )}

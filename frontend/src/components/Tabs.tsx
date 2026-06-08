@@ -1,4 +1,4 @@
-type TabType = 'users' | 'comments' | 'logs'
+type TabType = 'users' | 'comments' | 'votes' | 'logs'
 
 interface TabsProps {
   activeTab: TabType
@@ -18,6 +18,9 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
       </button>
       <button onClick={() => onTabChange('comments')} className={tabClass('comments')}>
         コメント検索
+      </button>
+      <button onClick={() => onTabChange('votes')} className={tabClass('votes')}>
+        投票
       </button>
       <button onClick={() => onTabChange('logs')} className={tabClass('logs')}>
         ログ
