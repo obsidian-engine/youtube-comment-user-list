@@ -253,29 +253,24 @@ func TestPull_MinimumPollingInterval(t *testing.T) {
 		expectedPollingMillis int64
 	}{
 		{
-			name:                  "APIが5秒を返した場合は15秒に調整",
+			name:                  "APIが5秒を返した場合は60秒に調整",
 			apiPollingMillis:      5000,
-			expectedPollingMillis: 15000,
+			expectedPollingMillis: 60000,
 		},
 		{
-			name:                  "APIが10秒を返した場合は15秒に調整",
-			apiPollingMillis:      10000,
-			expectedPollingMillis: 15000,
-		},
-		{
-			name:                  "APIが15秒を返した場合はそのまま",
-			apiPollingMillis:      15000,
-			expectedPollingMillis: 15000,
-		},
-		{
-			name:                  "APIが20秒を返した場合はそのまま",
-			apiPollingMillis:      20000,
-			expectedPollingMillis: 20000,
-		},
-		{
-			name:                  "APIが30秒を返した場合はそのまま",
+			name:                  "APIが30秒を返した場合は60秒に調整",
 			apiPollingMillis:      30000,
-			expectedPollingMillis: 30000,
+			expectedPollingMillis: 60000,
+		},
+		{
+			name:                  "APIが60秒を返した場合はそのまま",
+			apiPollingMillis:      60000,
+			expectedPollingMillis: 60000,
+		},
+		{
+			name:                  "APIが90秒を返した場合はそのまま",
+			apiPollingMillis:      90000,
+			expectedPollingMillis: 90000,
 		},
 	}
 

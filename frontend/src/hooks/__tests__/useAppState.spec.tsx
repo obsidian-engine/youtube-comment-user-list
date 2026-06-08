@@ -56,7 +56,7 @@ describe('useAppState', () => {
       active: false,
       users: [],
       videoId: '',
-      intervalSec: 15,
+      intervalSec: 60,
       lastUpdated: '--:--:--',
       lastFetchTime: '',
       errorMsg: '',
@@ -261,7 +261,7 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState())
 
     // 初期値の確認
-    expect(result.current.state.intervalSec).toBe(15)
+    expect(result.current.state.intervalSec).toBe(60)
 
     // API更新間隔を60秒に変更
     act(() => {

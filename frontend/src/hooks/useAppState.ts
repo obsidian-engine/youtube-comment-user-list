@@ -48,7 +48,7 @@ export function useAppState(addEntry?: AddEntryFn) {
     active: false,
     users: [],
     videoId: localStorage.getItem('videoId') || '',
-    intervalSec: 15,
+    intervalSec: 60,
     lastUpdated: '--:--:--',
     lastFetchTime: '',
     errorMsg: '',
