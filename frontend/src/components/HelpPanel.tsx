@@ -83,7 +83,7 @@ export function HelpPanel() {
         <ul className="list-disc pl-5 space-y-1 text-[13px]">
           <li>
             <strong>キーワード追加 / 削除 / 全消去</strong>: コメント検索と同じ form 入力 UI
-            を使う。 Enter キー単独でのキーワード追加は無効化されている（form submit 経由のみ）。
+            を使う。Enter キーでの追加は無効化されており、「追加」ボタンクリックでのみ確定する。
           </li>
           <li>
             <strong>集計ロジック</strong>: channelId ごとに publishedAt
