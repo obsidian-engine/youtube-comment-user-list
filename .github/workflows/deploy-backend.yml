@@ -38,6 +38,7 @@ jobs:
 
       - name: Deploy to Cloud Run
         run: |
+          # in-memory state + GCS snapshot を 1 instance で持つため increase 時は concurrent write 対策必要
           gcloud run deploy $SERVICE \
             --image $IMAGE \
             --region $REGION \
@@ -46,6 +47,6 @@ jobs:
             --memory 256Mi \
             --concurrency 80 \
             --min-instances 0 \
-            --max-instances 2 \
-            --set-env-vars FRONTEND_ORIGIN=${{ secrets.FRONTEND_ORIGIN }},POLL_SEC=${{ secrets.POLL_SEC }} \
+            --max-instances 1 \
+            --set-env-vars FRONTEND_ORIGIN=${{ secrets.FRONTEND_ORIGIN }},POLL_SEC=${{ secrets.POLL_SEC }},GCS_BUCKET=${{ secrets.GCS_BUCKET }} \
             --set-secrets YT_API_KEY=yt-api-key:latest

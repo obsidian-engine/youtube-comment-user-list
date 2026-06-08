@@ -76,3 +76,26 @@ func (r *CommentRepo) Count() int {
 	defer r.mu.RUnlock()
 	return len(r.comments)
 }
+
+// Dump は現在の全 Comment state を返します（snapshot 用）。
+func (r *CommentRepo) Dump() []domain.Comment {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	comments := make([]domain.Comment, 0, len(r.comments))
+	for _, c := range r.comments {
+		comments = append(comments, c)
+	}
+	return comments
+}
+
+// LoadFrom は snapshot から復元した state を上書きします（起動時用）。
+func (r *CommentRepo) LoadFrom(comments []domain.Comment) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.comments = make(map[string]domain.Comment, len(comments))
+	for _, c := range comments {
+		r.comments[c.ID] = c
+	}
+}

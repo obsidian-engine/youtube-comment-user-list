@@ -9,13 +9,16 @@ import (
 	"syscall"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/joho/godotenv"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/gcs"
 	ahttp "github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/http"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/memory"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/system"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/youtube"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/config"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
 func main() {
@@ -41,11 +44,35 @@ func main() {
 	yt := youtube.New(cfg.YouTubeAPIKey)
 	clock := system.NewSystemClock()
 
+	// Snapshot Coordinator の初期化
+	// GCS_BUCKET が設定されている場合は GCS 経由で永続化、空の場合は no-op
+	initCtx := context.Background()
+	var coord snapshot.Coordinator
+	if cfg.GCSBucket != "" {
+		storageClient, err := storage.NewClient(initCtx)
+		if err != nil {
+			log.Fatalf("GCS client init failed: %v", err)
+		}
+		defer storageClient.Close()
+		sink := gcs.NewSnapshotStore(storageClient, cfg.GCSBucket)
+		coord = snapshot.NewCoordinator(sink, users, comments, 30*time.Second)
+	} else {
+		coord = &snapshot.NopCoordinator{}
+	}
+
+	// 起動時 Restore（失敗は warn + 続行）
+	if err := coord.Restore(initCtx); err != nil {
+		log.Printf("[WARN] snapshot restore failed, starting with empty state: %v", err)
+	}
+
+	// Background throttle goroutine 起動
+	coord.Start(initCtx)
+
 	// UseCases
 	ucStatus := &usecase.Status{Users: users, State: state}
-	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock}
-	ucPull := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock}
-	ucReset := &usecase.Reset{Users: users, State: state}
+	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord}
+	ucPull := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
+	ucReset := &usecase.Reset{Users: users, State: state, Snap: coord}
 
 	h := &ahttp.Handlers{Status: ucStatus, SwitchVideo: ucSwitch, Pull: ucPull, Reset: ucReset, Users: users, Comments: comments}
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: ahttp.NewRouter(h, cfg.FrontendOrigin)}
@@ -65,6 +92,14 @@ func main() {
 	// シャットダウンシグナルを待機
 	<-ctx.Done()
 	log.Println("Shutting down server gracefully...")
+
+	// SIGTERM 時の snapshot flush（10 秒タイムアウト）
+	flushCtx, flushCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer flushCancel()
+	if err := coord.Flush(flushCtx); err != nil {
+		log.Printf("[WARN] snapshot flush on shutdown failed: %v", err)
+	}
+	coord.Stop()
 
 	// シャットダウンのタイムアウト設定（30秒）
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
