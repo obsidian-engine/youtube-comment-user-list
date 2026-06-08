@@ -13,8 +13,8 @@ export default defineConfig({
     poolOptions: {
       forks: {
         maxWorkers: 4, // 軽量化のため並列実行
-        minWorkers: 1
-      }
+        minWorkers: 1,
+      },
     },
 
     // タイムアウト設定の軽量化
@@ -24,7 +24,7 @@ export default defineConfig({
     // キャッシュ設定は削除（警告回避）
 
     // レポーター設定（さらなる軽量化）
-    reporter: process.env.CI ? ['junit', 'github-actions'] : ['basic'],
+    reporters: process.env.CI ? ['junit', 'github-actions'] : ['default'],
 
     // ファイル監視の最適化
     watch: process.env.CI ? false : true,
@@ -37,9 +37,9 @@ export default defineConfig({
       optimizer: {
         web: {
           enabled: true,
-          include: ['react', 'react-dom', '@testing-library/react', '@testing-library/user-event']
-        }
-      }
-    }
+          include: ['react', 'react-dom', '@testing-library/react', '@testing-library/user-event'],
+        },
+      },
+    },
   },
 })
