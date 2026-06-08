@@ -1,76 +1,67 @@
-import { useRef } from 'react'
+import { useState } from 'react'
 import { LoadingButton } from '../LoadingButton'
 
 interface PollControlsProps {
   keywords: string[]
-  onLoadFile: (file: File) => void | Promise<void>
+  onAddKeyword: (word: string) => void
+  onRemoveKeyword: (word: string) => void
   onClear: () => void
   onRecount: () => void
   isLoading: boolean
   lastUpdated: string
 }
 
-const SAMPLE_TXT = '賛成\n反対\n保留\n'
-
-function downloadSampleTxt() {
-  const blob = new Blob([SAMPLE_TXT], { type: 'text/plain;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'keywords-sample.txt'
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 export function PollControls({
   keywords,
-  onLoadFile,
+  onAddKeyword,
+  onRemoveKeyword,
   onClear,
   onRecount,
   isLoading,
   lastUpdated,
 }: PollControlsProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [input, setInput] = useState('')
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      await onLoadFile(file)
+  const handleAdd = () => {
+    if (input.trim()) {
+      onAddKeyword(input)
+      setInput('')
     }
-    e.target.value = ''
   }
 
   return (
     <div className="space-y-4">
       <section className="rounded-lg shadow-subtle ring-1 ring-black/5 bg-white/80 backdrop-blur p-5">
         <h2 className="text-sm font-semibold mb-3 text-slate-700">
-          投票キーワード（txt から読み込み）
+          投票キーワード（完全一致でカウント）
         </h2>
 
         <p className="text-[12px] text-slate-500 mb-3">
-          メモ帳で 1 行 1 ワードの txt
-          を作成し、「読み込み」ボタンで取り込んでください。コメントが完全一致した場合のみ 1
+          キーワードを 1 つずつ追加してください。コメントが完全一致した場合のみ 1
           票としてカウントされます。
         </p>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".txt,text/plain"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-
         <div className="flex gap-2 mb-4">
-          <LoadingButton
-            onClick={() => fileInputRef.current?.click()}
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                handleAdd()
+              }
+            }}
+            placeholder="投票キーワードを入力"
             disabled={isLoading}
+            className="flex-1 px-3 py-2 rounded-md bg-white/90 border border-slate-300/80 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]"
+          />
+          <LoadingButton
+            onClick={handleAdd}
+            disabled={isLoading || !input.trim()}
             variant="primary"
           >
-            キーワードtxtを読み込み
-          </LoadingButton>
-          <LoadingButton onClick={downloadSampleTxt} disabled={isLoading} variant="outline">
-            サンプルtxtをダウンロード
+            追加
           </LoadingButton>
           {keywords.length > 0 && (
             <LoadingButton onClick={onClear} disabled={isLoading} variant="outline">
@@ -82,15 +73,23 @@ export function PollControls({
         <div className="flex flex-wrap gap-2">
           {keywords.length === 0 && (
             <span className="text-[12px] text-slate-500">
-              キーワード未設定。txt を読み込むと一覧表示されます。
+              キーワード未設定。追加すると一覧表示されます。
             </span>
           )}
           {keywords.map((word) => (
             <span
               key={word}
-              className="inline-flex items-center px-3 py-1 rounded-full bg-slate-200 text-sm"
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-200 text-sm"
             >
               {word}
+              <button
+                onClick={() => onRemoveKeyword(word)}
+                disabled={isLoading}
+                className="hover:text-red-500 disabled:opacity-50"
+                aria-label={`${word}を削除`}
+              >
+                ×
+              </button>
             </span>
           ))}
         </div>

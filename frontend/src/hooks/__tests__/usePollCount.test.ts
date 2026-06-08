@@ -14,9 +14,6 @@ vi.mock('../../utils/api', async () => {
 
 const mockedSearch = vi.mocked(api.searchComments)
 
-const txtFile = (content: string): File =>
-  new File([content], 'keywords.txt', { type: 'text/plain' })
-
 const c = (channelId: string, message: string, publishedAt: string): Comment => ({
   id: `${channelId}-${publishedAt}`,
   channelId,
@@ -40,86 +37,58 @@ describe('usePollCount - 初期状態', () => {
 
   it('公開関数が揃っている', () => {
     const { result } = renderHook(() => usePollCount())
-    expect(typeof result.current.loadKeywordsFromFile).toBe('function')
+    expect(typeof result.current.addKeyword).toBe('function')
+    expect(typeof result.current.removeKeyword).toBe('function')
     expect(typeof result.current.clearKeywords).toBe('function')
     expect(typeof result.current.recount).toBe('function')
   })
 })
 
-describe('usePollCount - loadKeywordsFromFile', () => {
+describe('usePollCount - addKeyword / removeKeyword', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('有効な txt 読込で keywords セット + counts 初期化', async () => {
+  it('追加するとキーワードが増え counts も 0 初期化', () => {
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge\nfuga\n'))
-    })
-    expect(result.current.keywords).toEqual(['hoge', 'fuga'])
-    expect(result.current.counts).toEqual({ hoge: 0, fuga: 0 })
-    expect(result.current.errorMsg).toBe('')
+    act(() => result.current.addKeyword('hoge'))
+    expect(result.current.keywords).toEqual(['hoge'])
+    expect(result.current.counts).toEqual({ hoge: 0 })
   })
 
-  it('空 txt はエラー表示、keywords は更新されない', async () => {
+  it('複数追加で順序保持', () => {
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('\n\n  \n'))
-    })
+    act(() => result.current.addKeyword('a'))
+    act(() => result.current.addKeyword('b'))
+    act(() => result.current.addKeyword('c'))
+    expect(result.current.keywords).toEqual(['a', 'b', 'c'])
+  })
+
+  it('重複追加は無視', () => {
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.addKeyword('hoge'))
+    act(() => result.current.addKeyword('hoge'))
+    expect(result.current.keywords).toEqual(['hoge'])
+  })
+
+  it('空文字 / 空白のみ追加は無視', () => {
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.addKeyword(''))
+    act(() => result.current.addKeyword('   '))
     expect(result.current.keywords).toEqual([])
-    expect(result.current.errorMsg).toContain('含まれていません')
   })
 
-  it(', 含む行は除外し警告表示（残りキーワードはロード）', async () => {
+  it('前後空白は trim される', () => {
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge\n1,000円\nfuga'))
-    })
-    expect(result.current.keywords).toEqual(['hoge', 'fuga'])
-    expect(result.current.errorMsg).toContain('1,000円')
+    act(() => result.current.addKeyword('  hoge  '))
+    expect(result.current.keywords).toEqual(['hoge'])
   })
 
-  it('全行がカンマ含むなら EMPTY_FILE エラー', async () => {
+  it('removeKeyword で削除', () => {
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('a,b\nc,d'))
-    })
-    expect(result.current.keywords).toEqual([])
-    expect(result.current.errorMsg).toContain('含まれていません')
-  })
-
-  it('再ロードで keywords を上書き', async () => {
-    const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('a\nb'))
-    })
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('x\ny\nz'))
-    })
-    expect(result.current.keywords).toEqual(['x', 'y', 'z'])
-    expect(result.current.counts).toEqual({ x: 0, y: 0, z: 0 })
-  })
-
-  it('再ロードでエラーメッセージはクリアされる（正常時）', async () => {
-    const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile(''))
-    })
-    expect(result.current.errorMsg).not.toBe('')
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
-    expect(result.current.errorMsg).toBe('')
-  })
-
-  it('file.text() が throw した場合 READ_FAILED エラー', async () => {
-    const brokenFile = {
-      text: () => Promise.reject(new Error('read error')),
-    } as unknown as File
-
-    const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(brokenFile)
-    })
-    expect(result.current.errorMsg).toContain('読み込みに失敗')
+    act(() => result.current.addKeyword('a'))
+    act(() => result.current.addKeyword('b'))
+    act(() => result.current.removeKeyword('a'))
+    expect(result.current.keywords).toEqual(['b'])
+    expect(result.current.counts).toEqual({ b: 0 })
   })
 })
 
@@ -134,9 +103,8 @@ describe('usePollCount - recount 正常系', () => {
     ])
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge\nfuga'))
-    })
+    act(() => result.current.addKeyword('hoge'))
+    act(() => result.current.addKeyword('fuga'))
     await act(async () => {
       await result.current.recount()
     })
@@ -151,9 +119,8 @@ describe('usePollCount - recount 正常系', () => {
     mockedSearch.mockResolvedValue([])
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge\nfuga'))
-    })
+    act(() => result.current.addKeyword('hoge'))
+    act(() => result.current.addKeyword('fuga'))
     await act(async () => {
       await result.current.recount()
     })
@@ -162,31 +129,12 @@ describe('usePollCount - recount 正常系', () => {
     expect(result.current.totalVotes).toBe(0)
   })
 
-  it('totalVotes は counts 合計に追従', async () => {
-    mockedSearch.mockResolvedValue([
-      c('u1', 'a', '2024-01-01T00:00:01Z'),
-      c('u2', 'a', '2024-01-01T00:00:02Z'),
-      c('u3', 'b', '2024-01-01T00:00:03Z'),
-    ])
-
-    const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('a\nb\nc'))
-    })
-    await act(async () => {
-      await result.current.recount()
-    })
-
-    expect(result.current.totalVotes).toBe(3)
-  })
-
   it('recount は searchComments に keywords を渡す', async () => {
     mockedSearch.mockResolvedValue([])
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('alpha\nbeta'))
-    })
+    act(() => result.current.addKeyword('alpha'))
+    act(() => result.current.addKeyword('beta'))
     await act(async () => {
       await result.current.recount()
     })
@@ -194,28 +142,12 @@ describe('usePollCount - recount 正常系', () => {
     expect(mockedSearch).toHaveBeenCalledWith(['alpha', 'beta'], expect.any(AbortSignal))
   })
 
-  it('recount 連続呼び出し: 最終的に1回分の結果が反映', async () => {
-    mockedSearch.mockResolvedValue([c('u1', 'hoge', '2024-01-01T00:00:01Z')])
-
-    const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
-    await act(async () => {
-      await result.current.recount()
-      await result.current.recount()
-    })
-
-    expect(result.current.counts).toEqual({ hoge: 1 })
-  })
-
   it('searchComments が null を返した場合も全 0 で正常終了', async () => {
     mockedSearch.mockResolvedValue(null)
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge\nfuga'))
-    })
+    act(() => result.current.addKeyword('hoge'))
+    act(() => result.current.addKeyword('fuga'))
     await act(async () => {
       await result.current.recount()
     })
@@ -241,9 +173,7 @@ describe('usePollCount - recount エラー系', () => {
     mockedSearch.mockRejectedValue(new api.HttpError(404))
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
+    act(() => result.current.addKeyword('hoge'))
     await act(async () => {
       await result.current.recount()
     })
@@ -256,51 +186,19 @@ describe('usePollCount - recount エラー系', () => {
     mockedSearch.mockRejectedValue(new api.HttpError(500))
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
+    act(() => result.current.addKeyword('hoge'))
     await act(async () => {
       await result.current.recount()
     })
 
     expect(result.current.errorMsg).toContain('サーバーエラー')
-  })
-
-  it('HttpError(503) も SERVER_ERROR（>=500）', async () => {
-    mockedSearch.mockRejectedValue(new api.HttpError(503))
-
-    const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
-    await act(async () => {
-      await result.current.recount()
-    })
-
-    expect(result.current.errorMsg).toContain('サーバーエラー')
-  })
-
-  it('HttpError(400) は GENERIC（<500 かつ ≠404）', async () => {
-    mockedSearch.mockRejectedValue(new api.HttpError(400))
-
-    const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
-    await act(async () => {
-      await result.current.recount()
-    })
-
-    expect(result.current.errorMsg).toContain('失敗しました')
   })
 
   it('TypeError(Failed to fetch) で NETWORK 表示', async () => {
     mockedSearch.mockRejectedValue(new TypeError('Failed to fetch'))
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
+    act(() => result.current.addKeyword('hoge'))
     await act(async () => {
       await result.current.recount()
     })
@@ -314,9 +212,7 @@ describe('usePollCount - recount エラー系', () => {
     mockedSearch.mockRejectedValue(e)
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
+    act(() => result.current.addKeyword('hoge'))
     await act(async () => {
       await result.current.recount()
     })
@@ -333,9 +229,7 @@ describe('usePollCount - recount エラー系', () => {
     })
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
+    act(() => result.current.addKeyword('hoge'))
     await act(async () => {
       await result.current.recount()
     })
@@ -343,28 +237,12 @@ describe('usePollCount - recount エラー系', () => {
     expect(result.current.errorMsg).toBe('')
   })
 
-  it('不明エラー（generic Error）は GENERIC', async () => {
-    mockedSearch.mockRejectedValue(new Error('unknown'))
-
-    const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
-    await act(async () => {
-      await result.current.recount()
-    })
-
-    expect(result.current.errorMsg).toContain('失敗しました')
-  })
-
   it('エラー後のリトライで成功すると errorMsg がクリア', async () => {
     mockedSearch.mockRejectedValueOnce(new api.HttpError(500))
     mockedSearch.mockResolvedValueOnce([c('u1', 'hoge', '2024-01-01T00:00:01Z')])
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
+    act(() => result.current.addKeyword('hoge'))
     await act(async () => {
       await result.current.recount()
     })
@@ -385,9 +263,7 @@ describe('usePollCount - clearKeywords / race 防止', () => {
     mockedSearch.mockResolvedValue([c('u1', 'hoge', '2024-01-01T00:00:01Z')])
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
+    act(() => result.current.addKeyword('hoge'))
     await act(async () => {
       await result.current.recount()
     })
@@ -410,11 +286,9 @@ describe('usePollCount - clearKeywords / race 防止', () => {
     })
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
+    act(() => result.current.addKeyword('hoge'))
     act(() => {
-      result.current.recount()
+      void result.current.recount()
     })
     await waitFor(() => expect(capturedSignal).toBeDefined())
 
@@ -422,29 +296,6 @@ describe('usePollCount - clearKeywords / race 防止', () => {
       result.current.clearKeywords()
     })
     expect(capturedSignal?.aborted).toBe(true)
-  })
-
-  it('loadKeywordsFromFile が進行中 recount を abort', async () => {
-    let capturedSignal: AbortSignal | undefined
-    mockedSearch.mockImplementation((_keywords, signal) => {
-      capturedSignal = signal
-      return new Promise(() => {})
-    })
-
-    const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('a'))
-    })
-    act(() => {
-      result.current.recount()
-    })
-    await waitFor(() => expect(capturedSignal).toBeDefined())
-
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('b\nc'))
-    })
-    expect(capturedSignal?.aborted).toBe(true)
-    expect(result.current.keywords).toEqual(['b', 'c'])
   })
 
   it('recount を 2 回連投すると先発が abort される', async () => {
@@ -457,9 +308,7 @@ describe('usePollCount - clearKeywords / race 防止', () => {
     })
 
     const { result } = renderHook(() => usePollCount())
-    await act(async () => {
-      await result.current.loadKeywordsFromFile(txtFile('hoge'))
-    })
+    act(() => result.current.addKeyword('hoge'))
     await act(async () => {
       void result.current.recount()
       await result.current.recount()

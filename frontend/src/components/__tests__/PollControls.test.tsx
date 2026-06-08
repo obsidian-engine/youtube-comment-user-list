@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PollControls } from '../PollTab/PollControls'
 
@@ -20,7 +20,8 @@ vi.mock('../LoadingButton', () => ({
 }))
 
 describe('PollControls', () => {
-  const onLoadFile = vi.fn()
+  const onAddKeyword = vi.fn()
+  const onRemoveKeyword = vi.fn()
   const onClear = vi.fn()
   const onRecount = vi.fn()
 
@@ -28,15 +29,12 @@ describe('PollControls', () => {
     vi.clearAllMocks()
   })
 
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   const renderControls = (props: Partial<Parameters<typeof PollControls>[0]> = {}) => {
     return render(
       <PollControls
         keywords={['hoge', 'fuga']}
-        onLoadFile={onLoadFile}
+        onAddKeyword={onAddKeyword}
+        onRemoveKeyword={onRemoveKeyword}
         onClear={onClear}
         onRecount={onRecount}
         isLoading={false}
@@ -49,8 +47,8 @@ describe('PollControls', () => {
   describe('表示要素', () => {
     it('見出しと説明文を表示', () => {
       renderControls()
-      expect(screen.getByText('投票キーワード（txt から読み込み）')).toBeInTheDocument()
-      expect(screen.getByText(/メモ帳で 1 行 1 ワードの txt/)).toBeInTheDocument()
+      expect(screen.getByText('投票キーワード（完全一致でカウント）')).toBeInTheDocument()
+      expect(screen.getByText(/キーワードを 1 つずつ追加/)).toBeInTheDocument()
     })
 
     it('キーワード chip を全件表示', () => {
@@ -62,9 +60,7 @@ describe('PollControls', () => {
 
     it('keywords 空時は説明文を表示', () => {
       renderControls({ keywords: [] })
-      expect(
-        screen.getByText(/キーワード未設定。txt を読み込むと一覧表示されます/),
-      ).toBeInTheDocument()
+      expect(screen.getByText(/キーワード未設定。追加すると一覧表示されます/)).toBeInTheDocument()
     })
 
     it('最終更新時刻を表示', () => {
@@ -73,46 +69,56 @@ describe('PollControls', () => {
     })
   })
 
-  describe('ボタン動作', () => {
-    it('読み込みボタン → file input click トリガー', async () => {
+  describe('キーワード追加', () => {
+    it('input に入力 → 追加ボタンクリックで onAddKeyword 呼び出し + input クリア', async () => {
       const user = userEvent.setup()
-      const { container } = renderControls()
-      const input = container.querySelector('input[type="file"]') as HTMLInputElement
-      const clickSpy = vi.spyOn(input, 'click')
+      renderControls({ keywords: [] })
 
-      const button = screen.getByRole('button', {
-        name: 'キーワードtxtを読み込み',
-      })
-      await user.click(button)
+      const input = screen.getByPlaceholderText('投票キーワードを入力') as HTMLInputElement
+      await user.type(input, 'newword')
+      const addBtn = screen.getByRole('button', { name: '追加' })
+      await user.click(addBtn)
 
-      expect(clickSpy).toHaveBeenCalled()
+      expect(onAddKeyword).toHaveBeenCalledWith('newword')
+      expect(input.value).toBe('')
     })
 
-    it('ファイル選択 → onLoadFile 呼び出し', async () => {
-      const { container } = renderControls()
-      const input = container.querySelector('input[type="file"]') as HTMLInputElement
-      const file = new File(['hoge\nfuga'], 'k.txt', { type: 'text/plain' })
+    it('Enter キーで追加', async () => {
+      const user = userEvent.setup()
+      renderControls({ keywords: [] })
 
-      await userEvent.upload(input, file)
+      const input = screen.getByPlaceholderText('投票キーワードを入力')
+      await user.type(input, 'enterword{Enter}')
 
-      await waitFor(() => {
-        expect(onLoadFile).toHaveBeenCalledTimes(1)
-        expect(onLoadFile.mock.calls[0][0]).toBeInstanceOf(File)
-      })
+      expect(onAddKeyword).toHaveBeenCalledWith('enterword')
     })
 
-    it('ファイル選択後 input.value はリセット（同一ファイル再選択可能）', async () => {
-      const { container } = renderControls()
-      const input = container.querySelector('input[type="file"]') as HTMLInputElement
-      const file = new File(['hoge'], 'k.txt', { type: 'text/plain' })
+    it('空文字 / 空白のみは追加ボタン disabled', async () => {
+      const user = userEvent.setup()
+      renderControls({ keywords: [] })
 
-      await userEvent.upload(input, file)
+      const addBtn = screen.getByRole('button', { name: '追加' })
+      expect(addBtn).toBeDisabled()
 
-      await waitFor(() => {
-        expect(input.value).toBe('')
-      })
+      const input = screen.getByPlaceholderText('投票キーワードを入力')
+      await user.type(input, '   ')
+      expect(addBtn).toBeDisabled()
     })
+  })
 
+  describe('キーワード削除', () => {
+    it('× ボタンで onRemoveKeyword 呼び出し', async () => {
+      const user = userEvent.setup()
+      renderControls({ keywords: ['hoge'] })
+
+      const removeBtn = screen.getByLabelText('hogeを削除')
+      await user.click(removeBtn)
+
+      expect(onRemoveKeyword).toHaveBeenCalledWith('hoge')
+    })
+  })
+
+  describe('ボタン動作', () => {
     it('クリアボタン: keywords あれば表示 → onClear 呼び出し', async () => {
       const user = userEvent.setup()
       renderControls({ keywords: ['hoge'] })
@@ -143,35 +149,12 @@ describe('PollControls', () => {
       const button = screen.getByRole('button', { name: '今すぐ集計' })
       expect(button).toBeDisabled()
     })
-
-    it('サンプルtxtダウンロードボタン → click でエラーなく実行', async () => {
-      const user = userEvent.setup()
-      // Blob URL 生成系をモック（jsdom 未対応の API）
-      // vi.stubGlobal で復元を vi.unstubAllGlobals に委ね、他テストへの汚染を防ぐ
-      const createObjectURL = vi.fn().mockReturnValue('blob:test')
-      const revokeObjectURL = vi.fn()
-      vi.stubGlobal('URL', {
-        ...URL,
-        createObjectURL,
-        revokeObjectURL,
-      })
-
-      renderControls()
-      const button = screen.getByRole('button', {
-        name: 'サンプルtxtをダウンロード',
-      })
-      await user.click(button)
-
-      expect(createObjectURL).toHaveBeenCalled()
-      expect(revokeObjectURL).toHaveBeenCalledWith('blob:test')
-    })
   })
 
   describe('isLoading 状態', () => {
-    it('isLoading=true で 読み込み/サンプル/クリア が disabled', () => {
+    it('isLoading=true で 追加 input / クリアが disabled', () => {
       renderControls({ isLoading: true })
-      expect(screen.getByRole('button', { name: 'キーワードtxtを読み込み' })).toBeDisabled()
-      expect(screen.getByRole('button', { name: 'サンプルtxtをダウンロード' })).toBeDisabled()
+      expect(screen.getByPlaceholderText('投票キーワードを入力')).toBeDisabled()
       expect(screen.getByRole('button', { name: 'クリア' })).toBeDisabled()
     })
 
@@ -179,20 +162,6 @@ describe('PollControls', () => {
       renderControls({ isLoading: true })
       const button = screen.getByRole('button', { name: '今すぐ集計' })
       expect(button).toBeDisabled()
-    })
-  })
-
-  describe('file input attributes', () => {
-    it('accept=.txt,text/plain', () => {
-      const { container } = renderControls()
-      const input = container.querySelector('input[type="file"]') as HTMLInputElement
-      expect(input.getAttribute('accept')).toBe('.txt,text/plain')
-    })
-
-    it('hidden で配置（aria 等を阻害しない）', () => {
-      const { container } = renderControls()
-      const input = container.querySelector('input[type="file"]') as HTMLInputElement
-      expect(input.className).toContain('hidden')
     })
   })
 })
