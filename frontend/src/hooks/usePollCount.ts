@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { searchComments, type Comment } from '../utils/api'
 import { mapHttpError } from '../utils/mapHttpError'
-import { countVotes, type VoteCounts } from '../utils/countVotes'
+import { countVotes, type VoteCounts, type VoteVoters } from '../utils/countVotes'
 
 export const POLL_INTERVAL_SEC = 15
 
@@ -17,6 +17,7 @@ const ERROR_MESSAGES = {
 interface PollState {
   keywords: string[]
   counts: VoteCounts
+  voters: VoteVoters
   isLoading: boolean
   errorMsg: string
   lastUpdated: string
@@ -25,6 +26,7 @@ interface PollState {
 const initialState: PollState = {
   keywords: [],
   counts: {},
+  voters: {},
   isLoading: false,
   errorMsg: '',
   lastUpdated: '--:--:--',
@@ -44,6 +46,7 @@ export function usePollCount() {
         ...prev,
         keywords,
         counts: { ...prev.counts, [trimmed]: prev.counts[trimmed] ?? 0 },
+        voters: { ...prev.voters, [trimmed]: prev.voters[trimmed] ?? [] },
         errorMsg: '',
       }
     })
@@ -53,8 +56,10 @@ export function usePollCount() {
     setState((prev) => {
       const keywords = prev.keywords.filter((k) => k !== word)
       const counts = { ...prev.counts }
+      const voters = { ...prev.voters }
       delete counts[word]
-      return { ...prev, keywords, counts }
+      delete voters[word]
+      return { ...prev, keywords, counts, voters }
     })
   }, [])
 
@@ -78,7 +83,7 @@ export function usePollCount() {
 
     try {
       const comments: Comment[] = (await searchComments(keywords, controller.signal)) ?? []
-      const counts = countVotes(comments, keywords)
+      const { counts, voters } = countVotes(comments, keywords)
       const timeStr = new Date().toLocaleTimeString('ja-JP', {
         hour: '2-digit',
         minute: '2-digit',
@@ -87,6 +92,7 @@ export function usePollCount() {
       setState((prev) => ({
         ...prev,
         counts,
+        voters,
         isLoading: false,
         lastUpdated: timeStr,
       }))
@@ -96,7 +102,6 @@ export function usePollCount() {
         const errorMsg = ERROR_MESSAGES[code]
         setState((prev) => ({ ...prev, isLoading: false, errorMsg }))
       } catch {
-        // AbortError は state を変更しない (mapHttpError が re-throw)
         return
       }
     }

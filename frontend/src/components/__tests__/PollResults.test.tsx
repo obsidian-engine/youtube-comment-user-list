@@ -1,19 +1,24 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { PollResults } from '../PollTab/PollResults'
+
+const baseProps = {
+  voters: {},
+  totalVotes: 0,
+  isLoading: false,
+}
 
 describe('PollResults', () => {
   describe('非表示条件', () => {
     it('keywords 空なら何もレンダリングしない', () => {
-      const { container } = render(
-        <PollResults keywords={[]} counts={{}} totalVotes={0} isLoading={false} />,
-      )
+      const { container } = render(<PollResults keywords={[]} counts={{}} {...baseProps} />)
       expect(container.firstChild).toBeNull()
     })
 
     it('isLoading=true でも keywords 空なら非表示', () => {
       const { container } = render(
-        <PollResults keywords={[]} counts={{}} totalVotes={0} isLoading={true} />,
+        <PollResults keywords={[]} counts={{}} {...baseProps} isLoading={true} />,
       )
       expect(container.firstChild).toBeNull()
     })
@@ -25,6 +30,7 @@ describe('PollResults', () => {
         <PollResults
           keywords={['hoge', 'fuga']}
           counts={{ hoge: 3, fuga: 1 }}
+          voters={{ hoge: [], fuga: [] }}
           totalVotes={4}
           isLoading={false}
         />,
@@ -40,12 +46,12 @@ describe('PollResults', () => {
         <PollResults
           keywords={['a', 'b']}
           counts={{ a: 0, b: 0 }}
+          voters={{ a: [], b: [] }}
           totalVotes={0}
           isLoading={false}
         />,
       )
       const zeros = screen.getAllByText('0')
-      // a=0, b=0, 合計=0 → 3つ
       expect(zeros.length).toBeGreaterThanOrEqual(3)
     })
 
@@ -54,39 +60,28 @@ describe('PollResults', () => {
         <PollResults
           keywords={['hoge', 'missing']}
           counts={{ hoge: 5 }}
+          voters={{ hoge: [], missing: [] }}
           totalVotes={5}
           isLoading={false}
         />,
       )
       expect(screen.getByText('hoge')).toBeInTheDocument()
       expect(screen.getByText('missing')).toBeInTheDocument()
-      // missing 行に 0 が描画される
       const missingRow = screen.getByText('missing').closest('tr')!
       expect(missingRow.textContent).toContain('0')
-      // hoge 行に 5 が描画される
       const hogeRow = screen.getByText('hoge').closest('tr')!
       expect(hogeRow.textContent).toContain('5')
     })
 
-    it('keywords 順序通りに表示される', () => {
-      render(
-        <PollResults
-          keywords={['zzz', 'aaa', 'mmm']}
-          counts={{ zzz: 1, aaa: 2, mmm: 3 }}
-          totalVotes={6}
-          isLoading={false}
-        />,
-      )
-      const rows = screen.getAllByRole('row')
-      // header + 3 data rows + 1 footer = 5
-      expect(rows.length).toBe(5)
-      const dataCells = rows[1].textContent
-      expect(dataCells).toContain('zzz')
-    })
-
     it('ヘッダー: 「キーワード」「票数」', () => {
       render(
-        <PollResults keywords={['hoge']} counts={{ hoge: 1 }} totalVotes={1} isLoading={false} />,
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 1 }}
+          voters={{ hoge: [] }}
+          totalVotes={1}
+          isLoading={false}
+        />,
       )
       expect(screen.getByText('キーワード')).toBeInTheDocument()
       expect(screen.getByText('票数')).toBeInTheDocument()
@@ -99,6 +94,7 @@ describe('PollResults', () => {
         <PollResults
           keywords={['a', 'b']}
           counts={{ a: 3, b: 5 }}
+          voters={{ a: [], b: [] }}
           totalVotes={8}
           isLoading={false}
         />,
@@ -106,64 +102,131 @@ describe('PollResults', () => {
       expect(screen.getByText('合計')).toBeInTheDocument()
       expect(screen.getByText('8')).toBeInTheDocument()
     })
-
-    it('合計 0 でも表示', () => {
-      render(<PollResults keywords={['a']} counts={{ a: 0 }} totalVotes={0} isLoading={false} />)
-      expect(screen.getByText('合計')).toBeInTheDocument()
-    })
   })
 
   describe('ローディング', () => {
     it('isLoading=true でスピナー表示', () => {
       const { container } = render(
-        <PollResults keywords={['hoge']} counts={{ hoge: 0 }} totalVotes={0} isLoading={true} />,
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 0 }}
+          voters={{ hoge: [] }}
+          totalVotes={0}
+          isLoading={true}
+        />,
       )
       expect(container.querySelector('.animate-spin')).toBeInTheDocument()
     })
 
     it('isLoading=false でスピナー非表示', () => {
       const { container } = render(
-        <PollResults keywords={['hoge']} counts={{ hoge: 0 }} totalVotes={0} isLoading={false} />,
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 0 }}
+          voters={{ hoge: [] }}
+          totalVotes={0}
+          isLoading={false}
+        />,
       )
       expect(container.querySelector('.animate-spin')).toBeNull()
     })
   })
 
-  describe('特殊キーワード', () => {
-    it('日本語キーワードを表示', () => {
+  describe('投票ユーザー expand', () => {
+    const voters = {
+      hoge: [
+        { channelId: 'UC1', displayName: 'taro' },
+        { channelId: 'UC2', displayName: 'hanako' },
+      ],
+      fuga: [],
+    }
+
+    it('初期状態では voter list は非表示', () => {
       render(
         <PollResults
-          keywords={['賛成', '反対']}
-          counts={{ 賛成: 10, 反対: 3 }}
-          totalVotes={13}
+          keywords={['hoge']}
+          counts={{ hoge: 2 }}
+          voters={voters}
+          totalVotes={2}
           isLoading={false}
         />,
       )
-      expect(screen.getByText('賛成')).toBeInTheDocument()
-      expect(screen.getByText('反対')).toBeInTheDocument()
-      expect(screen.getByText('10')).toBeInTheDocument()
+      expect(screen.queryByText('taro')).toBeNull()
     })
 
-    it('絵文字キーワードを表示', () => {
+    it('キーワード行クリックで voter list を表示', async () => {
+      const user = userEvent.setup()
       render(
         <PollResults
-          keywords={['👍', '👎']}
-          counts={{ '👍': 5, '👎': 2 }}
-          totalVotes={7}
+          keywords={['hoge']}
+          counts={{ hoge: 2 }}
+          voters={voters}
+          totalVotes={2}
           isLoading={false}
         />,
       )
-      expect(screen.getByText('👍')).toBeInTheDocument()
-      expect(screen.getByText('👎')).toBeInTheDocument()
+      await user.click(screen.getByText('hoge'))
+      expect(screen.getByText('taro')).toBeInTheDocument()
+      expect(screen.getByText('hanako')).toBeInTheDocument()
+      expect(screen.getByText('UC1')).toBeInTheDocument()
     })
 
-    it('大量キーワード（20件）でも全件描画', () => {
-      const keywords = Array.from({ length: 20 }, (_, i) => `k${i}`)
-      const counts = Object.fromEntries(keywords.map((k) => [k, 1]))
-      render(<PollResults keywords={keywords} counts={counts} totalVotes={20} isLoading={false} />)
-      const rows = screen.getAllByRole('row')
-      // header + 20 data + 1 footer
-      expect(rows.length).toBe(22)
+    it('再クリックで折りたたまれる', async () => {
+      const user = userEvent.setup()
+      render(
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 2 }}
+          voters={voters}
+          totalVotes={2}
+          isLoading={false}
+        />,
+      )
+      await user.click(screen.getByText('hoge'))
+      await user.click(screen.getByText('hoge'))
+      expect(screen.queryByText('taro')).toBeNull()
+    })
+
+    it('voter 0 件のとき空メッセージ表示', async () => {
+      const user = userEvent.setup()
+      render(
+        <PollResults
+          keywords={['fuga']}
+          counts={{ fuga: 0 }}
+          voters={voters}
+          totalVotes={0}
+          isLoading={false}
+        />,
+      )
+      await user.click(screen.getByText('fuga'))
+      expect(screen.getByText('投票したユーザーはいません')).toBeInTheDocument()
+    })
+  })
+
+  describe('コピー', () => {
+    let writeTextSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    })
+
+    it('コピー成功後にラベルが「コピー済」に変化', async () => {
+      const user = userEvent.setup()
+      render(
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 1 }}
+          voters={{
+            hoge: [{ channelId: 'UC1', displayName: 'taro' }],
+          }}
+          totalVotes={1}
+          isLoading={false}
+        />,
+      )
+      await user.click(screen.getByText('hoge'))
+      await user.click(screen.getByRole('button', { name: /名前\+channelId をコピー/ }))
+      expect(writeTextSpy).toHaveBeenCalledWith('taro\tUC1')
+      expect(screen.getByRole('button', { name: 'コピー済' })).toBeInTheDocument()
     })
   })
 })

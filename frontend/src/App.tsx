@@ -181,6 +181,7 @@ export default function App() {
             <PollResults
               keywords={pollCount.keywords}
               counts={pollCount.counts}
+              voters={pollCount.voters}
               totalVotes={pollCount.totalVotes}
               isLoading={pollCount.isLoading}
             />
