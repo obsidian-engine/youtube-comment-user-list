@@ -83,16 +83,6 @@ describe('PollControls', () => {
       expect(input.value).toBe('')
     })
 
-    it('Enter キーで追加', async () => {
-      const user = userEvent.setup()
-      renderControls({ keywords: [] })
-
-      const input = screen.getByPlaceholderText('投票キーワードを入力')
-      await user.type(input, 'enterword{Enter}')
-
-      expect(onAddKeyword).toHaveBeenCalledWith('enterword')
-    })
-
     it('空文字 / 空白のみは追加ボタン disabled', async () => {
       const user = userEvent.setup()
       renderControls({ keywords: [] })

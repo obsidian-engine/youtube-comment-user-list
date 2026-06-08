@@ -46,12 +46,6 @@ export function PollControls({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                handleAdd()
-              }
-            }}
             placeholder="投票キーワードを入力"
             disabled={isLoading}
             className="flex-1 px-3 py-2 rounded-md bg-white/90 border border-slate-300/80 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]"
