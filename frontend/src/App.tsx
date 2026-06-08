@@ -171,7 +171,8 @@ export default function App() {
             )}
             <PollControls
               keywords={pollCount.keywords}
-              onLoadFile={pollCount.loadKeywordsFromFile}
+              onAddKeyword={pollCount.addKeyword}
+              onRemoveKeyword={pollCount.removeKeyword}
               onClear={pollCount.clearKeywords}
               onRecount={pollCount.recount}
               isLoading={pollCount.isLoading}

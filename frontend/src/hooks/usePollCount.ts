@@ -1,8 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { searchComments, type Comment } from '../utils/api'
 import { mapHttpError } from '../utils/mapHttpError'
-import { countVotes, initCounts, type VoteCounts } from '../utils/countVotes'
-import { parseKeywordsTxt } from '../utils/parseKeywordsTxt'
+import { countVotes, type VoteCounts } from '../utils/countVotes'
 
 export const POLL_INTERVAL_SEC = 15
 
@@ -11,10 +10,7 @@ const ERROR_MESSAGES = {
   SERVER_UNREACHABLE: 'サーバーに接続できません。',
   SERVER_ERROR: 'サーバーエラーが発生しました。しばらく待ってから再試行してください。',
   NETWORK: 'ネットワークエラー。接続を確認してください。',
-  NO_KEYWORDS: 'キーワードを読み込んでください。',
-  EMPTY_FILE: 'txt ファイルにキーワードが含まれていません。',
-  READ_FAILED: 'txt ファイルの読み込みに失敗しました。',
-  INVALID_LINES: '「,」を含む行は使用できません（除外しました）：',
+  NO_KEYWORDS: 'キーワードを追加してください。',
   TIMEOUT: '応答がタイムアウトしました。再試行してください。',
 } as const
 
@@ -38,28 +34,28 @@ export function usePollCount() {
   const [state, setState] = useState<PollState>(initialState)
   const controllerRef = useRef<AbortController | null>(null)
 
-  const loadKeywordsFromFile = useCallback(async (file: File) => {
-    // 進行中の recount があれば cancel。旧 keywords でキャプチャされた結果が
-    // 新 keywords の counts に上書きされる race を防ぐ。
-    if (controllerRef.current) controllerRef.current.abort()
-    try {
-      const text = await file.text()
-      const { keywords, invalid } = parseKeywordsTxt(text)
-      if (keywords.length === 0) {
-        setState((prev) => ({ ...prev, errorMsg: ERROR_MESSAGES.EMPTY_FILE }))
-        return
-      }
-      const errorMsg =
-        invalid.length > 0 ? `${ERROR_MESSAGES.INVALID_LINES}${invalid.join(' / ')}` : ''
-      setState((prev) => ({
+  const addKeyword = useCallback((word: string) => {
+    const trimmed = word.trim()
+    if (!trimmed) return
+    setState((prev) => {
+      if (prev.keywords.includes(trimmed)) return prev
+      const keywords = [...prev.keywords, trimmed]
+      return {
         ...prev,
         keywords,
-        counts: initCounts(keywords),
-        errorMsg,
-      }))
-    } catch {
-      setState((prev) => ({ ...prev, errorMsg: ERROR_MESSAGES.READ_FAILED }))
-    }
+        counts: { ...prev.counts, [trimmed]: prev.counts[trimmed] ?? 0 },
+        errorMsg: '',
+      }
+    })
+  }, [])
+
+  const removeKeyword = useCallback((word: string) => {
+    setState((prev) => {
+      const keywords = prev.keywords.filter((k) => k !== word)
+      const counts = { ...prev.counts }
+      delete counts[word]
+      return { ...prev, keywords, counts }
+    })
   }, [])
 
   const clearKeywords = useCallback(() => {
@@ -81,7 +77,6 @@ export function usePollCount() {
     setState((prev) => ({ ...prev, isLoading: true, errorMsg: '' }))
 
     try {
-      // 移植先の searchComments は Promise<Comment[] | null> のため null を [] に吸収
       const comments: Comment[] = (await searchComments(keywords, controller.signal)) ?? []
       const counts = countVotes(comments, keywords)
       const timeStr = new Date().toLocaleTimeString('ja-JP', {
@@ -96,20 +91,22 @@ export function usePollCount() {
         lastUpdated: timeStr,
       }))
     } catch (e) {
-      if (!(e instanceof Error)) return
-      // ユーザー操作 / hook 内部での abort は state を変更しない
-      if (e.name === 'AbortError') return
-
-      const code = mapHttpError(e)
-      const errorMsg = ERROR_MESSAGES[code]
-      setState((prev) => ({ ...prev, isLoading: false, errorMsg }))
+      try {
+        const code = mapHttpError(e)
+        const errorMsg = ERROR_MESSAGES[code]
+        setState((prev) => ({ ...prev, isLoading: false, errorMsg }))
+      } catch {
+        // AbortError は state を変更しない (mapHttpError が re-throw)
+        return
+      }
     }
   }, [state.keywords])
 
   return {
     ...state,
     totalVotes: Object.values(state.counts).reduce((a, b) => a + b, 0),
-    loadKeywordsFromFile,
+    addKeyword,
+    removeKeyword,
     clearKeywords,
     recount,
   }
