@@ -202,7 +202,7 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 	}
 
 	// レスポンスからメッセージを変換
-	var messages []port.ChatMessage
+	messages := []port.ChatMessage{}
 	skippedCount = 0
 	for _, item := range response.Items {
 		if item.AuthorDetails != nil && item.Snippet != nil {

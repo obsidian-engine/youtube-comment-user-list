@@ -84,7 +84,7 @@ export function useCommentSearch() {
 
       setState((prev) => ({
         ...prev,
-        comments,
+        comments: comments ?? [],
         isLoading: false,
         lastUpdated: timeStr,
       }))

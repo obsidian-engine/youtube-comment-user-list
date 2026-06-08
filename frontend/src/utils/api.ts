@@ -27,9 +27,9 @@ export type User = {
   latestCommentedAt?: string
 }
 
-export async function getUsers(signal?: AbortSignal): Promise<User[]> {
+export async function getUsers(signal?: AbortSignal): Promise<User[] | null> {
   const res = await fetch(`${BASE}/users.json`, { signal })
-  return json<User[]>(res)
+  return json<User[] | null>(res)
 }
 
 export async function postSwitchVideo(videoId: string, signal?: AbortSignal): Promise<void> {
@@ -110,7 +110,10 @@ async function fetchWithRetry<T>(
   throw lastError
 }
 
-export async function searchComments(keywords: string[], signal?: AbortSignal): Promise<Comment[]> {
+export async function searchComments(
+  keywords: string[],
+  signal?: AbortSignal,
+): Promise<Comment[] | null> {
   const params = new URLSearchParams({ keywords: keywords.join(',') })
-  return fetchWithRetry<Comment[]>(`${BASE}/comments?${params}`, { signal })
+  return fetchWithRetry<Comment[] | null>(`${BASE}/comments?${params}`, { signal })
 }

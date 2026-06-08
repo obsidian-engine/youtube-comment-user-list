@@ -9,6 +9,7 @@ type CommentRepo interface {
 
 	// SearchByKeywords はキーワードでコメントを検索します（OR検索）
 	// 結果は時系列順（古い順）
+	// returns non-nil slice (empty slice when no matches)
 	SearchByKeywords(keywords []string) []domain.Comment
 
 	// Clear は全コメントを削除します

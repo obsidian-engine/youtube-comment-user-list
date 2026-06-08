@@ -18,6 +18,7 @@ type UserRepo interface {
 	// 重複メッセージの場合は false を返し、新規または更新の場合は true を返します。
 	UpsertWithMessageUpdated(channelID string, displayName string, joinedAt time.Time, messageID string) (bool, error)
 	// ListUsersSortedByJoinTime は User構造体の配列を参加時間順（早い順）で返します。
+	// returns non-nil slice (empty slice when no users)
 	ListUsersSortedByJoinTime() []domain.User
 	// Count は登録ユーザー数を返します。
 	Count() int
