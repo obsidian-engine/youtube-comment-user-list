@@ -16,16 +16,14 @@ type ResetOutput struct {
 type Reset struct {
 	Users port.UserRepo
 	State port.StateRepo
-	Snap  snapshot.Coordinator
+	Snap  snapshot.Coordinator // 必須 (GCS 不要な場合は NopCoordinator を渡す)
 }
 
 // Execute: Users クリア、State=WAITING
 func (uc *Reset) Execute(ctx context.Context) (ResetOutput, error) {
 	// リセット前の状態を snapshot に保存
-	if uc.Snap != nil {
-		if err := uc.Snap.Flush(ctx); err != nil {
-			log.Printf("[WARN] reset: snapshot flush (pre-reset) failed: %v", err)
-		}
+	if err := uc.Snap.Flush(ctx); err != nil {
+		log.Printf("[WARN] reset: snapshot flush (pre-reset) failed: %v", err)
 	}
 
 	// ユーザーをクリア
@@ -42,11 +40,9 @@ func (uc *Reset) Execute(ctx context.Context) (ResetOutput, error) {
 	}
 
 	// video unset 状態にして current.json を更新
-	if uc.Snap != nil {
-		uc.Snap.SetVideo("", "")
-		if err := uc.Snap.Flush(ctx); err != nil {
-			log.Printf("[WARN] reset: snapshot flush (clear current) failed: %v", err)
-		}
+	uc.Snap.SetVideo("", "")
+	if err := uc.Snap.Flush(ctx); err != nil {
+		log.Printf("[WARN] reset: snapshot flush (clear current) failed: %v", err)
 	}
 
 	return ResetOutput{State: newState}, nil

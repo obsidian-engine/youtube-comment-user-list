@@ -11,7 +11,7 @@ export class HttpError extends Error {
 }
 
 async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) throw new HttpError(res.status)
   return res.json() as Promise<T>
 }
 
@@ -49,7 +49,7 @@ export async function postSwitchVideo(videoId: string, signal?: AbortSignal): Pr
     body: JSON.stringify({ videoId }),
     signal,
   })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) throw new HttpError(res.status)
 }
 
 export type BackendLog = {
@@ -73,7 +73,7 @@ export async function postPull(signal?: AbortSignal): Promise<PullResponse> {
 
 export async function postReset(signal?: AbortSignal): Promise<void> {
   const res = await fetch(`${BASE}/reset`, { method: 'POST', signal })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) throw new HttpError(res.status)
 }
 
 export type Comment = {
@@ -98,7 +98,7 @@ async function fetchWithRetry<T>(
     try {
       const res = await fetch(url, options)
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`)
+        throw new HttpError(res.status)
       }
       return (await res.json()) as T
     } catch (e) {

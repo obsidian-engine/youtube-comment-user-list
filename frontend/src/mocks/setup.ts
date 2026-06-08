@@ -10,7 +10,10 @@ if (typeof File !== 'undefined' && !File.prototype.text) {
   File.prototype.text = function () {
     return new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
+      reader.onload = () => {
+        if (typeof reader.result === 'string') resolve(reader.result)
+        else reject(new Error('unexpected result type'))
+      }
       reader.onerror = () => reject(reader.error)
       reader.readAsText(this)
     })

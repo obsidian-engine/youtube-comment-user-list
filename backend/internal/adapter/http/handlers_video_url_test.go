@@ -13,6 +13,7 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
 type fakeYTForURL struct{}
@@ -43,7 +44,7 @@ func TestSwitchVideoWithURL(t *testing.T) {
 	clock := &fakeClockForURL{}
 	handlers := &Handlers{
 		Users:       users,
-		SwitchVideo: &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock},
+		SwitchVideo: &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}},
 	}
 
 	router := NewRouter(handlers, "*")

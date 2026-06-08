@@ -1,7 +1,10 @@
 import { useCallback, useRef, useState } from 'react'
-import { searchComments, type Comment, HttpError } from '../utils/api'
-import { countVotes, type VoteCounts } from '../utils/countVotes'
+import { searchComments, type Comment } from '../utils/api'
+import { mapHttpError } from '../utils/mapHttpError'
+import { countVotes, initCounts, type VoteCounts } from '../utils/countVotes'
 import { parseKeywordsTxt } from '../utils/parseKeywordsTxt'
+
+export const POLL_INTERVAL_SEC = 15
 
 const ERROR_MESSAGES = {
   GENERIC: '集計に失敗しました。再試行してください。',
@@ -51,7 +54,7 @@ export function usePollCount() {
       setState((prev) => ({
         ...prev,
         keywords,
-        counts: Object.fromEntries(keywords.map((k) => [k, 0])),
+        counts: initCounts(keywords),
         errorMsg,
       }))
     } catch {
@@ -97,16 +100,8 @@ export function usePollCount() {
       // ユーザー操作 / hook 内部での abort は state を変更しない
       if (e.name === 'AbortError') return
 
-      let errorMsg: string = ERROR_MESSAGES.GENERIC
-      // AbortSignal.timeout 経由のタイムアウト（10 秒）。ユーザー abort と区別してメッセージ提示
-      if (e.name === 'TimeoutError') {
-        errorMsg = ERROR_MESSAGES.TIMEOUT
-      } else if (e instanceof HttpError) {
-        if (e.status === 404) errorMsg = ERROR_MESSAGES.SERVER_UNREACHABLE
-        else if (e.status >= 500) errorMsg = ERROR_MESSAGES.SERVER_ERROR
-      } else if (e instanceof TypeError && e.message.includes('Failed to fetch')) {
-        errorMsg = ERROR_MESSAGES.NETWORK
-      }
+      const code = mapHttpError(e)
+      const errorMsg = ERROR_MESSAGES[code]
       setState((prev) => ({ ...prev, isLoading: false, errorMsg }))
     }
   }, [state.keywords])

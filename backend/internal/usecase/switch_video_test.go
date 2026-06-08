@@ -9,6 +9,7 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
 type fakeYT struct{}
@@ -36,7 +37,7 @@ func TestSwitchVideo_UsersClearedAndStateActive(t *testing.T) {
 	yt := &fakeYT{}
 	clock := fixedClock{t: time.Unix(1000, 0)}
 
-	uc := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock}
+	uc := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
 
 	// Execute実行
 	out, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "video123"})

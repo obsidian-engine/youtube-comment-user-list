@@ -59,10 +59,12 @@ func (s *SnapshotStore) Load(ctx context.Context, videoID string) (*port.Snapsho
 }
 
 // Save はスナップショットを GCS に書き込みます（上書き）。
+// caller の struct を書き換えないよう local copy に SavedAt をセットして marshal します。
 func (s *SnapshotStore) Save(ctx context.Context, snap *port.Snapshot) error {
-	snap.SavedAt = time.Now()
+	snapCopy := *snap
+	snapCopy.SavedAt = time.Now()
 
-	data, err := json.Marshal(snap)
+	data, err := json.Marshal(&snapCopy)
 	if err != nil {
 		return fmt.Errorf("gcs: marshal snapshot %s: %w", snap.VideoID, err)
 	}
@@ -109,10 +111,12 @@ func (s *SnapshotStore) LoadCurrent(ctx context.Context) (*port.CurrentPointer, 
 }
 
 // SaveCurrent は current.json を書き込みます（上書き）。
+// caller の struct を書き換えないよう local copy に SavedAt をセットして marshal します。
 func (s *SnapshotStore) SaveCurrent(ctx context.Context, ptr *port.CurrentPointer) error {
-	ptr.SavedAt = time.Now()
+	ptrCopy := *ptr
+	ptrCopy.SavedAt = time.Now()
 
-	data, err := json.Marshal(ptr)
+	data, err := json.Marshal(&ptrCopy)
 	if err != nil {
 		return fmt.Errorf("gcs: marshal current.json: %w", err)
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
 type fakeYTForPull struct {
@@ -69,7 +70,7 @@ func TestPull_AddsUsers_NormalFlow(t *testing.T) {
 	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
 	comments := memory.NewCommentRepo()
-	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock}
+	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
 	out, err := uc.Execute(ctx)
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
@@ -115,7 +116,7 @@ func TestPull_MultipleComments_IncrementCount(t *testing.T) {
 	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
 	comments := memory.NewCommentRepo()
-	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock}
+	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
 	_, err := uc.Execute(ctx)
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
@@ -165,7 +166,7 @@ func TestPull_Ended_AutoReset(t *testing.T) {
 	clock := &fakeClock{now: endedAt}
 
 	comments := memory.NewCommentRepo()
-	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock}
+	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
 	out, err := uc.Execute(ctx)
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
@@ -202,7 +203,7 @@ func TestPull_WaitingState_NoOperation(t *testing.T) {
 	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
 
 	comments := memory.NewCommentRepo()
-	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock}
+	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
 	out, err := uc.Execute(ctx)
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
@@ -234,7 +235,7 @@ func TestPull_SavesNextPageToken(t *testing.T) {
 	}
 
 	comments := memory.NewCommentRepo()
-	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock}
+	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
 	if _, err := uc.Execute(context.Background()); err != nil {
 		t.Fatalf("execute error: %v", err)
 	}
@@ -310,6 +311,7 @@ func TestPull_MinimumPollingInterval(t *testing.T) {
 				Comments: comments,
 				State:    state,
 				Clock:    clock,
+				Snap:     &snapshot.NopCoordinator{},
 			}
 
 			// 実行
