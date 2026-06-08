@@ -21,8 +21,6 @@ func NewUserRepo() *UserRepo {
 	}
 }
 
-
-
 func (r *UserRepo) Count() int {
 	r.mu.RLock()
 	c := len(r.usersByID)
@@ -45,9 +43,9 @@ func (r *UserRepo) UpsertWithJoinTime(channelID string, displayName string, join
 
 	// 既存ユーザーの場合は参加時間を保持、発言数をインクリメント
 	if existingUser, exists := r.usersByID[channelID]; exists {
-		existingUser.DisplayName = displayName     // 表示名は更新
-		existingUser.CommentCount++                // 発言数をインクリメント
-		existingUser.LatestCommentedAt = joinedAt  // 最新コメント時間を更新
+		existingUser.DisplayName = displayName    // 表示名は更新
+		existingUser.CommentCount++               // 発言数をインクリメント
+		existingUser.LatestCommentedAt = joinedAt // 最新コメント時間を更新
 		r.usersByID[channelID] = existingUser
 	} else {
 		// 新規ユーザーの場合
@@ -78,9 +76,9 @@ func (r *UserRepo) UpsertWithMessageUpdated(channelID string, displayName string
 
 	// 既存ユーザーの場合は参加時間を保持、発言数をインクリメント
 	if existingUser, exists := r.usersByID[channelID]; exists {
-		existingUser.DisplayName = displayName     // 表示名は更新
-		existingUser.CommentCount++                // 発言数をインクリメント
-		existingUser.LatestCommentedAt = joinedAt  // 最新コメント時間を更新
+		existingUser.DisplayName = displayName    // 表示名は更新
+		existingUser.CommentCount++               // 発言数をインクリメント
+		existingUser.LatestCommentedAt = joinedAt // 最新コメント時間を更新
 		r.usersByID[channelID] = existingUser
 	} else {
 		// 新規ユーザーの場合
@@ -104,6 +102,40 @@ func (r *UserRepo) UpsertWithMessageUpdated(channelID string, displayName string
 func (r *UserRepo) UpsertWithMessage(channelID string, displayName string, joinedAt time.Time, messageID string) error {
 	_, err := r.UpsertWithMessageUpdated(channelID, displayName, joinedAt, messageID)
 	return err
+}
+
+// Dump は現在の全 User state と処理済みメッセージID一覧を返します（snapshot 用）。
+func (r *UserRepo) Dump() ([]domain.User, []string) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	users := make([]domain.User, 0, len(r.usersByID))
+	for _, u := range r.usersByID {
+		users = append(users, u)
+	}
+
+	msgs := make([]string, 0, len(r.processedMsgs))
+	for id := range r.processedMsgs {
+		msgs = append(msgs, id)
+	}
+
+	return users, msgs
+}
+
+// LoadFrom は snapshot から復元した state を上書きします（起動時用）。
+func (r *UserRepo) LoadFrom(users []domain.User, processedMsgs []string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.usersByID = make(map[string]domain.User, len(users))
+	for _, u := range users {
+		r.usersByID[u.ChannelID] = u
+	}
+
+	r.processedMsgs = make(map[string]bool, len(processedMsgs))
+	for _, id := range processedMsgs {
+		r.processedMsgs[id] = true
+	}
 }
 
 // ListUsersSortedByJoinTime は User構造体の配列を参加時間順（早い順）で返します。

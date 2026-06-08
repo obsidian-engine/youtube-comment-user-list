@@ -5,6 +5,7 @@ import (
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
 type ResetOutput struct {
@@ -14,10 +15,18 @@ type ResetOutput struct {
 type Reset struct {
 	Users port.UserRepo
 	State port.StateRepo
+	Snap  snapshot.Coordinator
 }
 
 // Execute: Users クリア、State=WAITING
 func (uc *Reset) Execute(ctx context.Context) (ResetOutput, error) {
+	// リセット前の状態を snapshot に保存
+	if uc.Snap != nil {
+		if err := uc.Snap.Flush(ctx); err != nil {
+			_ = err
+		}
+	}
+
 	// ユーザーをクリア
 	uc.Users.Clear()
 
@@ -29,6 +38,14 @@ func (uc *Reset) Execute(ctx context.Context) (ResetOutput, error) {
 
 	if err := uc.State.Set(ctx, newState); err != nil {
 		return ResetOutput{}, err
+	}
+
+	// video unset 状態にして current.json を更新
+	if uc.Snap != nil {
+		uc.Snap.SetVideo("", "")
+		if err := uc.Snap.Flush(ctx); err != nil {
+			_ = err
+		}
 	}
 
 	return ResetOutput{State: newState}, nil

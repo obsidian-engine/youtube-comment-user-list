@@ -7,6 +7,7 @@ import (
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
 type PullOutput struct {
@@ -22,6 +23,7 @@ type Pull struct {
 	Comments port.CommentRepo
 	State    port.StateRepo
 	Clock    port.Clock
+	Snap     snapshot.Coordinator
 }
 
 // Execute: コメント取得・ユーザー追加、終了検知→WAITING へ（autoReset）。
@@ -128,6 +130,11 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 	const minPollingIntervalMillis = 15000
 	if pollMs < minPollingIntervalMillis {
 		pollMs = minPollingIntervalMillis
+	}
+
+	// 差分あり（新規ユーザー追加 or コメント追加）の場合にスナップショット dirty フラグを立てる
+	if uc.Snap != nil && (addedCount > 0 || len(items) > 0) {
+		uc.Snap.MarkDirty()
 	}
 
 	return PullOutput{AddedCount: addedCount, SkippedCount: skippedCount, AutoReset: false, PollingIntervalMillis: pollMs}, nil

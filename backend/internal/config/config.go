@@ -14,6 +14,7 @@ type Config struct {
 	FrontendOrigin string
 	YouTubeAPIKey  string
 	LogLevel       string
+	GCSBucket      string
 }
 
 // Load は環境変数から設定を読み込み、検証します
@@ -23,6 +24,7 @@ func Load() (*Config, error) {
 		FrontendOrigin: os.Getenv("FRONTEND_ORIGIN"),
 		YouTubeAPIKey:  os.Getenv("YT_API_KEY"),
 		LogLevel:       getEnv("LOG_LEVEL", "info"),
+		GCSBucket:      os.Getenv("GCS_BUCKET"),
 	}
 
 	if err := config.Validate(); err != nil {
@@ -44,7 +46,7 @@ func (c *Config) SetupLogger() {
 	default:
 		log.SetFlags(log.LstdFlags)
 	}
-	
+
 	log.Printf("Logger configured with level: %s", c.LogLevel)
 }
 
@@ -64,7 +66,7 @@ func (c *Config) Validate() error {
 		if c.YouTubeAPIKey == "" {
 			return errors.New("YT_API_KEY is required in production environment")
 		}
-		
+
 		// FrontendOriginは本番環境では必須（CORS設定のため）
 		if c.FrontendOrigin == "" {
 			return errors.New("FRONTEND_ORIGIN is required in production environment")
