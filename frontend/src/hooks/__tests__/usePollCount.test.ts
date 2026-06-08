@@ -23,7 +23,10 @@ const c = (channelId: string, message: string, publishedAt: string): Comment => 
 })
 
 describe('usePollCount - 初期状態', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
 
   it('空キーワード / counts={} / lastUpdated=--:--:--', () => {
     const { result } = renderHook(() => usePollCount())
@@ -316,5 +319,62 @@ describe('usePollCount - clearKeywords / race 防止', () => {
 
     expect(signals[0].aborted).toBe(true)
     expect(signals[1].aborted).toBe(false)
+  })
+})
+
+describe('usePollCount - localStorage 永続化', () => {
+  let store: Record<string, string>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    store = {}
+    vi.spyOn(window.localStorage, 'getItem').mockImplementation((k) => store[k] ?? null)
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation((k, v) => {
+      store[k] = String(v)
+    })
+    vi.spyOn(window.localStorage, 'clear').mockImplementation(() => {
+      store = {}
+    })
+  })
+
+  it('キーワード追加で localStorage に保存される', () => {
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.addKeyword('hoge'))
+    act(() => result.current.addKeyword('fuga'))
+    expect(JSON.parse(localStorage.getItem('pollKeywords') ?? '[]')).toEqual(['hoge', 'fuga'])
+  })
+
+  it('mount 時に localStorage から復元される', () => {
+    localStorage.setItem('pollKeywords', JSON.stringify(['a', 'b', 'c']))
+    const { result } = renderHook(() => usePollCount())
+    expect(result.current.keywords).toEqual(['a', 'b', 'c'])
+    expect(result.current.counts).toEqual({ a: 0, b: 0, c: 0 })
+    expect(result.current.voters).toEqual({ a: [], b: [], c: [] })
+  })
+
+  it('removeKeyword で localStorage も更新される', () => {
+    localStorage.setItem('pollKeywords', JSON.stringify(['a', 'b']))
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.removeKeyword('a'))
+    expect(JSON.parse(localStorage.getItem('pollKeywords') ?? '[]')).toEqual(['b'])
+  })
+
+  it('clearKeywords で localStorage も空になる', () => {
+    localStorage.setItem('pollKeywords', JSON.stringify(['a', 'b']))
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.clearKeywords())
+    expect(JSON.parse(localStorage.getItem('pollKeywords') ?? '[]')).toEqual([])
+  })
+
+  it('localStorage が壊れていても crash せず空で起動', () => {
+    localStorage.setItem('pollKeywords', '{not json')
+    const { result } = renderHook(() => usePollCount())
+    expect(result.current.keywords).toEqual([])
+  })
+
+  it('localStorage が配列でない場合は空で起動', () => {
+    localStorage.setItem('pollKeywords', JSON.stringify({ keywords: ['a'] }))
+    const { result } = renderHook(() => usePollCount())
+    expect(result.current.keywords).toEqual([])
   })
 })

@@ -1,9 +1,30 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { searchComments, type Comment } from '../utils/api'
 import { mapHttpError } from '../utils/mapHttpError'
 import { countVotes, type VoteCounts, type VoteVoters } from '../utils/countVotes'
 
 export const POLL_INTERVAL_SEC = 15
+const STORAGE_KEY = 'pollKeywords'
+
+function loadStoredKeywords(): string[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+  } catch {
+    return []
+  }
+}
+
+function saveStoredKeywords(keywords: string[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(keywords))
+  } catch {
+    // localStorage 不可環境 (Safari private mode 等) は黙って無視
+  }
+}
 
 const ERROR_MESSAGES = {
   GENERIC: '集計に失敗しました。再試行してください。',
@@ -33,8 +54,21 @@ const initialState: PollState = {
 }
 
 export function usePollCount() {
-  const [state, setState] = useState<PollState>(initialState)
+  const [state, setState] = useState<PollState>(() => {
+    const stored = loadStoredKeywords()
+    if (stored.length === 0) return initialState
+    return {
+      ...initialState,
+      keywords: stored,
+      counts: Object.fromEntries(stored.map((k) => [k, 0])),
+      voters: Object.fromEntries(stored.map((k) => [k, []])),
+    }
+  })
   const controllerRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    saveStoredKeywords(state.keywords)
+  }, [state.keywords])
 
   const addKeyword = useCallback((word: string) => {
     const trimmed = word.trim()
