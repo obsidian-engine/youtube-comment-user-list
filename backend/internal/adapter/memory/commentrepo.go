@@ -45,7 +45,7 @@ func (r *CommentRepo) SearchByKeywords(keywords []string) []domain.Comment {
 		return []domain.Comment{}
 	}
 
-	var results []domain.Comment
+	results := []domain.Comment{}
 	for _, comment := range r.comments {
 		for _, keyword := range keywords {
 			if strings.Contains(comment.Message, keyword) {

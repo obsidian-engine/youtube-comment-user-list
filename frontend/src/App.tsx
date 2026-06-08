@@ -135,7 +135,7 @@ export default function App() {
               isLoading={commentSearch.isLoading}
               intervalSec={commentSearch.intervalSec}
               setIntervalSec={commentSearch.setIntervalSec}
-              commentsCount={commentSearch.comments.length}
+              commentsCount={commentSearch.comments?.length ?? 0}
               checkedCount={checkState.checkedCount}
               lastUpdated={commentSearch.lastUpdated}
             />
