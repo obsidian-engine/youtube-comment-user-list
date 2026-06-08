@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { searchComments, type Comment } from '../utils/api'
+import { mapHttpError } from '../utils/mapHttpError'
 
 const KEYWORDS_KEY = 'comment-search-keywords'
 
@@ -89,29 +90,24 @@ export function useCommentSearch() {
         lastUpdated: timeStr,
       }))
     } catch (e) {
-      if (e instanceof Error) {
-        if (e.name === 'AbortError') {
-          return
-        }
+      if (!(e instanceof Error)) return
+      if (e.name === 'AbortError') return
 
-        // エラー種別を判定して適切なメッセージを表示
-        let errorMsg = '検索に失敗しました。'
-        if (e.message.includes('HTTP 404')) {
-          errorMsg = 'サーバーに接続できません。'
-        } else if (e.message.includes('HTTP 500')) {
-          errorMsg = 'サーバーエラーが発生しました。しばらく待ってから再試行してください。'
-        } else if (e.message.includes('Failed to fetch')) {
-          errorMsg = 'ネットワークエラー。接続を確認してください。'
-        } else {
-          errorMsg = '検索に失敗しました。再試行してください。'
-        }
+      const ERROR_MESSAGES = {
+        SERVER_UNREACHABLE: 'サーバーに接続できません。',
+        SERVER_ERROR: 'サーバーエラーが発生しました。しばらく待ってから再試行してください。',
+        NETWORK: 'ネットワークエラー。接続を確認してください。',
+        TIMEOUT: '応答がタイムアウトしました。再試行してください。',
+        GENERIC: '検索に失敗しました。再試行してください。',
+      } as const
 
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          errorMsg,
-        }))
-      }
+      const code = mapHttpError(e)
+      const errorMsg = ERROR_MESSAGES[code]
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        errorMsg,
+      }))
     }
   }, [state.keywords])
 

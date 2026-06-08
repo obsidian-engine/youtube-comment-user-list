@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 )
 
 type UserRepo struct {
@@ -105,7 +106,7 @@ func (r *UserRepo) UpsertWithMessage(channelID string, displayName string, joine
 }
 
 // Dump は現在の全 User state と処理済みメッセージID一覧を返します（snapshot 用）。
-func (r *UserRepo) Dump() ([]domain.User, []string) {
+func (r *UserRepo) Dump() port.UserSnapshot {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -119,21 +120,21 @@ func (r *UserRepo) Dump() ([]domain.User, []string) {
 		msgs = append(msgs, id)
 	}
 
-	return users, msgs
+	return port.UserSnapshot{Users: users, ProcessedMsgs: msgs}
 }
 
 // LoadFrom は snapshot から復元した state を上書きします（起動時用）。
-func (r *UserRepo) LoadFrom(users []domain.User, processedMsgs []string) {
+func (r *UserRepo) LoadFrom(snap port.UserSnapshot) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.usersByID = make(map[string]domain.User, len(users))
-	for _, u := range users {
+	r.usersByID = make(map[string]domain.User, len(snap.Users))
+	for _, u := range snap.Users {
 		r.usersByID[u.ChannelID] = u
 	}
 
-	r.processedMsgs = make(map[string]bool, len(processedMsgs))
-	for _, id := range processedMsgs {
+	r.processedMsgs = make(map[string]bool, len(snap.ProcessedMsgs))
+	for _, id := range snap.ProcessedMsgs {
 		r.processedMsgs[id] = true
 	}
 }

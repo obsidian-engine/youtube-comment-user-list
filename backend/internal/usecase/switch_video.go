@@ -22,7 +22,7 @@ type SwitchVideo struct {
 	Users port.UserRepo
 	State port.StateRepo
 	Clock port.Clock
-	Snap  snapshot.Coordinator
+	Snap  snapshot.Coordinator // 必須 (GCS 不要な場合は NopCoordinator を渡す)
 }
 
 // Execute: videoId 切替、ユーザー初期化、State=ACTIVE に遷移。
@@ -34,11 +34,9 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 	}
 
 	// 2. 切替前の状態を snapshot に保存（旧 video の最終状態を確実に残す）
-	if uc.Snap != nil {
-		if err := uc.Snap.Flush(ctx); err != nil {
-			log.Printf("[WARN] switch_video: snapshot flush (pre-switch) failed: %v", err)
-			// Flush 失敗は警告のみ、切替処理は継続
-		}
+	if err := uc.Snap.Flush(ctx); err != nil {
+		log.Printf("[WARN] switch_video: snapshot flush (pre-switch) failed: %v", err)
+		// Flush 失敗は警告のみ、切替処理は継続
 	}
 
 	// 3. ユーザーをクリア
@@ -59,12 +57,10 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 	}
 
 	// 5. 新 videoId を Coordinator に設定し、current.json を即時更新
-	if uc.Snap != nil {
-		uc.Snap.SetVideo(in.VideoID, liveChatID)
-		uc.Snap.MarkDirty()
-		if err := uc.Snap.Flush(ctx); err != nil {
-			log.Printf("[WARN] switch_video: snapshot flush (post-switch) failed: %v", err)
-		}
+	uc.Snap.SetVideo(in.VideoID, liveChatID)
+	uc.Snap.MarkDirty()
+	if err := uc.Snap.Flush(ctx); err != nil {
+		log.Printf("[WARN] switch_video: snapshot flush (post-switch) failed: %v", err)
 	}
 
 	return SwitchVideoOutput{State: newState}, nil

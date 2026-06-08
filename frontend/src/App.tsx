@@ -12,14 +12,13 @@ import { UserTable } from './components/UserTable'
 import { Toast } from './components/Toast'
 import { ThemeToggle } from './components/ThemeToggle'
 import { Tabs } from './components/Tabs'
+import type { TabType } from './components/Tabs'
 import { CommentControls } from './components/CommentTab/CommentControls'
 import { CommentList } from './components/CommentTab/CommentList'
 import { LogPanel } from './components/LogPanel'
 import { PollControls } from './components/PollTab/PollControls'
 import { PollResults } from './components/PollTab/PollResults'
-import { usePollCount } from './hooks/usePollCount'
-
-type TabType = 'users' | 'comments' | 'votes' | 'logs'
+import { usePollCount, POLL_INTERVAL_SEC } from './hooks/usePollCount'
 
 export default function App() {
   const logEntries = useLogEntries()
@@ -65,7 +64,10 @@ export default function App() {
   useAutoRefresh(commentSearch.intervalSec, commentSearch.search)
 
   // 投票タブの自動更新（15秒間隔、votes タブ表示中かつキーワード設定済みの場合のみ）
-  useAutoRefresh(activeTab === 'votes' && pollCount.keywords.length > 0 ? 15 : 0, pollCount.recount)
+  useAutoRefresh(
+    activeTab === 'votes' && pollCount.keywords.length > 0 ? POLL_INTERVAL_SEC : 0,
+    pollCount.recount,
+  )
 
   return (
     <div className="min-h-screen bg-canvas-light dark:bg-canvas-dark text-slate-900 dark:text-slate-100">

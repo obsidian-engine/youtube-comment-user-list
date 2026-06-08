@@ -8,6 +8,7 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/memory"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
 func TestReset_ClearsUsersAndSetsWaiting(t *testing.T) {
@@ -20,7 +21,7 @@ func TestReset_ClearsUsersAndSetsWaiting(t *testing.T) {
 	state := memory.NewStateRepo()
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v123"})
 
-	uc := &usecase.Reset{Users: users, State: state}
+	uc := &usecase.Reset{Users: users, State: state, Snap: &snapshot.NopCoordinator{}}
 
 	// Execute実行
 	out, err := uc.Execute(ctx)

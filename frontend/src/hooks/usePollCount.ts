@@ -1,6 +1,9 @@
 import { useCallback, useRef, useState } from 'react'
-import { searchComments, type Comment, HttpError } from '../utils/api'
+import { searchComments, type Comment } from '../utils/api'
+import { mapHttpError } from '../utils/mapHttpError'
 import { countVotes, type VoteCounts } from '../utils/countVotes'
+
+export const POLL_INTERVAL_SEC = 15
 
 const ERROR_MESSAGES = {
   GENERIC: '集計に失敗しました。再試行してください。',
@@ -88,19 +91,14 @@ export function usePollCount() {
         lastUpdated: timeStr,
       }))
     } catch (e) {
-      if (!(e instanceof Error)) return
-      if (e.name === 'AbortError') return
-
-      let errorMsg: string = ERROR_MESSAGES.GENERIC
-      if (e.name === 'TimeoutError') {
-        errorMsg = ERROR_MESSAGES.TIMEOUT
-      } else if (e instanceof HttpError) {
-        if (e.status === 404) errorMsg = ERROR_MESSAGES.SERVER_UNREACHABLE
-        else if (e.status >= 500) errorMsg = ERROR_MESSAGES.SERVER_ERROR
-      } else if (e instanceof TypeError && e.message.includes('Failed to fetch')) {
-        errorMsg = ERROR_MESSAGES.NETWORK
+      try {
+        const code = mapHttpError(e)
+        const errorMsg = ERROR_MESSAGES[code]
+        setState((prev) => ({ ...prev, isLoading: false, errorMsg }))
+      } catch {
+        // AbortError は state を変更しない (mapHttpError が re-throw)
+        return
       }
-      setState((prev) => ({ ...prev, isLoading: false, errorMsg }))
     }
   }, [state.keywords])
 

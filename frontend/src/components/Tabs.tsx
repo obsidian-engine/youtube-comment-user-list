@@ -1,4 +1,4 @@
-type TabType = 'users' | 'comments' | 'votes' | 'logs'
+export type TabType = 'users' | 'comments' | 'votes' | 'logs'
 
 interface TabsProps {
   activeTab: TabType

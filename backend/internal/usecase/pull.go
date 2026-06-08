@@ -23,7 +23,7 @@ type Pull struct {
 	Comments port.CommentRepo
 	State    port.StateRepo
 	Clock    port.Clock
-	Snap     snapshot.Coordinator
+	Snap     snapshot.Coordinator // 必須 (GCS 不要な場合は NopCoordinator を渡す)
 }
 
 // Execute: コメント取得・ユーザー追加、終了検知→WAITING へ（autoReset）。
@@ -133,7 +133,7 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 	}
 
 	// 差分あり（新規ユーザー追加 or コメント追加）の場合にスナップショット dirty フラグを立てる
-	if uc.Snap != nil && (addedCount > 0 || len(items) > 0) {
+	if addedCount > 0 || len(items) > 0 {
 		uc.Snap.MarkDirty()
 	}
 

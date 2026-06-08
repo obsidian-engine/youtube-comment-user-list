@@ -79,7 +79,7 @@ func (c *coordinator) Restore(ctx context.Context) error {
 		return nil
 	}
 
-	c.userRepo.LoadFrom(snap.Users, snap.ProcessedMsgs)
+	c.userRepo.LoadFrom(port.UserSnapshot{Users: snap.Users, ProcessedMsgs: snap.ProcessedMsgs})
 	c.commentRepo.LoadFrom(snap.Comments)
 
 	if snap.State != nil && c.stateRepo != nil {
@@ -169,18 +169,17 @@ func (c *coordinator) Start(ctx context.Context) {
 				shouldSave := c.dirty && time.Since(c.lastSaved) > c.throttle
 				videoID := c.videoID
 				liveChatID := c.liveChatID
-				if shouldSave {
-					c.dirty = false
-					c.lastSaved = time.Now()
-				}
 				c.mu.Unlock()
 
 				if shouldSave && videoID != "" {
 					if err := c.save(innerCtx, videoID, liveChatID); err != nil {
 						log.Printf("[WARN] snapshot: background save failed: %v", err)
-						// 次 tick で再試行するため dirty を再セット
+						// save 失敗時は dirty を維持して次 tick で再試行
+					} else {
+						// save 成功後にのみ dirty をクリア (Flush と同じ pattern)
 						c.mu.Lock()
-						c.dirty = true
+						c.dirty = false
+						c.lastSaved = time.Now()
 						c.mu.Unlock()
 					}
 				}
@@ -203,7 +202,7 @@ func (c *coordinator) save(ctx context.Context, videoID, liveChatID string) erro
 	c.saveMu.Lock()
 	defer c.saveMu.Unlock()
 
-	users, processedMsgs := c.userRepo.Dump()
+	userSnap := c.userRepo.Dump()
 	comments := c.commentRepo.Dump()
 
 	var liveState *domain.LiveState
@@ -221,9 +220,9 @@ func (c *coordinator) save(ctx context.Context, videoID, liveChatID string) erro
 		VideoID:       videoID,
 		LiveChatID:    liveChatID,
 		SavedAt:       time.Now(),
-		Users:         users,
+		Users:         userSnap.Users,
 		Comments:      comments,
-		ProcessedMsgs: processedMsgs,
+		ProcessedMsgs: userSnap.ProcessedMsgs,
 		State:         liveState,
 	}
 

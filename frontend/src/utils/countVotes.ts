@@ -8,8 +8,12 @@ export type VoteCounts = Record<string, number>
 // マッチ判定: trim 後のメッセージ全体が keyword と完全一致（部分一致不可、前後空白のみ無視、
 // 大文字小文字は厳密に区別する）。サーバ API は lowercase 部分一致で候補を広めに返すが、
 // 本関数で厳密フィルタする方針。
+export function initCounts(keywords: string[]): VoteCounts {
+  return Object.fromEntries(keywords.map((k) => [k, 0])) as VoteCounts
+}
+
 export function countVotes(comments: Comment[], keywords: string[]): VoteCounts {
-  const counts: VoteCounts = Object.fromEntries(keywords.map((k) => [k, 0]))
+  const counts: VoteCounts = initCounts(keywords)
   if (keywords.length === 0) return counts
 
   const keywordSet = new Set(keywords)

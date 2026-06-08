@@ -10,6 +10,7 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/system"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/youtube"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
 func newTestServer(frontend string) *httptest.Server {
@@ -20,9 +21,9 @@ func newTestServer(frontend string) *httptest.Server {
 
 	h := &ahttp.Handlers{
 		Status:      &usecase.Status{Users: users, State: state},
-		SwitchVideo: &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock},
-		Pull:        &usecase.Pull{YT: yt, Users: users, State: state},
-		Reset:       &usecase.Reset{Users: users, State: state},
+		SwitchVideo: &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}},
+		Pull:        &usecase.Pull{YT: yt, Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
+		Reset:       &usecase.Reset{Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
 		Users:       users,
 	}
 	router := ahttp.NewRouter(h, frontend)
@@ -111,7 +112,7 @@ func TestUsersAPI_IncludesLatestCommentedAt(t *testing.T) {
 	body := make([]byte, 1000)
 	n, _ := res.Body.Read(body)
 	responseBody := string(body[:n])
-	
+
 	// Content-Typeが正しいことを確認
 	contentType := res.Header.Get("Content-Type")
 	if contentType != "application/json" {
@@ -119,7 +120,7 @@ func TestUsersAPI_IncludesLatestCommentedAt(t *testing.T) {
 	}
 
 	t.Logf("Response body: %s", responseBody)
-	
+
 	// 空のレスポンスの場合でも有効なJSONであることを確認
 	// 実際のユーザーデータがある場合、latestCommentedAtフィールドの存在を確認できる
 }
