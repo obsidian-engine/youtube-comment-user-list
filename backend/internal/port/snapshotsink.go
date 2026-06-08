@@ -9,13 +9,14 @@ import (
 
 // Snapshot は単一 video の状態スナップショットです。
 type Snapshot struct {
-	SchemaVersion int              `json:"schemaVersion"`
-	VideoID       string           `json:"videoId"`
-	LiveChatID    string           `json:"liveChatId"`
-	SavedAt       time.Time        `json:"savedAt"`
-	Users         []domain.User    `json:"users"`
-	Comments      []domain.Comment `json:"comments"`
-	ProcessedMsgs []string         `json:"processedMsgs"`
+	SchemaVersion int               `json:"schemaVersion"`
+	VideoID       string            `json:"videoId"`
+	LiveChatID    string            `json:"liveChatId"`
+	SavedAt       time.Time         `json:"savedAt"`
+	Users         []domain.User     `json:"users"`
+	Comments      []domain.Comment  `json:"comments"`
+	ProcessedMsgs []string          `json:"processedMsgs"`
+	State         *domain.LiveState `json:"state,omitempty"` // nil の場合は旧 snapshot 互換として skip
 }
 
 // CurrentPointer は現在アクティブな video を指すポインタです。

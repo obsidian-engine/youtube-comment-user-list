@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 )
 
@@ -26,6 +27,7 @@ type coordinator struct {
 	sink        port.SnapshotSink
 	userRepo    port.UserSnapshotSource
 	commentRepo port.CommentSnapshotSource
+	stateRepo   port.StateRepo
 	throttle    time.Duration
 
 	mu         sync.Mutex
@@ -44,12 +46,14 @@ func NewCoordinator(
 	sink port.SnapshotSink,
 	ur port.UserSnapshotSource,
 	cr port.CommentSnapshotSource,
+	sr port.StateRepo,
 	throttle time.Duration,
 ) Coordinator {
 	return &coordinator{
 		sink:        sink,
 		userRepo:    ur,
 		commentRepo: cr,
+		stateRepo:   sr,
 		throttle:    throttle,
 	}
 }
@@ -77,6 +81,12 @@ func (c *coordinator) Restore(ctx context.Context) error {
 
 	c.userRepo.LoadFrom(snap.Users, snap.ProcessedMsgs)
 	c.commentRepo.LoadFrom(snap.Comments)
+
+	if snap.State != nil && c.stateRepo != nil {
+		if err := c.stateRepo.Set(ctx, *snap.State); err != nil {
+			return fmt.Errorf("snapshot: restore state: %w", err)
+		}
+	}
 
 	c.mu.Lock()
 	c.videoID = snap.VideoID
@@ -196,6 +206,16 @@ func (c *coordinator) save(ctx context.Context, videoID, liveChatID string) erro
 	users, processedMsgs := c.userRepo.Dump()
 	comments := c.commentRepo.Dump()
 
+	var liveState *domain.LiveState
+	if c.stateRepo != nil {
+		st, err := c.stateRepo.Get(ctx)
+		if err != nil {
+			log.Printf("[WARN] snapshot: state.Get failed, saving without state: %v", err)
+		} else {
+			liveState = &st
+		}
+	}
+
 	snap := &port.Snapshot{
 		SchemaVersion: 1,
 		VideoID:       videoID,
@@ -204,6 +224,7 @@ func (c *coordinator) save(ctx context.Context, videoID, liveChatID string) erro
 		Users:         users,
 		Comments:      comments,
 		ProcessedMsgs: processedMsgs,
+		State:         liveState,
 	}
 
 	if err := c.sink.Save(ctx, snap); err != nil {

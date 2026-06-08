@@ -55,7 +55,7 @@ func main() {
 		}
 		defer func() { _ = storageClient.Close() }()
 		sink := gcs.NewSnapshotStore(storageClient, cfg.GCSBucket)
-		coord = snapshot.NewCoordinator(sink, users, comments, 30*time.Second)
+		coord = snapshot.NewCoordinator(sink, users, comments, state, 30*time.Second)
 	} else {
 		coord = &snapshot.NopCoordinator{}
 	}

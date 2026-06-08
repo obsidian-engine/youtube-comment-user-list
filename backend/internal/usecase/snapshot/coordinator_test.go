@@ -23,7 +23,7 @@ func TestFlush_ignoresThrottle(t *testing.T) {
 	sink := newFakeSink()
 	ur, cr := newTestRepos()
 
-	c := snapshot.NewCoordinator(sink, ur, cr, 30*time.Second)
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
 	c.SetVideo("vid1", "chat1")
 	c.MarkDirty()
 
@@ -42,7 +42,7 @@ func TestFlush_noVideo(t *testing.T) {
 	sink := newFakeSink()
 	ur, cr := newTestRepos()
 
-	c := snapshot.NewCoordinator(sink, ur, cr, 30*time.Second)
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
 	// SetVideo を呼ばない
 
 	if err := c.Flush(context.Background()); err != nil {
@@ -61,7 +61,7 @@ func TestMarkDirty_throttleCollapse(t *testing.T) {
 	ur, cr := newTestRepos()
 
 	// throttle 50ms で短く設定、ticker は 1s だが Start 後に直接 flush で確認
-	c := snapshot.NewCoordinator(sink, ur, cr, 50*time.Millisecond)
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 50*time.Millisecond)
 	c.SetVideo("vid1", "chat1")
 
 	// 連続 MarkDirty → Flush で 1 save
@@ -109,7 +109,7 @@ func TestRestore_loadsRepoState(t *testing.T) {
 	_ = sink.SaveCurrent(context.Background(), &port.CurrentPointer{VideoID: "vid-restore"})
 
 	// Restore
-	c := snapshot.NewCoordinator(sink, ur, cr, 30*time.Second)
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
 	if err := c.Restore(context.Background()); err != nil {
 		t.Fatalf("Restore returned error: %v", err)
 	}
@@ -128,13 +128,131 @@ func TestRestore_loadsRepoState(t *testing.T) {
 	}
 }
 
+// TestRestore_restoresLiveState: snap.State が nil でない場合に StateRepo へ復元される
+func TestRestore_restoresLiveState(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+	sr := memory.NewStateRepo()
+
+	now := time.Now()
+	state := domain.LiveState{
+		Status:        domain.StatusActive,
+		VideoID:       "vid-state",
+		LiveChatID:    "chat-state",
+		StartedAt:     now,
+		NextPageToken: "token-xyz",
+	}
+	snap := &port.Snapshot{
+		SchemaVersion: 1,
+		VideoID:       "vid-state",
+		LiveChatID:    "chat-state",
+		State:         &state,
+	}
+	_ = sink.Save(context.Background(), snap)
+	_ = sink.SaveCurrent(context.Background(), &port.CurrentPointer{VideoID: "vid-state"})
+
+	c := snapshot.NewCoordinator(sink, ur, cr, sr, 30*time.Second)
+	if err := c.Restore(context.Background()); err != nil {
+		t.Fatalf("Restore returned error: %v", err)
+	}
+
+	got, err := sr.Get(context.Background())
+	if err != nil {
+		t.Fatalf("StateRepo.Get error: %v", err)
+	}
+	if got.VideoID != state.VideoID {
+		t.Errorf("VideoID = %q, want %q", got.VideoID, state.VideoID)
+	}
+	if got.LiveChatID != state.LiveChatID {
+		t.Errorf("LiveChatID = %q, want %q", got.LiveChatID, state.LiveChatID)
+	}
+	if got.Status != state.Status {
+		t.Errorf("Status = %q, want %q", got.Status, state.Status)
+	}
+	if got.NextPageToken != state.NextPageToken {
+		t.Errorf("NextPageToken = %q, want %q", got.NextPageToken, state.NextPageToken)
+	}
+}
+
+// TestRestore_nilState_skipStateSet: snap.State が nil の場合 StateRepo に書かない
+func TestRestore_nilState_skipStateSet(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+	sr := memory.NewStateRepo()
+
+	snap := &port.Snapshot{
+		SchemaVersion: 1,
+		VideoID:       "vid-nostate",
+		LiveChatID:    "chat-nostate",
+		State:         nil, // 旧 snapshot 互換: State なし
+	}
+	_ = sink.Save(context.Background(), snap)
+	_ = sink.SaveCurrent(context.Background(), &port.CurrentPointer{VideoID: "vid-nostate"})
+
+	c := snapshot.NewCoordinator(sink, ur, cr, sr, 30*time.Second)
+	if err := c.Restore(context.Background()); err != nil {
+		t.Fatalf("Restore returned error: %v", err)
+	}
+
+	// StateRepo は初期値のまま (VideoID が空) であること
+	got, err := sr.Get(context.Background())
+	if err != nil {
+		t.Fatalf("StateRepo.Get error: %v", err)
+	}
+	if got.VideoID != "" {
+		t.Errorf("expected empty VideoID when snap.State is nil, got %q", got.VideoID)
+	}
+}
+
+// TestSave_includesState: Flush 時に snap に State が含まれる
+func TestSave_includesState(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+	sr := memory.NewStateRepo()
+
+	liveState := domain.LiveState{
+		Status:     domain.StatusActive,
+		VideoID:    "vid-save",
+		LiveChatID: "chat-save",
+	}
+	_ = sr.Set(context.Background(), liveState)
+
+	c := snapshot.NewCoordinator(sink, ur, cr, sr, 30*time.Second)
+	c.SetVideo("vid-save", "chat-save")
+	c.MarkDirty()
+
+	if err := c.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush returned error: %v", err)
+	}
+
+	saved, err := sink.Load(context.Background(), "vid-save")
+	if err != nil {
+		t.Fatalf("sink.Load error: %v", err)
+	}
+	if saved == nil {
+		t.Fatal("expected snapshot to be saved, got nil")
+	}
+	if saved.State == nil {
+		t.Fatal("expected snap.State to be set, got nil")
+	}
+	if saved.State.VideoID != liveState.VideoID {
+		t.Errorf("snap.State.VideoID = %q, want %q", saved.State.VideoID, liveState.VideoID)
+	}
+	if saved.State.Status != liveState.Status {
+		t.Errorf("snap.State.Status = %q, want %q", saved.State.Status, liveState.Status)
+	}
+}
+
 // TestRestore_noCurrent: current.json なし → 空 state で続行（エラーなし）
 func TestRestore_noCurrent(t *testing.T) {
 	t.Helper()
 	sink := newFakeSink()
 	ur, cr := newTestRepos()
 
-	c := snapshot.NewCoordinator(sink, ur, cr, 30*time.Second)
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
 	if err := c.Restore(context.Background()); err != nil {
 		t.Fatalf("Restore should not return error when current.json is absent, got: %v", err)
 	}
@@ -153,7 +271,7 @@ func TestBackground_savesAfterThrottle(t *testing.T) {
 	// throttle を短くして実時間テストを可能にする
 	// ticker が 1s なので throttle < 1s でも ticker が trigger するまで待つ必要がある
 	// ここでは throttle=0 (即トリガー) にして ticker 1 tick 待つ
-	c := snapshot.NewCoordinator(sink, ur, cr, 0)
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 0)
 	c.SetVideo("vid-bg", "chat-bg")
 
 	ctx := context.Background()
@@ -185,7 +303,7 @@ func TestRestore_currentExistsButSnapshotAbsent(t *testing.T) {
 	// current.json は存在するが snapshot は保存しない
 	_ = sink.SaveCurrent(context.Background(), &port.CurrentPointer{VideoID: "missing-video"})
 
-	c := snapshot.NewCoordinator(sink, ur, cr, 30*time.Second)
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
 	if err := c.Restore(context.Background()); err != nil {
 		t.Fatalf("Restore should not return error when snapshot is absent, got: %v", err)
 	}
@@ -204,7 +322,7 @@ func TestFlush_saveError_dirtyPreserved(t *testing.T) {
 	sink := newFakeSink()
 	ur, cr := newTestRepos()
 
-	c := snapshot.NewCoordinator(sink, ur, cr, 30*time.Second)
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
 	c.SetVideo("vid1", "chat1")
 	c.MarkDirty()
 
@@ -230,7 +348,7 @@ func TestFlush_resetClearsCurrent(t *testing.T) {
 	sink := newFakeSink()
 	ur, cr := newTestRepos()
 
-	c := snapshot.NewCoordinator(sink, ur, cr, 30*time.Second)
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
 	c.SetVideo("vid1", "chat1")
 	c.MarkDirty()
 	_ = c.Flush(context.Background())
@@ -262,7 +380,7 @@ func TestFlush_parallelSave_noRace(t *testing.T) {
 	sink := newFakeSink()
 	ur, cr := newTestRepos()
 
-	c := snapshot.NewCoordinator(sink, ur, cr, 0)
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 0)
 	c.SetVideo("vid1", "chat1")
 
 	const n = 10
