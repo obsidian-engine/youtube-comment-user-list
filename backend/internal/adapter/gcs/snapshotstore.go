@@ -43,7 +43,7 @@ func (s *SnapshotStore) Load(ctx context.Context, videoID string) (*port.Snapsho
 		}
 		return nil, fmt.Errorf("gcs: open snapshot %s: %w", objName, err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 
 	data, err := io.ReadAll(rc)
 	if err != nil {
@@ -93,7 +93,7 @@ func (s *SnapshotStore) LoadCurrent(ctx context.Context) (*port.CurrentPointer, 
 		}
 		return nil, fmt.Errorf("gcs: open current.json: %w", err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 
 	data, err := io.ReadAll(rc)
 	if err != nil {

@@ -53,7 +53,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("GCS client init failed: %v", err)
 		}
-		defer storageClient.Close()
+		defer func() { _ = storageClient.Close() }()
 		sink := gcs.NewSnapshotStore(storageClient, cfg.GCSBucket)
 		coord = snapshot.NewCoordinator(sink, users, comments, 30*time.Second)
 	} else {
