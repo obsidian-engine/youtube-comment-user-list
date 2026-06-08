@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"log"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
@@ -23,7 +24,7 @@ func (uc *Reset) Execute(ctx context.Context) (ResetOutput, error) {
 	// リセット前の状態を snapshot に保存
 	if uc.Snap != nil {
 		if err := uc.Snap.Flush(ctx); err != nil {
-			_ = err
+			log.Printf("[WARN] reset: snapshot flush (pre-reset) failed: %v", err)
 		}
 	}
 
@@ -44,7 +45,7 @@ func (uc *Reset) Execute(ctx context.Context) (ResetOutput, error) {
 	if uc.Snap != nil {
 		uc.Snap.SetVideo("", "")
 		if err := uc.Snap.Flush(ctx); err != nil {
-			_ = err
+			log.Printf("[WARN] reset: snapshot flush (clear current) failed: %v", err)
 		}
 	}
 

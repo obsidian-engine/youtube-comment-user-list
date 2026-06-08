@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"log"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
@@ -35,8 +36,8 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 	// 2. 切替前の状態を snapshot に保存（旧 video の最終状態を確実に残す）
 	if uc.Snap != nil {
 		if err := uc.Snap.Flush(ctx); err != nil {
-			// Flush 失敗はログのみ、切替処理は継続
-			_ = err
+			log.Printf("[WARN] switch_video: snapshot flush (pre-switch) failed: %v", err)
+			// Flush 失敗は警告のみ、切替処理は継続
 		}
 	}
 
@@ -62,7 +63,7 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 		uc.Snap.SetVideo(in.VideoID, liveChatID)
 		uc.Snap.MarkDirty()
 		if err := uc.Snap.Flush(ctx); err != nil {
-			_ = err
+			log.Printf("[WARN] switch_video: snapshot flush (post-switch) failed: %v", err)
 		}
 	}
 

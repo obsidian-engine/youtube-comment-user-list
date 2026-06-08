@@ -65,6 +65,10 @@ gcloud storage buckets add-iam-policy-binding gs://<bucket-name> \
 3. /switchVideo API 叩く → `gs://<bucket-name>/snapshots/current.json` と `snapshots/<videoID>.json` が生成されるか確認
 4. Cloud Run instance を強制停止 → 再起動 → 同じ video state が復元されるか確認
 
+## 制約
+
+- **max-instances=1 必須**: 複数インスタンスが同一 snapshot に concurrent write すると上書き race が発生する。スケールアウトする場合は Generation Match による楽観 lock が必要（未実装）。Cloud Run の `--max-instances=1` を必ず設定すること。
+
 ## 失敗時挙動
 
 - GCS bucket 不在 / 権限不足 → server 起動時 warn log、空 state で続行 (致命的でない)

@@ -2,6 +2,8 @@ package snapshot_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -193,6 +195,93 @@ func TestRestore_currentExistsButSnapshotAbsent(t *testing.T) {
 	}
 	if cr.Count() != 0 {
 		t.Errorf("expected empty comment repo, got %d comments", cr.Count())
+	}
+}
+
+// TestFlush_saveError_dirtyPreserved: Flush で save が失敗した場合、dirty が維持される (C1)
+func TestFlush_saveError_dirtyPreserved(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+
+	c := snapshot.NewCoordinator(sink, ur, cr, 30*time.Second)
+	c.SetVideo("vid1", "chat1")
+	c.MarkDirty()
+
+	sink.setForceError(fmt.Errorf("gcs unavailable"))
+	err := c.Flush(context.Background())
+	if err == nil {
+		t.Fatal("expected error from Flush when save fails, got nil")
+	}
+
+	// save 失敗後に dirty が維持されているか: 再度 Flush が save を呼ぶことで確認
+	sink.setForceError(nil)
+	if err2 := c.Flush(context.Background()); err2 != nil {
+		t.Fatalf("second Flush (after error cleared) failed: %v", err2)
+	}
+	if sink.getSaveCount() != 1 {
+		t.Errorf("expected 1 save on second Flush, got %d", sink.getSaveCount())
+	}
+}
+
+// TestFlush_resetClearsCurrent: Reset 後 (videoID="") に Flush すると current.json が空 videoID で上書きされる (C2)
+func TestFlush_resetClearsCurrent(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+
+	c := snapshot.NewCoordinator(sink, ur, cr, 30*time.Second)
+	c.SetVideo("vid1", "chat1")
+	c.MarkDirty()
+	_ = c.Flush(context.Background())
+
+	// current.json に vid1 がセットされている
+	ptr, _ := sink.LoadCurrent(context.Background())
+	if ptr == nil || ptr.VideoID != "vid1" {
+		t.Fatalf("expected current.json videoId=vid1, got %+v", ptr)
+	}
+
+	// Reset: videoID を空にして Flush
+	c.SetVideo("", "")
+	if err := c.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush with empty videoID returned error: %v", err)
+	}
+
+	ptr2, _ := sink.LoadCurrent(context.Background())
+	if ptr2 == nil {
+		t.Fatal("expected current.json to exist after reset flush, got nil")
+	}
+	if ptr2.VideoID != "" {
+		t.Errorf("expected current.json videoId empty after reset, got %q", ptr2.VideoID)
+	}
+}
+
+// TestFlush_parallelSave_noRace: 並列 Flush が race なく完了する (W3)
+func TestFlush_parallelSave_noRace(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+
+	c := snapshot.NewCoordinator(sink, ur, cr, 0)
+	c.SetVideo("vid1", "chat1")
+
+	const n = 10
+	var wg sync.WaitGroup
+	errs := make([]error, n)
+	for i := range n {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			c.MarkDirty()
+			errs[idx] = c.Flush(context.Background())
+		}(i)
+	}
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("goroutine %d: Flush returned error: %v", i, err)
+		}
 	}
 }
 

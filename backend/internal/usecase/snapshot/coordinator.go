@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/memory"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 )
 
@@ -25,11 +24,12 @@ type Coordinator interface {
 // coordinator は GCS sink を持つ Coordinator 実装です。
 type coordinator struct {
 	sink        port.SnapshotSink
-	userRepo    *memory.UserRepo
-	commentRepo *memory.CommentRepo
+	userRepo    port.UserSnapshotSource
+	commentRepo port.CommentSnapshotSource
 	throttle    time.Duration
 
 	mu         sync.Mutex
+	saveMu     sync.Mutex // save を直列化する
 	videoID    string
 	liveChatID string
 	dirty      bool
@@ -42,8 +42,8 @@ type coordinator struct {
 // NewCoordinator は coordinator を生成します。
 func NewCoordinator(
 	sink port.SnapshotSink,
-	ur *memory.UserRepo,
-	cr *memory.CommentRepo,
+	ur port.UserSnapshotSource,
+	cr port.CommentSnapshotSource,
 	throttle time.Duration,
 ) Coordinator {
 	return &coordinator{
@@ -55,25 +55,23 @@ func NewCoordinator(
 }
 
 // Restore は起動時に current pointer を読み、snapshot を in-memory repo に復元します。
-// 読み込み失敗は warn ログのみで続行します（起動を止めない）。
+// GCS auth / unmarshal 失敗など致命的エラーは err を返します。
+// snapshot 不在 / 空 videoID は正常ケースとして nil を返します。
 func (c *coordinator) Restore(ctx context.Context) error {
 	ptr, err := c.sink.LoadCurrent(ctx)
 	if err != nil {
-		log.Printf("[WARN] snapshot: LoadCurrent failed: %v", err)
-		return nil
+		return fmt.Errorf("snapshot: load current: %w", err)
 	}
-	if ptr == nil {
-		log.Printf("[INFO] snapshot: no current.json found, starting with empty state")
+	if ptr == nil || ptr.VideoID == "" {
 		return nil
 	}
 
 	snap, err := c.sink.Load(ctx, ptr.VideoID)
 	if err != nil {
-		log.Printf("[WARN] snapshot: Load(%s) failed: %v", ptr.VideoID, err)
-		return nil
+		return fmt.Errorf("snapshot: load snapshot %s: %w", ptr.VideoID, err)
 	}
 	if snap == nil {
-		log.Printf("[INFO] snapshot: no snapshot for videoId=%s, starting with empty state", ptr.VideoID)
+		log.Printf("[WARN] snapshot: current.json points to %s but snapshot not found", ptr.VideoID)
 		return nil
 	}
 
@@ -107,22 +105,37 @@ func (c *coordinator) MarkDirty() {
 }
 
 // Flush は throttle を無視して即時 save します（SIGTERM / video 切替時）。
+// videoID が空の場合は Reset 経路として current.json を空 videoID で上書きします。
 func (c *coordinator) Flush(ctx context.Context) error {
 	c.mu.Lock()
 	videoID := c.videoID
 	liveChatID := c.liveChatID
-	c.dirty = false
-	c.lastSaved = time.Now()
 	c.mu.Unlock()
 
 	if videoID == "" {
+		// Reset 経路: current.json を空 videoID で上書きして旧 videoID を消す
+		// saveMu で save() 経路と直列化し、background save との並走で SaveCurrent 順序が逆転するのを防ぐ
+		c.saveMu.Lock()
+		err := c.sink.SaveCurrent(ctx, &port.CurrentPointer{VideoID: "", SavedAt: time.Now()})
+		c.saveMu.Unlock()
+		if err != nil {
+			return fmt.Errorf("snapshot: flush save current (empty): %w", err)
+		}
+		c.mu.Lock()
+		c.dirty = false
+		c.lastSaved = time.Now()
+		c.mu.Unlock()
 		return nil
 	}
 
 	if err := c.save(ctx, videoID, liveChatID); err != nil {
-		log.Printf("[WARN] snapshot: Flush save failed: %v", err)
 		return fmt.Errorf("snapshot: flush: %w", err)
 	}
+	// save 成功後にのみ dirty をクリア
+	c.mu.Lock()
+	c.dirty = false
+	c.lastSaved = time.Now()
+	c.mu.Unlock()
 	return nil
 }
 
@@ -175,7 +188,11 @@ func (c *coordinator) Stop() {
 }
 
 // save は snapshot を組み立てて sink に書き込みます。
+// saveMu で直列化し、並列 save による上書き race を防ぎます。
 func (c *coordinator) save(ctx context.Context, videoID, liveChatID string) error {
+	c.saveMu.Lock()
+	defer c.saveMu.Unlock()
+
 	users, processedMsgs := c.userRepo.Dump()
 	comments := c.commentRepo.Dump()
 
@@ -183,6 +200,7 @@ func (c *coordinator) save(ctx context.Context, videoID, liveChatID string) erro
 		SchemaVersion: 1,
 		VideoID:       videoID,
 		LiveChatID:    liveChatID,
+		SavedAt:       time.Now(),
 		Users:         users,
 		Comments:      comments,
 		ProcessedMsgs: processedMsgs,
@@ -192,7 +210,7 @@ func (c *coordinator) save(ctx context.Context, videoID, liveChatID string) erro
 		return fmt.Errorf("save snapshot: %w", err)
 	}
 
-	ptr := &port.CurrentPointer{VideoID: videoID}
+	ptr := &port.CurrentPointer{VideoID: videoID, SavedAt: time.Now()}
 	if err := c.sink.SaveCurrent(ctx, ptr); err != nil {
 		return fmt.Errorf("save current pointer: %w", err)
 	}
