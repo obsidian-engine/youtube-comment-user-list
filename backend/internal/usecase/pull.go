@@ -126,8 +126,8 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 	}
 
 	// minPollingIntervalMillis はYouTube Data API v3の無料枠制限（10,000 units/day）を考慮した最小ポーリング間隔
-	// 1回のliveChatMessages.list呼び出しは5 unitsを消費するため、15秒間隔で運用することで1日あたり約5,760回（28,800 units）の呼び出しを制限内に抑える
-	const minPollingIntervalMillis = 15000
+	// 1回のliveChatMessages.list呼び出しは5 unitsを消費するため、60秒間隔で運用することで24時間連続稼働でも約1,440回（7,200 units）に収まり、他 API 呼び出し分の余裕も確保する
+	const minPollingIntervalMillis = 60000
 	if pollMs < minPollingIntervalMillis {
 		pollMs = minPollingIntervalMillis
 	}

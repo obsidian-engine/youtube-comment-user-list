@@ -292,10 +292,9 @@ export function UserTable({
                   className="text-[12px] px-2 py-1 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10"
                 >
                   <option value="0">停止</option>
-                  <option value="10">10s</option>
-                  <option value="15">15s</option>
-                  <option value="30">30s</option>
                   <option value="60">60s</option>
+                  <option value="90">90s</option>
+                  <option value="120">120s</option>
                 </select>
               </div>
             )}
