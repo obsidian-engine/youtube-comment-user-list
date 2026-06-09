@@ -325,6 +325,41 @@ export function HelpPanel() {
         </ul>
       </Section>
 
+      <Section id="video-switch" title="🔄 動画を切替えたとき何が起きる?">
+        <p>URL を変えて「切替」ボタンを押すと、その動画に合わせてデータが自動で入れ替わります。</p>
+        <h4 className="font-semibold pt-1">切替えたときの動き</h4>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>
+            その動画の<strong>過去の参加者・コメント</strong>
+            がクラウドから自動で復元されます。以前に同じ動画を見ていたときの続きから再開できます。
+          </li>
+          <li>
+            復元が完了すると、画面の上に
+            <strong>「○時○分時点の保存データを復元しました」というお知らせ</strong>
+            が一度だけ表示されます。いつ時点のデータが戻ったかが分かります。
+          </li>
+          <li>
+            別の動画のコメントが<strong>混ざることはありません</strong>
+            。コメントは動画ごとに分けて管理されています。
+          </li>
+        </ul>
+        <h4 className="font-semibold pt-2">「動画 A → B → A」と行き来しても大丈夫?</h4>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>
+            動画 A に戻したとき、A のデータは<strong>そのまま残っています</strong>。 動画 B
+            を見ていた間も、A のデータは上書きされません。
+          </li>
+          <li>
+            配信が終わった動画でも、
+            <strong>7 日以内であれば</strong>切替えると以前の状態を復元できます。
+          </li>
+        </ul>
+        <Note tone="info">
+          保存データがない動画（初めて見る動画など）は、空の状態から始まります。
+          自動復元のお知らせが出ない場合は、保存データがなかったことを意味します。
+        </Note>
+      </Section>
+
       <Section id="polling" title="自動取得とコメントの数えかた">
         <h4 className="font-semibold">どれくらいの間隔で取りに行くの?</h4>
         <ul className="list-disc pl-5 space-y-1">
