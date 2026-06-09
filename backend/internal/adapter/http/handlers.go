@@ -67,6 +67,9 @@ type ResetResponse struct {
 }
 
 func collectLogs(collector *logging.Collector) []LogDetail {
+	if collector == nil {
+		return nil
+	}
 	entries := collector.Entries()
 	logs := make([]LogDetail, len(entries))
 	for i, e := range entries {
@@ -81,13 +84,16 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 	// ミドルウェアの設定
 	r.Use(LoggingMiddleware)
 	r.Use(CORSMiddleware(frontendOrigin))
+	r.Use(CollectorMiddleware)
+	r.Use(RecoverMiddleware)
 
 	r.Get("/status", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		log.Printf("[STATUS] Getting current status")
+		collector := collectorFromRequest(r)
 		out, err := h.Status.Execute(r.Context())
 		if err != nil {
 			log.Printf("[STATUS] Error: %v", err)
-			renderInternalError(w, r, "Failed to get status")
+			renderInternalErrorWithCollector(w, r, "Failed to get status", collector)
 			return
 		}
 
@@ -118,6 +124,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 
 	r.Post("/switch-video", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		log.Printf("[SWITCH_VIDEO] Processing video switch request")
+		collector := collectorFromRequest(r)
 		var req struct {
 			VideoID string `json:"videoId"`
 		}
@@ -149,7 +156,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: videoID})
 		if err != nil {
 			log.Printf("[SWITCH_VIDEO] Execute error: %v", err)
-			renderBadGateway(w, r, "Failed to switch video: "+err.Error())
+			renderBadGatewayWithCollector(w, r, "Failed to switch video: "+err.Error(), collector)
 			return
 		}
 
@@ -165,14 +172,19 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 
 	r.Post("/pull", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		log.Printf("[PULL] Processing pull request")
-		collector := logging.NewCollector()
-		ctx := logging.WithCollector(r.Context(), collector)
-		out, err := h.Pull.Execute(ctx)
+		// CollectorMiddleware が既に context に inject 済みのため、middleware 経由で取得
+		collector := collectorFromRequest(r)
+		out, err := h.Pull.Execute(r.Context())
 		if err != nil {
 			log.Printf("[PULL] Error: %v", err)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(stdhttp.StatusInternalServerError)
-			render.JSON(w, r, PullResponse{Logs: collectLogs(collector)})
+			renderErrorWithConfig(ErrorConfig{
+				ResponseWriter: w,
+				Request:        r,
+				HTTPCode:       StatusInternalServerError,
+				Error:          "internal_error",
+				Message:        err.Error(),
+				Collector:      collector,
+			})
 			return
 		}
 
@@ -189,10 +201,11 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 
 	r.Post("/reset", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		log.Printf("[RESET] Processing reset request")
+		collector := collectorFromRequest(r)
 		out, err := h.Reset.Execute(r.Context())
 		if err != nil {
 			log.Printf("[RESET] Error: %v", err)
-			renderInternalError(w, r, "Failed to reset")
+			renderInternalErrorWithCollector(w, r, "Failed to reset", collector)
 			return
 		}
 
@@ -204,6 +217,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 	})
 
 	r.Get("/comments", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		collector := collectorFromRequest(r)
 		keywordsParam := r.URL.Query().Get("keywords")
 		if keywordsParam == "" {
 			renderBadRequest(w, r, "keywords parameter is required")
@@ -237,7 +251,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		// CommentRepo未初期化チェック
 		if h.Comments == nil {
 			log.Printf("[COMMENTS] CommentRepo not initialized")
-			renderInternalError(w, r, "comment search is not available")
+			renderInternalErrorWithCollector(w, r, "comment search is not available", collector)
 			return
 		}
 

@@ -1,19 +1,21 @@
 package http
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
 func TestCORSMiddleware(t *testing.T) {
 	tests := []struct {
-		name           string
-		frontendOrigin string
-		requestMethod  string
-		requestHeaders map[string]string
-		expectedOrigin string
-		expectedStatus int
+		name            string
+		frontendOrigin  string
+		requestMethod   string
+		requestHeaders  map[string]string
+		expectedOrigin  string
+		expectedStatus  int
 		expectedHeaders map[string]string
 	}{
 		{
@@ -30,7 +32,7 @@ func TestCORSMiddleware(t *testing.T) {
 				"Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
 				"Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
 				"Access-Control-Max-Age":       "86400",
-				"Vary":                        "Origin",
+				"Vary":                         "Origin",
 			},
 		},
 		{
@@ -47,7 +49,7 @@ func TestCORSMiddleware(t *testing.T) {
 				"Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
 				"Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
 				"Access-Control-Max-Age":       "86400",
-				"Vary":                        "Origin",
+				"Vary":                         "Origin",
 			},
 		},
 		{
@@ -68,9 +70,9 @@ func TestCORSMiddleware(t *testing.T) {
 			frontendOrigin: "https://app.example.com",
 			requestMethod:  "POST",
 			requestHeaders: map[string]string{
-				"Origin":         "https://app.example.com",
-				"Content-Type":   "application/json",
-				"Authorization":  "Bearer token123",
+				"Origin":        "https://app.example.com",
+				"Content-Type":  "application/json",
+				"Authorization": "Bearer token123",
 			},
 			expectedOrigin: "https://app.example.com",
 			expectedStatus: 200,
@@ -79,7 +81,7 @@ func TestCORSMiddleware(t *testing.T) {
 				"Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
 				"Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
 				"Access-Control-Max-Age":       "86400",
-				"Vary":                        "Origin",
+				"Vary":                         "Origin",
 			},
 		},
 	}
@@ -192,5 +194,116 @@ func TestLoggingMiddleware(t *testing.T) {
 				t.Errorf("Expected body %q, got %q", expectedBody, w.Body.String())
 			}
 		})
+	}
+}
+
+func TestCollectorMiddleware_InjectsCollector(t *testing.T) {
+	var capturedCollector interface{}
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedCollector = r.Context().Value(collectorCtxKey{})
+		w.WriteHeader(200)
+	})
+
+	mw := CollectorMiddleware(handler)
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	mw.ServeHTTP(w, req)
+
+	if capturedCollector == nil {
+		t.Fatal("Expected collector to be injected into context, got nil")
+	}
+}
+
+func TestCollectorFromRequest_ReturnsCollector(t *testing.T) {
+	var got interface{}
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = collectorFromRequest(r)
+		w.WriteHeader(200)
+	})
+
+	mw := CollectorMiddleware(handler)
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	mw.ServeHTTP(w, req)
+
+	if got == nil {
+		t.Fatal("Expected collectorFromRequest to return non-nil collector")
+	}
+}
+
+func TestCollectorFromRequest_NilWithoutMiddleware(t *testing.T) {
+	req := httptest.NewRequest("GET", "/test", nil)
+	c := collectorFromRequest(req)
+	if c != nil {
+		t.Errorf("Expected nil when middleware not applied, got %v", c)
+	}
+}
+
+func TestRecoverMiddleware_PanicReturns500WithLogs(t *testing.T) {
+	// CollectorMiddleware → RecoverMiddleware の順で積む
+	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("test panic message")
+	})
+
+	// CollectorMiddleware を先に適用してから RecoverMiddleware を適用
+	chain := CollectorMiddleware(RecoverMiddleware(panicHandler))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	chain.ServeHTTP(w, req)
+
+	if w.Code != StatusInternalServerError {
+		t.Errorf("Expected 500, got %d", w.Code)
+	}
+
+	var resp ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Failed to unmarshal panic response: %v", err)
+	}
+
+	if resp.HTTPCode != StatusInternalServerError {
+		t.Errorf("Expected httpCode 500, got %d", resp.HTTPCode)
+	}
+
+	if !strings.Contains(resp.Message, "test panic message") {
+		t.Errorf("Expected message to contain panic value, got %q", resp.Message)
+	}
+
+	// PANIC log entry が含まれること
+	if len(resp.Logs) == 0 {
+		t.Fatal("Expected logs to be non-empty after panic recovery")
+	}
+
+	foundPanic := false
+	for _, l := range resp.Logs {
+		if l.Source == "PANIC" {
+			foundPanic = true
+			break
+		}
+	}
+	if !foundPanic {
+		t.Errorf("Expected PANIC source in logs, got %+v", resp.Logs)
+	}
+}
+
+func TestRecoverMiddleware_NoPanicPassesThrough(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	chain := CollectorMiddleware(RecoverMiddleware(handler))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	chain.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Errorf("Expected 200, got %d", w.Code)
+	}
+	if w.Body.String() != "ok" {
+		t.Errorf("Expected body 'ok', got %q", w.Body.String())
 	}
 }

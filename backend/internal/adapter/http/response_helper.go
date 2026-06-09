@@ -15,9 +15,9 @@ func RenderJSONResponse(w http.ResponseWriter, r *http.Request, status int, data
 // RenderErrorResponse はエラー応答を送信します
 func RenderErrorResponse(w http.ResponseWriter, r *http.Request, errorType, message string, status int) {
 	errorResponse := ErrorResponse{
-		Error:   errorType,
-		Message: message,
-		Code:    status,
+		Error:    errorType,
+		Message:  message,
+		HTTPCode: status,
 	}
 	RenderJSONResponse(w, r, status, errorResponse)
 }
@@ -32,7 +32,7 @@ func RenderBadRequestError(w http.ResponseWriter, r *http.Request, message strin
 	RenderErrorResponse(w, r, "bad_request", message, StatusBadRequest)
 }
 
-// RenderInternalServerError はInternal Server Errorを送信します  
+// RenderInternalServerError はInternal Server Errorを送信します
 func RenderInternalServerError(w http.ResponseWriter, r *http.Request, message string) {
 	RenderErrorResponse(w, r, "internal_error", message, StatusInternalServerError)
 }

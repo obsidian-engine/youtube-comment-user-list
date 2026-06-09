@@ -1,9 +1,14 @@
 package http
 
 import (
+	"context"
+	"fmt"
 	"log"
 	stdhttp "net/http"
+	"runtime/debug"
 	"time"
+
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
 )
 
 // LoggingMiddleware はリクエスト/レスポンスをログ出力するミドルウェア
@@ -66,4 +71,43 @@ func CORSMiddleware(frontendOrigin string) func(stdhttp.Handler) stdhttp.Handler
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// collectorCtxKey はCollectorをcontextに格納するためのキー型
+type collectorCtxKey struct{}
+
+// CollectorMiddleware は全リクエストのcontextにlogging.CollectorをInjectするミドルウェア
+func CollectorMiddleware(next stdhttp.Handler) stdhttp.Handler {
+	return stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		collector := logging.NewCollector()
+		// logging パッケージの WithCollector でも格納し、usecase 層の Log() が使える状態にする
+		ctx := logging.WithCollector(r.Context(), collector)
+		// handler 層から collectorFromRequest() で取り出せるよう独自 key でも格納
+		ctx = context.WithValue(ctx, collectorCtxKey{}, collector)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// collectorFromRequest はリクエストのcontextからCollectorを取り出す
+func collectorFromRequest(r *stdhttp.Request) *logging.Collector {
+	c, _ := r.Context().Value(collectorCtxKey{}).(*logging.Collector)
+	return c
+}
+
+// RecoverMiddleware はpanicをrecoverして500レスポンスを返すミドルウェア
+func RecoverMiddleware(next stdhttp.Handler) stdhttp.Handler {
+	return stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				stack := debug.Stack()
+				log.Printf("[PANIC] %v\n%s", rec, stack)
+				if c := collectorFromRequest(r); c != nil {
+					c.Add("error", "PANIC", fmt.Sprintf("%v", rec))
+					c.Add("error", "PANIC_STACK", string(stack))
+				}
+				renderInternalErrorWithCollector(w, r, fmt.Sprintf("internal panic: %v", rec), collectorFromRequest(r))
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }

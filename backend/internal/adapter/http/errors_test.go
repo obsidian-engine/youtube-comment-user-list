@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
 )
 
 func TestRenderError(t *testing.T) {
@@ -20,9 +22,9 @@ func TestRenderError(t *testing.T) {
 			err:     "internal_error",
 			message: "Something went wrong",
 			expected: ErrorResponse{
-				Error:   "internal_error",
-				Message: "Something went wrong",
-				Code:    500,
+				Error:    "internal_error",
+				Message:  "Something went wrong",
+				HTTPCode: 500,
 			},
 		},
 		{
@@ -31,9 +33,9 @@ func TestRenderError(t *testing.T) {
 			err:     "bad_request",
 			message: "Invalid input",
 			expected: ErrorResponse{
-				Error:   "bad_request",
-				Message: "Invalid input",
-				Code:    400,
+				Error:    "bad_request",
+				Message:  "Invalid input",
+				HTTPCode: 400,
 			},
 		},
 		{
@@ -42,9 +44,9 @@ func TestRenderError(t *testing.T) {
 			err:     "not_found",
 			message: "",
 			expected: ErrorResponse{
-				Error:   "not_found",
-				Message: "",
-				Code:    404,
+				Error:    "not_found",
+				Message:  "",
+				HTTPCode: 404,
 			},
 		},
 	}
@@ -71,8 +73,8 @@ func TestRenderError(t *testing.T) {
 			if response.Message != tt.expected.Message {
 				t.Errorf("Expected message %q, got %q", tt.expected.Message, response.Message)
 			}
-			if response.Code != tt.expected.Code {
-				t.Errorf("Expected code %d, got %d", tt.expected.Code, response.Code)
+			if response.HTTPCode != tt.expected.HTTPCode {
+				t.Errorf("Expected httpCode %d, got %d", tt.expected.HTTPCode, response.HTTPCode)
 			}
 		})
 	}
@@ -94,9 +96,9 @@ func TestRenderInternalError(t *testing.T) {
 	}
 
 	expected := ErrorResponse{
-		Error:   "internal_error",
-		Message: "Test internal error",
-		Code:    StatusInternalServerError,
+		Error:    "internal_error",
+		Message:  "Test internal error",
+		HTTPCode: StatusInternalServerError,
 	}
 
 	if response.Error != expected.Error {
@@ -105,8 +107,8 @@ func TestRenderInternalError(t *testing.T) {
 	if response.Message != expected.Message {
 		t.Errorf("Expected message %q, got %q", expected.Message, response.Message)
 	}
-	if response.Code != expected.Code {
-		t.Errorf("Expected code %d, got %d", expected.Code, response.Code)
+	if response.HTTPCode != expected.HTTPCode {
+		t.Errorf("Expected httpCode %d, got %d", expected.HTTPCode, response.HTTPCode)
 	}
 }
 
@@ -126,9 +128,9 @@ func TestRenderBadRequest(t *testing.T) {
 	}
 
 	expected := ErrorResponse{
-		Error:   "bad_request",
-		Message: "Test bad request",
-		Code:    StatusBadRequest,
+		Error:    "bad_request",
+		Message:  "Test bad request",
+		HTTPCode: StatusBadRequest,
 	}
 
 	if response.Error != expected.Error {
@@ -137,8 +139,8 @@ func TestRenderBadRequest(t *testing.T) {
 	if response.Message != expected.Message {
 		t.Errorf("Expected message %q, got %q", expected.Message, response.Message)
 	}
-	if response.Code != expected.Code {
-		t.Errorf("Expected code %d, got %d", expected.Code, response.Code)
+	if response.HTTPCode != expected.HTTPCode {
+		t.Errorf("Expected httpCode %d, got %d", expected.HTTPCode, response.HTTPCode)
 	}
 }
 
@@ -158,9 +160,9 @@ func TestRenderBadGateway(t *testing.T) {
 	}
 
 	expected := ErrorResponse{
-		Error:   "bad_gateway",
-		Message: "Test bad gateway",
-		Code:    StatusBadGateway,
+		Error:    "bad_gateway",
+		Message:  "Test bad gateway",
+		HTTPCode: StatusBadGateway,
 	}
 
 	if response.Error != expected.Error {
@@ -169,8 +171,8 @@ func TestRenderBadGateway(t *testing.T) {
 	if response.Message != expected.Message {
 		t.Errorf("Expected message %q, got %q", expected.Message, response.Message)
 	}
-	if response.Code != expected.Code {
-		t.Errorf("Expected code %d, got %d", expected.Code, response.Code)
+	if response.HTTPCode != expected.HTTPCode {
+		t.Errorf("Expected httpCode %d, got %d", expected.HTTPCode, response.HTTPCode)
 	}
 }
 
@@ -183,40 +185,55 @@ func TestRenderErrorWithConfig(t *testing.T) {
 		{
 			name: "internal server error with config",
 			config: ErrorConfig{
-				Code:    500,
-				Error:   "internal_error",
-				Message: "Something went wrong",
+				HTTPCode: 500,
+				Error:    "internal_error",
+				Message:  "Something went wrong",
 			},
 			expected: ErrorResponse{
-				Error:   "internal_error",
-				Message: "Something went wrong",
-				Code:    500,
+				Error:    "internal_error",
+				Message:  "Something went wrong",
+				HTTPCode: 500,
 			},
 		},
 		{
 			name: "bad request with config",
 			config: ErrorConfig{
-				Code:    400,
-				Error:   "bad_request",
-				Message: "Invalid input",
+				HTTPCode: 400,
+				Error:    "bad_request",
+				Message:  "Invalid input",
 			},
 			expected: ErrorResponse{
-				Error:   "bad_request",
-				Message: "Invalid input",
-				Code:    400,
+				Error:    "bad_request",
+				Message:  "Invalid input",
+				HTTPCode: 400,
 			},
 		},
 		{
 			name: "empty message with config",
 			config: ErrorConfig{
-				Code:    404,
-				Error:   "not_found",
-				Message: "",
+				HTTPCode: 404,
+				Error:    "not_found",
+				Message:  "",
 			},
 			expected: ErrorResponse{
-				Error:   "not_found",
-				Message: "",
-				Code:    404,
+				Error:    "not_found",
+				Message:  "",
+				HTTPCode: 404,
+			},
+		},
+		{
+			name: "with machine-readable code",
+			config: ErrorConfig{
+				HTTPCode: 502,
+				Error:    "bad_gateway",
+				Message:  "quota exceeded",
+				Code:     "quota_exceeded",
+			},
+			expected: ErrorResponse{
+				Error:    "bad_gateway",
+				Message:  "quota exceeded",
+				HTTPCode: 502,
+				Code:     "quota_exceeded",
 			},
 		},
 	}
@@ -225,15 +242,15 @@ func TestRenderErrorWithConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
 			r := httptest.NewRequest("GET", "/", nil)
-			
+
 			// テスト用にResponseWriterとRequestを設定
 			tt.config.ResponseWriter = w
 			tt.config.Request = r
 
 			renderErrorWithConfig(tt.config)
 
-			if w.Code != tt.config.Code {
-				t.Errorf("Expected status code %d, got %d", tt.config.Code, w.Code)
+			if w.Code != tt.config.HTTPCode {
+				t.Errorf("Expected status code %d, got %d", tt.config.HTTPCode, w.Code)
 			}
 
 			var response ErrorResponse
@@ -247,10 +264,59 @@ func TestRenderErrorWithConfig(t *testing.T) {
 			if response.Message != tt.expected.Message {
 				t.Errorf("Expected message %q, got %q", tt.expected.Message, response.Message)
 			}
+			if response.HTTPCode != tt.expected.HTTPCode {
+				t.Errorf("Expected httpCode %d, got %d", tt.expected.HTTPCode, response.HTTPCode)
+			}
 			if response.Code != tt.expected.Code {
-				t.Errorf("Expected code %d, got %d", tt.expected.Code, response.Code)
+				t.Errorf("Expected code %q, got %q", tt.expected.Code, response.Code)
 			}
 		})
+	}
+}
+
+func TestRenderErrorWithCollectorLogs(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+
+	collector := logging.NewCollector()
+	collector.Add("warn", "YOUTUBE", "API rate limited")
+	collector.Add("error", "DB", "connection failed")
+
+	renderErrorWithCollector(w, r, StatusInternalServerError, "internal_error", "something failed", collector)
+
+	if w.Code != StatusInternalServerError {
+		t.Errorf("Expected status code %d, got %d", StatusInternalServerError, w.Code)
+	}
+
+	var response ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	if len(response.Logs) != 2 {
+		t.Fatalf("Expected 2 logs, got %d", len(response.Logs))
+	}
+	if response.Logs[0].Level != "warn" || response.Logs[0].Source != "YOUTUBE" {
+		t.Errorf("Unexpected first log: %+v", response.Logs[0])
+	}
+	if response.Logs[1].Level != "error" || response.Logs[1].Source != "DB" {
+		t.Errorf("Unexpected second log: %+v", response.Logs[1])
+	}
+}
+
+func TestRenderErrorNilCollectorProducesNoLogs(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+
+	renderErrorWithCollector(w, r, StatusBadGateway, "bad_gateway", "upstream error", nil)
+
+	var response ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	if response.Logs != nil {
+		t.Errorf("Expected nil logs for nil collector, got %v", response.Logs)
 	}
 }
 
@@ -289,7 +355,7 @@ func TestRenderErrorBackwardCompatibility(t *testing.T) {
 			renderErrorWithConfig(ErrorConfig{
 				ResponseWriter: w2,
 				Request:        r2,
-				Code:           tt.code,
+				HTTPCode:       tt.code,
 				Error:          tt.err,
 				Message:        tt.message,
 			})
@@ -313,8 +379,8 @@ func TestRenderErrorBackwardCompatibility(t *testing.T) {
 			if response1.Message != response2.Message {
 				t.Errorf("Message fields differ: old=%q, new=%q", response1.Message, response2.Message)
 			}
-			if response1.Code != response2.Code {
-				t.Errorf("Code fields differ: old=%d, new=%d", response1.Code, response2.Code)
+			if response1.HTTPCode != response2.HTTPCode {
+				t.Errorf("HTTPCode fields differ: old=%d, new=%d", response1.HTTPCode, response2.HTTPCode)
 			}
 		})
 	}
