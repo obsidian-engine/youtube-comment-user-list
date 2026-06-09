@@ -156,7 +156,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: videoID})
 		if err != nil {
 			log.Printf("[SWITCH_VIDEO] Execute error: %v", err)
-			renderBadGatewayWithCollector(w, r, "Failed to switch video: "+err.Error(), collector)
+			renderUsecaseError(w, r, err, "Failed to switch video: "+err.Error(), collector, StatusBadGateway, "bad_gateway")
 			return
 		}
 
@@ -177,14 +177,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		out, err := h.Pull.Execute(r.Context())
 		if err != nil {
 			log.Printf("[PULL] Error: %v", err)
-			renderErrorWithConfig(ErrorConfig{
-				ResponseWriter: w,
-				Request:        r,
-				HTTPCode:       StatusInternalServerError,
-				Error:          "internal_error",
-				Message:        err.Error(),
-				Collector:      collector,
-			})
+			renderUsecaseError(w, r, err, err.Error(), collector, StatusInternalServerError, "internal_error")
 			return
 		}
 
@@ -205,7 +198,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		out, err := h.Reset.Execute(r.Context())
 		if err != nil {
 			log.Printf("[RESET] Error: %v", err)
-			renderInternalErrorWithCollector(w, r, "Failed to reset", collector)
+			renderUsecaseError(w, r, err, "Failed to reset: "+err.Error(), collector, StatusInternalServerError, "internal_error")
 			return
 		}
 

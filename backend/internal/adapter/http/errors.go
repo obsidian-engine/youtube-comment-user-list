@@ -1,10 +1,12 @@
 package http
 
 import (
+	"errors"
 	stdhttp "net/http"
 
 	"github.com/go-chi/render"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 )
 
 // ErrorResponse はAPIエラーレスポンスの標準形式
@@ -82,4 +84,40 @@ func renderBadGateway(w stdhttp.ResponseWriter, r *stdhttp.Request, message stri
 // renderBadGatewayWithCollector はバッドゲートウェイ用のヘルパー (collector 付き)
 func renderBadGatewayWithCollector(w stdhttp.ResponseWriter, r *stdhttp.Request, message string, collector *logging.Collector) {
 	renderErrorWithCollector(w, r, StatusBadGateway, "bad_gateway", message, collector)
+}
+
+// renderUsecaseError は usecase 層 error を ErrorResponse に変換する。
+// domain.APIError を含む場合は機械可読 Code + 対応 HTTP status に振り分ける。
+// それ以外は fallbackStatus + fallbackErr ("bad_gateway" 等) を使う。
+func renderUsecaseError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error, message string, collector *logging.Collector, fallbackStatus int, fallbackErr string) {
+	var apiErr *domain.APIError
+	if errors.As(err, &apiErr) {
+		status := httpStatusFor(apiErr.Code)
+		renderErrorWithConfig(ErrorConfig{
+			ResponseWriter: w,
+			Request:        r,
+			HTTPCode:       status,
+			Error:          fallbackErr,
+			Message:        message,
+			Code:           string(apiErr.Code),
+			Collector:      collector,
+		})
+		return
+	}
+	renderErrorWithCollector(w, r, fallbackStatus, fallbackErr, message, collector)
+}
+
+func httpStatusFor(code domain.APIErrorCode) int {
+	switch code {
+	case domain.ErrCodeQuotaExceeded, domain.ErrCodeRateLimited:
+		return stdhttp.StatusTooManyRequests
+	case domain.ErrCodeVideoNotFound:
+		return stdhttp.StatusNotFound
+	case domain.ErrCodeLiveChatEnded:
+		return stdhttp.StatusGone
+	case domain.ErrCodeAuthFailed:
+		return stdhttp.StatusUnauthorized
+	default:
+		return StatusBadGateway
+	}
 }
