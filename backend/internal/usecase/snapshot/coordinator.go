@@ -235,6 +235,8 @@ func (c *coordinator) RestoreFor(ctx context.Context, videoID string) (bool, err
 }
 
 // LastSavedAt は最終 save 成功時刻を返します。zero は未保存を意味します。
+// Restore で復元した snap.SavedAt も「最終 save 時刻」として扱い、起動直後の
+// background save throttle 起点にもなります (memory == GCS 状態のため即 save 不要)。
 func (c *coordinator) LastSavedAt() time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()
