@@ -1,9 +1,37 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { getStatus, getUsers, postPull, postReset, postSwitchVideo } from '../utils/api'
 import { sortUsersStable } from '../utils/sortUsers'
 import { logger } from '../utils/logger'
 import type { User } from '../utils/api'
 import type { LogLevel } from './useLogEntries'
+
+const TOAST_KEY = 'snapshotRestoreToastShown'
+
+/**
+ * snapshotSavedAt を元に toast メッセージを生成する。
+ * 未指定・既表示・フォーマット不能の場合は空文字列を返す。
+ * sessionStorage への書込は行わない（呼び出し側の useEffect で副作用化）。
+ */
+function consumeSnapshotRestoreMsg(snapshotSavedAt?: string): string {
+  if (!snapshotSavedAt) return ''
+  const alreadyShown =
+    typeof window !== 'undefined' && window.sessionStorage?.getItem(TOAST_KEY) === '1'
+  if (alreadyShown) return ''
+
+  const d = new Date(snapshotSavedAt)
+  if (isNaN(d.getTime())) return ''
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const today = new Date()
+  const isToday =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+  const formatted = isToday
+    ? `${pad(d.getHours())}:${pad(d.getMinutes())}`
+    : `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `${formatted} の保存状態を取得しました`
+}
 
 interface LoadingStates {
   switching: boolean
@@ -66,21 +94,6 @@ export function useAppState(addEntry?: AddEntryFn) {
     },
   })
 
-  // snapshotSavedAt を HH:MM または MM/DD HH:MM に整形する
-  const formatSnapshotSavedAt = (isoString: string): string => {
-    const d = new Date(isoString)
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const today = new Date()
-    const isToday =
-      d.getFullYear() === today.getFullYear() &&
-      d.getMonth() === today.getMonth() &&
-      d.getDate() === today.getDate()
-    if (isToday) {
-      return `${pad(d.getHours())}:${pad(d.getMinutes())}`
-    }
-    return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-  }
-
   // AbortController管理用のref
   const refreshControllerRef = useRef<AbortController | null>(null)
   const switchControllerRef = useRef<AbortController | null>(null)
@@ -126,13 +139,8 @@ export function useAppState(addEntry?: AddEntryFn) {
       const status = st.status || 'WAITING'
       const fetched = Array.isArray(us) ? us : []
 
-      // snapshotSavedAt: 初回ロード時に 1 度だけ toast を表示（sessionStorage で抑制）
-      let snapshotRestoreMsg = ''
-      const TOAST_KEY = 'snapshotRestoreToastShown'
-      if (st.snapshotSavedAt && !sessionStorage.getItem(TOAST_KEY)) {
-        sessionStorage.setItem(TOAST_KEY, '1')
-        snapshotRestoreMsg = `${formatSnapshotSavedAt(st.snapshotSavedAt)} の保存状態を取得しました`
-      }
+      // snapshotSavedAt: 初回ロード時に 1 度だけ toast を表示（sessionStorage への書込は useEffect で副作用化）
+      const snapshotRestoreMsg = consumeSnapshotRestoreMsg(st.snapshotSavedAt)
 
       setState((prev) => {
         const sortedUsers = sortUsersStable(fetched)
@@ -201,13 +209,8 @@ export function useAppState(addEntry?: AddEntryFn) {
       const status = st.status || 'WAITING'
       const fetched = Array.isArray(us) ? us : []
 
-      // snapshotSavedAt: 初回ロード時に 1 度だけ toast を表示（sessionStorage で抑制）
-      let snapshotRestoreMsg = ''
-      const TOAST_KEY = 'snapshotRestoreToastShown'
-      if (st.snapshotSavedAt && !sessionStorage.getItem(TOAST_KEY)) {
-        sessionStorage.setItem(TOAST_KEY, '1')
-        snapshotRestoreMsg = `${formatSnapshotSavedAt(st.snapshotSavedAt)} の保存状態を取得しました`
-      }
+      // snapshotSavedAt: 初回ロード時に 1 度だけ toast を表示（sessionStorage への書込は useEffect で副作用化）
+      const snapshotRestoreMsg = consumeSnapshotRestoreMsg(st.snapshotSavedAt)
 
       setState((prev) => {
         const sortedUsers = sortUsersStable(fetched)
@@ -418,6 +421,13 @@ export function useAppState(addEntry?: AddEntryFn) {
       setState((prev) => ({ ...prev, snapshotRestoreMsg: '' }))
     }, []),
   }
+
+  // snapshotRestoreMsg が実際に描画された後に sessionStorage へ副作用を書き込む
+  useEffect(() => {
+    if (state.snapshotRestoreMsg) {
+      sessionStorage.setItem(TOAST_KEY, '1')
+    }
+  }, [state.snapshotRestoreMsg])
 
   return { state, actions }
 }
