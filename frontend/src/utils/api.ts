@@ -10,9 +10,59 @@ export class HttpError extends Error {
   }
 }
 
+export type LogDetail = {
+  level: string
+  source: string
+  message: string
+  timestamp?: string
+}
+
+export type ErrorResponse = {
+  error: string
+  code?: string
+  message?: string
+  httpCode: number
+  logs?: LogDetail[]
+}
+
+export class BackendError extends Error {
+  code?: string
+  httpCode: number
+  logs: LogDetail[]
+
+  constructor(msg: string, opts: { code?: string; httpCode: number; logs?: LogDetail[] }) {
+    super(msg)
+    this.name = 'BackendError'
+    this.code = opts.code
+    this.httpCode = opts.httpCode
+    this.logs = opts.logs ?? []
+  }
+}
+
+async function parseErrorResponse(res: Response): Promise<never> {
+  let errResp: ErrorResponse | null = null
+  try {
+    errResp = (await res.json()) as ErrorResponse
+  } catch {
+    // JSON parse 失敗時は fallback
+  }
+  if (errResp) {
+    throw new BackendError(errResp.message ?? errResp.error ?? `HTTP ${res.status}`, {
+      code: errResp.code,
+      httpCode: errResp.httpCode ?? res.status,
+      logs: errResp.logs,
+    })
+  }
+  throw new HttpError(res.status)
+}
+
 async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new HttpError(res.status)
+  if (!res.ok) return parseErrorResponse(res)
   return res.json() as Promise<T>
+}
+
+async function throwIfError(res: Response): Promise<void> {
+  if (!res.ok) return parseErrorResponse(res)
 }
 
 export type StatusResponse = {
@@ -50,7 +100,7 @@ export async function postSwitchVideo(videoId: string, signal?: AbortSignal): Pr
     body: JSON.stringify({ videoId }),
     signal,
   })
-  if (!res.ok) throw new HttpError(res.status)
+  await throwIfError(res)
 }
 
 export type BackendLog = {
@@ -74,7 +124,7 @@ export async function postPull(signal?: AbortSignal): Promise<PullResponse> {
 
 export async function postReset(signal?: AbortSignal): Promise<void> {
   const res = await fetch(`${BASE}/reset`, { method: 'POST', signal })
-  if (!res.ok) throw new HttpError(res.status)
+  await throwIfError(res)
 }
 
 export type Comment = {

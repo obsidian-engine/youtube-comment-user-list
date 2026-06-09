@@ -1,5 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { getStatus, getUsers, postPull, postReset, postSwitchVideo } from '../utils/api'
+import {
+  getStatus,
+  getUsers,
+  postPull,
+  postReset,
+  postSwitchVideo,
+  BackendError,
+} from '../utils/api'
 import { sortUsersStable } from '../utils/sortUsers'
 import { logger } from '../utils/logger'
 import type { User } from '../utils/api'
@@ -341,6 +348,13 @@ export function useAppState(addEntry?: AddEntryFn) {
         const errorMessage = `${errorMsgPrefix}に失敗しました。${loadingKey === 'switching' ? '配信開始後に再度お試しください。' : ''}`
         setState((prev) => ({ ...prev, errorMsg: errorMessage }))
         addEntry?.('error', `${errorMsgPrefix}に失敗しました`)
+        if (e instanceof BackendError && e.logs.length > 0) {
+          e.logs.forEach((entry) => {
+            const level: LogLevel =
+              entry.level === 'warn' || entry.level === 'error' ? entry.level : 'info'
+            addEntry?.(level, `[${entry.source}] ${entry.message}`)
+          })
+        }
       } finally {
         setState((prev) => ({
           ...prev,

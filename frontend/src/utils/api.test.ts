@@ -7,8 +7,10 @@ import {
   postSwitchVideo,
   postPull,
   postReset,
+  BackendError,
   type StatusResponse,
   type User,
+  type ErrorResponse,
 } from './api'
 
 describe('API functions', () => {
@@ -210,6 +212,89 @@ describe('API functions', () => {
       controller.abort()
 
       await expect(getStatus(controller.signal)).rejects.toThrow()
+    })
+  })
+
+  describe('BackendError', () => {
+    test('ErrorResponse を含む 4xx レスポンスで BackendError をスロー', async () => {
+      const errResp: ErrorResponse = {
+        error: 'video_not_found',
+        code: 'video_not_found',
+        message: '指定された動画が見つかりません',
+        httpCode: 404,
+        logs: [{ level: 'error', source: 'YOUTUBE', message: 'videoId not found' }],
+      }
+
+      server.use(
+        http.post('*/switch-video', () => {
+          return HttpResponse.json(errResp, { status: 404 })
+        }),
+      )
+
+      const err = await postSwitchVideo('invalid-id').catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(BackendError)
+      const backendErr = err as BackendError
+      expect(backendErr.httpCode).toBe(404)
+      expect(backendErr.code).toBe('video_not_found')
+      expect(backendErr.message).toBe('指定された動画が見つかりません')
+      expect(backendErr.logs).toHaveLength(1)
+      expect(backendErr.logs[0].source).toBe('YOUTUBE')
+    })
+
+    test('ErrorResponse の logs が空の場合 BackendError.logs は空配列', async () => {
+      const errResp: ErrorResponse = {
+        error: 'internal_error',
+        httpCode: 500,
+      }
+
+      server.use(
+        http.post('*/reset', () => {
+          return HttpResponse.json(errResp, { status: 500 })
+        }),
+      )
+
+      const err = await postReset().catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(BackendError)
+      const backendErr = err as BackendError
+      expect(backendErr.logs).toEqual([])
+    })
+
+    test('JSON パース不能な 5xx レスポンスは HttpError にフォールバック', async () => {
+      server.use(
+        http.post('*/reset', () => {
+          return new HttpResponse('Internal Server Error', { status: 500 })
+        }),
+      )
+
+      const err = await postReset().catch((e: unknown) => e)
+      // JSON parse 失敗 → HttpError fallback
+      expect(err).not.toBeInstanceOf(BackendError)
+    })
+
+    test('logs を含む ErrorResponse の全フィールドが BackendError に正しく格納される', async () => {
+      const errResp: ErrorResponse = {
+        error: 'quota_exceeded',
+        code: 'quota_exceeded',
+        message: 'YouTube API クォータを超過しました',
+        httpCode: 429,
+        logs: [
+          { level: 'warn', source: 'YOUTUBE', message: 'quota limit approaching' },
+          { level: 'error', source: 'PULL', message: 'quota exceeded on listMessages' },
+        ],
+      }
+
+      server.use(
+        http.post('*/switch-video', () => {
+          return HttpResponse.json(errResp, { status: 429 })
+        }),
+      )
+
+      const err = await postSwitchVideo('any-id').catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(BackendError)
+      const backendErr = err as BackendError
+      expect(backendErr.logs).toHaveLength(2)
+      expect(backendErr.logs[0].level).toBe('warn')
+      expect(backendErr.logs[1].level).toBe('error')
     })
   })
 })

@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { useAppState } from '../useAppState'
 import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest'
+import { BackendError } from '../../utils/api'
 
 // モックAPI関数
 const mockGetStatus = vi.fn()
@@ -9,13 +10,17 @@ const mockPostSwitchVideo = vi.fn()
 const mockPostPull = vi.fn()
 const mockPostReset = vi.fn()
 
-vi.mock('../../utils/api', () => ({
-  getStatus: (...args: unknown[]) => mockGetStatus(...args),
-  getUsers: (...args: unknown[]) => mockGetUsers(...args),
-  postSwitchVideo: (...args: unknown[]) => mockPostSwitchVideo(...args),
-  postPull: (...args: unknown[]) => mockPostPull(...args),
-  postReset: (...args: unknown[]) => mockPostReset(...args),
-}))
+vi.mock('../../utils/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/api')>()
+  return {
+    ...actual,
+    getStatus: (...args: unknown[]) => mockGetStatus(...args),
+    getUsers: (...args: unknown[]) => mockGetUsers(...args),
+    postSwitchVideo: (...args: unknown[]) => mockPostSwitchVideo(...args),
+    postPull: (...args: unknown[]) => mockPostPull(...args),
+    postReset: (...args: unknown[]) => mockPostReset(...args),
+  }
+})
 
 describe('useAppState', () => {
   let mockLocalStorage: { [key: string]: string } = {}
@@ -439,5 +444,89 @@ describe('useAppState', () => {
     expect(result.current.state.lastSnapshotAt).toBe('14:23')
 
     vi.useRealTimers()
+  })
+
+  describe('BackendError logs 流し込み', () => {
+    test('onSwitch が BackendError をスローした場合、error.logs が addEntry に流れる', async () => {
+      const backendErr = new BackendError('動画が見つかりません', {
+        code: 'video_not_found',
+        httpCode: 404,
+        logs: [
+          { level: 'error', source: 'YOUTUBE', message: 'videoId not found' },
+          { level: 'warn', source: 'SWITCH', message: 'liveChatId not resolved' },
+        ],
+      })
+      mockPostSwitchVideo.mockRejectedValue(backendErr)
+
+      const addEntry = vi.fn()
+      const { result } = renderHook(() => useAppState(addEntry))
+
+      act(() => {
+        result.current.actions.setVideoId('bad-video')
+      })
+
+      await act(async () => {
+        await result.current.actions.onSwitch()
+      })
+
+      // error entry (失敗メッセージ) が呼ばれる
+      expect(addEntry).toHaveBeenCalledWith('error', '切替に失敗しました')
+      // logs が level ごとに addEntry に流れる
+      expect(addEntry).toHaveBeenCalledWith('error', '[YOUTUBE] videoId not found')
+      expect(addEntry).toHaveBeenCalledWith('warn', '[SWITCH] liveChatId not resolved')
+    })
+
+    test('onReset が BackendError をスローした場合、error.logs が addEntry に流れる', async () => {
+      const backendErr = new BackendError('リセット失敗', {
+        httpCode: 500,
+        logs: [{ level: 'error', source: 'RESET', message: 'snapshot flush failed' }],
+      })
+      mockPostReset.mockRejectedValue(backendErr)
+
+      const addEntry = vi.fn()
+      const { result } = renderHook(() => useAppState(addEntry))
+
+      await act(async () => {
+        await result.current.actions.onReset()
+      })
+
+      expect(addEntry).toHaveBeenCalledWith('error', 'リセットに失敗しました')
+      expect(addEntry).toHaveBeenCalledWith('error', '[RESET] snapshot flush failed')
+    })
+
+    test('BackendError に logs がない場合は addEntry の logs 呼び出しが発生しない', async () => {
+      const backendErr = new BackendError('内部エラー', { httpCode: 500, logs: [] })
+      mockPostReset.mockRejectedValue(backendErr)
+
+      const addEntry = vi.fn()
+      const { result } = renderHook(() => useAppState(addEntry))
+
+      await act(async () => {
+        await result.current.actions.onReset()
+      })
+
+      // error entry (失敗メッセージ) のみ
+      expect(addEntry).toHaveBeenCalledTimes(1)
+      expect(addEntry).toHaveBeenCalledWith('error', 'リセットに失敗しました')
+    })
+
+    test('通常の Error スロー時は logs 流し込みが発生しない', async () => {
+      mockPostSwitchVideo.mockRejectedValue(new Error('generic error'))
+
+      const addEntry = vi.fn()
+      const { result } = renderHook(() => useAppState(addEntry))
+
+      act(() => {
+        result.current.actions.setVideoId('any-video')
+      })
+
+      await act(async () => {
+        await result.current.actions.onSwitch()
+      })
+
+      // error entry (失敗メッセージ) のみ、logs 流し込みなし
+      expect(addEntry).toHaveBeenCalledTimes(1)
+      expect(addEntry).toHaveBeenCalledWith('error', '切替に失敗しました')
+    })
   })
 })
