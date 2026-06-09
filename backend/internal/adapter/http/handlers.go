@@ -102,7 +102,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			LastPulledAt: out.LastPulledAt,
 		}
 		if h.Coord != nil {
-			if _, savedAt, ok := h.Coord.RestoredAt(); ok {
+			if savedAt := h.Coord.LastSavedAt(); !savedAt.IsZero() {
 				response.SnapshotSavedAt = &savedAt
 			}
 		}

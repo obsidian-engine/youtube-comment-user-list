@@ -62,6 +62,7 @@ describe('useAppState', () => {
       errorMsg: '',
       infoMsg: '',
       snapshotRestoreMsg: '',
+      lastSnapshotAt: '',
       startTime: undefined,
       skippedCount: 0,
       loadingStates: {
@@ -383,5 +384,60 @@ describe('useAppState', () => {
     expect(mockPostPull).toHaveBeenCalled()
     expect(result.current.state.infoMsg).toBe('取得しました') // メッセージあり
     expect(result.current.state.errorMsg).toBe('')
+  })
+
+  test('snapshotSavedAt がある場合 lastSnapshotAt が HH:MM 形式で更新される (今日)', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2024, 5, 9, 10, 0, 0))
+
+    const savedAt = new Date(2024, 5, 9, 14, 23, 0)
+    mockGetStatus.mockResolvedValue({
+      status: 'ACTIVE',
+      count: 0,
+      snapshotSavedAt: savedAt.toISOString(),
+    })
+    mockGetUsers.mockResolvedValue([])
+
+    const { result } = renderHook(() => useAppState())
+
+    await act(async () => {
+      await result.current.actions.refresh()
+    })
+
+    expect(result.current.state.lastSnapshotAt).toBe('14:23')
+
+    vi.useRealTimers()
+  })
+
+  test('snapshotSavedAt がない場合 lastSnapshotAt は前の値を維持する', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2024, 5, 9, 10, 0, 0))
+
+    const savedAt = new Date(2024, 5, 9, 14, 23, 0)
+    // 1 回目: snapshotSavedAt あり
+    mockGetStatus.mockResolvedValueOnce({
+      status: 'ACTIVE',
+      count: 0,
+      snapshotSavedAt: savedAt.toISOString(),
+    })
+    mockGetUsers.mockResolvedValueOnce([])
+    // 2 回目: snapshotSavedAt なし
+    mockGetStatus.mockResolvedValueOnce({ status: 'ACTIVE', count: 0 })
+    mockGetUsers.mockResolvedValueOnce([])
+
+    const { result } = renderHook(() => useAppState())
+
+    await act(async () => {
+      await result.current.actions.refresh()
+    })
+    expect(result.current.state.lastSnapshotAt).toBe('14:23')
+
+    await act(async () => {
+      await result.current.actions.refresh()
+    })
+    // snapshotSavedAt がなくても前の値が維持される
+    expect(result.current.state.lastSnapshotAt).toBe('14:23')
+
+    vi.useRealTimers()
   })
 })

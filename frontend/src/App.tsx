@@ -58,6 +58,7 @@ export default function App() {
     videoId,
     intervalSec,
     lastUpdated,
+    lastSnapshotAt,
     errorMsg,
     infoMsg,
     snapshotRestoreMsg,
@@ -125,6 +126,7 @@ export default function App() {
               active={active}
               startTime={state.startTime}
               lastUpdated={lastUpdated}
+              lastSnapshotAt={lastSnapshotAt}
               skippedCount={state.skippedCount}
             />
 

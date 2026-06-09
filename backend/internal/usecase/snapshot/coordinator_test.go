@@ -418,14 +418,13 @@ func TestNopCoordinator(t *testing.T) {
 	}
 	nop.Start(context.Background())
 	nop.Stop()
-	_, _, ok := nop.RestoredAt()
-	if ok {
-		t.Error("NopCoordinator.RestoredAt should always return ok=false")
+	if !nop.LastSavedAt().IsZero() {
+		t.Error("NopCoordinator.LastSavedAt should always return zero")
 	}
 }
 
-// TestRestoredAt_consumedOnce: RestoredAt は Restore 成功後 1 回だけ ok=true を返す
-func TestRestoredAt_consumedOnce(t *testing.T) {
+// TestLastSavedAt_AfterRestore: Restore 成功後 LastSavedAt は snap.SavedAt を返す
+func TestLastSavedAt_AfterRestore(t *testing.T) {
 	t.Helper()
 	sink := newFakeSink()
 	ur, cr := newTestRepos()
@@ -445,24 +444,45 @@ func TestRestoredAt_consumedOnce(t *testing.T) {
 		t.Fatalf("Restore returned error: %v", err)
 	}
 
-	// 1 回目: ok=true で savedAt が一致する
-	_, gotSavedAt, ok := c.RestoredAt()
-	if !ok {
-		t.Fatal("RestoredAt: expected ok=true on first call")
-	}
+	gotSavedAt := c.LastSavedAt()
 	if !gotSavedAt.Equal(now) {
-		t.Errorf("RestoredAt snapshotSavedAt = %v, want %v", gotSavedAt, now)
+		t.Errorf("LastSavedAt = %v, want %v", gotSavedAt, now)
 	}
 
-	// 2 回目: ok=false（consumed）
-	_, _, ok2 := c.RestoredAt()
-	if ok2 {
-		t.Error("RestoredAt: expected ok=false on second call (consumed)")
+	// 2 回目も同じ値を返す（consumed しない）
+	gotSavedAt2 := c.LastSavedAt()
+	if !gotSavedAt2.Equal(now) {
+		t.Errorf("LastSavedAt (2nd call) = %v, want %v", gotSavedAt2, now)
 	}
 }
 
-// TestRestoredAt_noRestore: Restore 未実行では ok=false
-func TestRestoredAt_noRestore(t *testing.T) {
+// TestLastSavedAt_AfterSave: Flush 後 LastSavedAt が更新される
+func TestLastSavedAt_AfterSave(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
+	c.SetVideo("vid1", "chat1")
+	c.MarkDirty()
+
+	before := time.Now()
+	if err := c.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush returned error: %v", err)
+	}
+	after := time.Now()
+
+	savedAt := c.LastSavedAt()
+	if savedAt.IsZero() {
+		t.Fatal("LastSavedAt should not be zero after Flush")
+	}
+	if savedAt.Before(before) || savedAt.After(after) {
+		t.Errorf("LastSavedAt = %v, expected in [%v, %v]", savedAt, before, after)
+	}
+}
+
+// TestLastSavedAt_Zero: Restore 未実行・Flush 未実行では zero を返す
+func TestLastSavedAt_Zero(t *testing.T) {
 	t.Helper()
 	sink := newFakeSink()
 	ur, cr := newTestRepos()
@@ -473,9 +493,9 @@ func TestRestoredAt_noRestore(t *testing.T) {
 		t.Fatalf("Restore returned error: %v", err)
 	}
 
-	_, _, ok := c.RestoredAt()
-	if ok {
-		t.Error("RestoredAt: expected ok=false when no snapshot was restored")
+	savedAt := c.LastSavedAt()
+	if !savedAt.IsZero() {
+		t.Errorf("LastSavedAt should be zero when no snapshot was restored or saved, got %v", savedAt)
 	}
 }
 
@@ -587,8 +607,8 @@ func TestRestoreFor_LoadError(t *testing.T) {
 	}
 }
 
-// TestRestoreFor_DoesNotSetRestoredAt: RestoreFor は起動時 Restore 経由でないため RestoredAt ok=false のまま
-func TestRestoreFor_DoesNotSetRestoredAt(t *testing.T) {
+// TestRestoreFor_DoesNotUpdateLastSavedAt: RestoreFor は lastSaved を変更しない
+func TestRestoreFor_DoesNotUpdateLastSavedAt(t *testing.T) {
 	t.Helper()
 	sink := newFakeSink()
 	ur, cr := newTestRepos()
@@ -610,9 +630,9 @@ func TestRestoreFor_DoesNotSetRestoredAt(t *testing.T) {
 		t.Fatal("RestoreFor: expected restored=true")
 	}
 
-	// 起動時 Restore を経由していないので RestoredAt は ok=false のまま
-	_, _, ok := c.RestoredAt()
-	if ok {
-		t.Error("RestoredAt: expected ok=false after RestoreFor (not startup Restore)")
+	// RestoreFor は lastSaved を変更しないため zero のまま
+	savedAt := c.LastSavedAt()
+	if !savedAt.IsZero() {
+		t.Errorf("LastSavedAt should be zero after RestoreFor (not startup Restore), got %v", savedAt)
 	}
 }

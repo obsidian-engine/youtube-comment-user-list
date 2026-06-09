@@ -15,20 +15,14 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
-// fakeCoordinator は RestoredAt を制御できるテスト用 Coordinator 実装です。
+// fakeCoordinator は LastSavedAt を制御できるテスト用 Coordinator 実装です。
 type fakeCoordinator struct {
 	snapshot.NopCoordinator
-	savedAt  time.Time
-	hasSnap  bool
-	consumed bool
+	savedAt time.Time
 }
 
-func (f *fakeCoordinator) RestoredAt() (time.Time, time.Time, bool) {
-	if f.consumed || !f.hasSnap {
-		return time.Time{}, time.Time{}, false
-	}
-	f.consumed = true
-	return time.Now(), f.savedAt, true
+func (f *fakeCoordinator) LastSavedAt() time.Time {
+	return f.savedAt
 }
 
 func newTestServer(frontend string) *httptest.Server {
@@ -117,12 +111,12 @@ func TestCORS_AllowsFrontendOrigin(t *testing.T) {
 	}
 }
 
-// TestStatus_snapshotSavedAt_returnedOnce: Restore 済み coordinator がある場合、
-// /status の初回呼出で snapshotSavedAt が返り、2 回目以降は omit される
-func TestStatus_snapshotSavedAt_returnedOnce(t *testing.T) {
+// TestStatus_snapshotSavedAt_returnedAlways: LastSavedAt がある coordinator は
+// /status を何度呼んでも常に snapshotSavedAt を返す
+func TestStatus_snapshotSavedAt_returnedAlways(t *testing.T) {
 	t.Helper()
 	savedAt := time.Date(2024, 6, 9, 14, 23, 0, 0, time.UTC)
-	coord := &fakeCoordinator{savedAt: savedAt, hasSnap: true}
+	coord := &fakeCoordinator{savedAt: savedAt}
 	ts := newTestServerWithCoord("http://example.com", coord)
 	defer ts.Close()
 
@@ -145,7 +139,7 @@ func TestStatus_snapshotSavedAt_returnedOnce(t *testing.T) {
 		t.Error("1st /status: expected snapshotSavedAt field, got absent")
 	}
 
-	// 2 回目: consumed なので snapshotSavedAt は omit される
+	// 2 回目: 常時返すので snapshotSavedAt が含まれる
 	req2, _ := stdhttp.NewRequest(stdhttp.MethodGet, ts.URL+"/status", nil)
 	res2, err := stdhttp.DefaultClient.Do(req2)
 	if err != nil {
@@ -157,8 +151,8 @@ func TestStatus_snapshotSavedAt_returnedOnce(t *testing.T) {
 		t.Fatalf("decode 2nd response: %v", err)
 	}
 
-	if _, exists := body2["snapshotSavedAt"]; exists {
-		t.Error("2nd /status: expected snapshotSavedAt absent (consumed), but present")
+	if _, exists := body2["snapshotSavedAt"]; !exists {
+		t.Error("2nd /status: expected snapshotSavedAt present (always returned), but absent")
 	}
 }
 

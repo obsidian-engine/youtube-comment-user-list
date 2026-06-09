@@ -8,6 +8,26 @@ import type { LogLevel } from './useLogEntries'
 const TOAST_KEY = 'snapshotRestoreToastShown'
 
 /**
+ * snapshotSavedAt を HH:MM (今日) または MM/DD HH:MM (それ以外) にフォーマットする。
+ * 未指定またはフォーマット不能の場合は空文字列を返す。
+ */
+export function formatSnapshotSavedAt(snapshotSavedAt?: string): string {
+  if (!snapshotSavedAt) return ''
+  const d = new Date(snapshotSavedAt)
+  if (isNaN(d.getTime())) return ''
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const today = new Date()
+  const isToday =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+  return isToday
+    ? `${pad(d.getHours())}:${pad(d.getMinutes())}`
+    : `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/**
  * snapshotSavedAt を元に toast メッセージを生成する。
  * 未指定・既表示・フォーマット不能の場合は空文字列を返す。
  * sessionStorage への書込は行わない（呼び出し側の useEffect で副作用化）。
@@ -18,18 +38,8 @@ function consumeSnapshotRestoreMsg(snapshotSavedAt?: string): string {
     typeof window !== 'undefined' && window.sessionStorage?.getItem(TOAST_KEY) === '1'
   if (alreadyShown) return ''
 
-  const d = new Date(snapshotSavedAt)
-  if (isNaN(d.getTime())) return ''
-
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const today = new Date()
-  const isToday =
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth() === today.getMonth() &&
-    d.getDate() === today.getDate()
-  const formatted = isToday
-    ? `${pad(d.getHours())}:${pad(d.getMinutes())}`
-    : `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const formatted = formatSnapshotSavedAt(snapshotSavedAt)
+  if (!formatted) return ''
   return `${formatted} の保存状態を取得しました`
 }
 
@@ -50,6 +60,7 @@ interface AppState {
   errorMsg: string
   infoMsg: string
   snapshotRestoreMsg: string
+  lastSnapshotAt: string
   startTime?: string
   skippedCount: number
   loadingStates: LoadingStates
@@ -84,6 +95,7 @@ export function useAppState(addEntry?: AddEntryFn) {
     errorMsg: '',
     infoMsg: '',
     snapshotRestoreMsg: '',
+    lastSnapshotAt: '',
     startTime: undefined,
     skippedCount: 0,
     loadingStates: {
@@ -141,6 +153,9 @@ export function useAppState(addEntry?: AddEntryFn) {
 
       // snapshotSavedAt: 初回ロード時に 1 度だけ toast を表示（sessionStorage への書込は useEffect で副作用化）
       const snapshotRestoreMsg = consumeSnapshotRestoreMsg(st.snapshotSavedAt)
+      const newSnapshotAt = st.snapshotSavedAt
+        ? formatSnapshotSavedAt(st.snapshotSavedAt)
+        : undefined
 
       setState((prev) => {
         const sortedUsers = sortUsersStable(fetched)
@@ -152,6 +167,7 @@ export function useAppState(addEntry?: AddEntryFn) {
           users: sortedUsers, // 強制的に新しいリストに置き換え
           startTime: st.startedAt,
           errorMsg: '',
+          lastSnapshotAt: newSnapshotAt ?? prev.lastSnapshotAt,
           ...(snapshotRestoreMsg ? { snapshotRestoreMsg } : {}),
         }
       })
@@ -211,6 +227,9 @@ export function useAppState(addEntry?: AddEntryFn) {
 
       // snapshotSavedAt: 初回ロード時に 1 度だけ toast を表示（sessionStorage への書込は useEffect で副作用化）
       const snapshotRestoreMsg = consumeSnapshotRestoreMsg(st.snapshotSavedAt)
+      const newSnapshotAt = st.snapshotSavedAt
+        ? formatSnapshotSavedAt(st.snapshotSavedAt)
+        : undefined
 
       setState((prev) => {
         const sortedUsers = sortUsersStable(fetched)
@@ -240,6 +259,7 @@ export function useAppState(addEntry?: AddEntryFn) {
           users: finalUsers,
           startTime: st.startedAt,
           errorMsg: '',
+          lastSnapshotAt: newSnapshotAt ?? prev.lastSnapshotAt,
           ...(snapshotRestoreMsg ? { snapshotRestoreMsg } : {}),
         }
       })

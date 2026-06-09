@@ -5,6 +5,7 @@ interface StatsCardProps {
   active: boolean
   startTime?: string
   lastUpdated?: string
+  lastSnapshotAt?: string
   skippedCount: number
 }
 
@@ -27,14 +28,21 @@ const getMonitoringStartTime = (startTime?: string): string => {
   }
 }
 
-export function StatsCard({ users, active, startTime, lastUpdated, skippedCount }: StatsCardProps) {
+export function StatsCard({
+  users,
+  active,
+  startTime,
+  lastUpdated,
+  lastSnapshotAt,
+  skippedCount,
+}: StatsCardProps) {
   const totalUsers = users.length
   const monitoringStartTime = getMonitoringStartTime(active ? startTime : undefined)
 
   return (
     <div className="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800/50 dark:to-slate-700/50 backdrop-blur">
       <div className="px-6 py-5">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* 総ユーザー数 */}
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0">
@@ -85,6 +93,23 @@ export function StatsCard({ users, active, startTime, lastUpdated, skippedCount 
               </div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
                 <span className="text-lg">{lastUpdated || '--:--:--'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* クラウド保存 */}
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-sky-500/10 dark:bg-sky-400/10 flex items-center justify-center">
+                <span className="text-lg">☁️</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                クラウド保存
+              </div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                <span className="text-lg">{lastSnapshotAt || '--:--'}</span>
               </div>
             </div>
           </div>

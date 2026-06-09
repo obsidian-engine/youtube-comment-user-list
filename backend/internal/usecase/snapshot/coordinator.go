@@ -17,17 +17,15 @@ type Coordinator interface {
 	Restore(ctx context.Context) error
 	// RestoreFor は指定 videoID の snapshot を GCS から読み込み、in-memory repo に復元します。
 	// snapshot が存在しない場合は (false, nil) を返します。
-	// 起動時 Restore とは異なり、restoredAt / snapshotSavedAt は更新しません（toast 発火させない）。
 	RestoreFor(ctx context.Context, videoID string) (restored bool, err error)
 	SetVideo(videoID, liveChatID string)
 	MarkDirty()
 	Flush(ctx context.Context) error
 	Start(ctx context.Context)
 	Stop()
-	// RestoredAt は起動時 Restore 成功時の情報を 1 度だけ返します。
-	// ok=true の場合、restoredAt は Restore 実行時刻、snapshotSavedAt は snapshot の SavedAt です。
-	// 2 回目以降の呼出では ok=false を返します（consumed flag で管理）。
-	RestoredAt() (restoredAt, snapshotSavedAt time.Time, ok bool)
+	// LastSavedAt は最終 save 成功時刻を返します。
+	// Restore 復元時刻 (snap.SavedAt) も含みます。zero は未保存を意味します。
+	LastSavedAt() time.Time
 }
 
 // coordinator は GCS sink を持つ Coordinator 実装です。
@@ -44,11 +42,6 @@ type coordinator struct {
 	liveChatID string
 	dirty      bool
 	lastSaved  time.Time
-
-	// Restore 成功時にセットされる情報（1 回限り消費）
-	restoredAt      time.Time
-	snapshotSavedAt time.Time
-	restoreConsumed bool
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -104,9 +97,7 @@ func (c *coordinator) Restore(ctx context.Context) error {
 	c.mu.Lock()
 	c.videoID = snap.VideoID
 	c.liveChatID = snap.LiveChatID
-	c.restoredAt = time.Now()
-	c.snapshotSavedAt = snap.SavedAt
-	c.restoreConsumed = false
+	c.lastSaved = snap.SavedAt
 	c.mu.Unlock()
 
 	log.Printf("[INFO] snapshot: restored videoId=%s users=%d comments=%d savedAt=%s",
@@ -213,7 +204,7 @@ func (c *coordinator) Stop() {
 }
 
 // RestoreFor は指定 videoID の snapshot を GCS から読み込み、in-memory repo に復元します。
-// 起動時 Restore と異なり restoredAt / snapshotSavedAt / restoreConsumed は変更しません。
+// 起動時 Restore と異なり lastSaved は変更しません。
 func (c *coordinator) RestoreFor(ctx context.Context, videoID string) (bool, error) {
 	snap, err := c.sink.Load(ctx, videoID)
 	if err != nil {
@@ -243,16 +234,11 @@ func (c *coordinator) RestoreFor(ctx context.Context, videoID string) (bool, err
 	return true, nil
 }
 
-// RestoredAt は起動時 Restore が成功していた場合、その情報を 1 度だけ返します。
-// 2 回目以降の呼出では ok=false を返します。
-func (c *coordinator) RestoredAt() (restoredAt, snapshotSavedAt time.Time, ok bool) {
+// LastSavedAt は最終 save 成功時刻を返します。zero は未保存を意味します。
+func (c *coordinator) LastSavedAt() time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.restoreConsumed || c.restoredAt.IsZero() {
-		return time.Time{}, time.Time{}, false
-	}
-	c.restoreConsumed = true
-	return c.restoredAt, c.snapshotSavedAt, true
+	return c.lastSaved
 }
 
 // save は snapshot を組み立てて sink に書き込みます。
@@ -307,6 +293,4 @@ func (n *NopCoordinator) MarkDirty()                                           {
 func (n *NopCoordinator) Flush(_ context.Context) error                        { return nil }
 func (n *NopCoordinator) Start(_ context.Context)                              {}
 func (n *NopCoordinator) Stop()                                                {}
-func (n *NopCoordinator) RestoredAt() (time.Time, time.Time, bool) {
-	return time.Time{}, time.Time{}, false
-}
+func (n *NopCoordinator) LastSavedAt() time.Time                               { return time.Time{} }
