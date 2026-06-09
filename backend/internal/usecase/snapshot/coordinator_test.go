@@ -418,4 +418,63 @@ func TestNopCoordinator(t *testing.T) {
 	}
 	nop.Start(context.Background())
 	nop.Stop()
+	_, _, ok := nop.RestoredAt()
+	if ok {
+		t.Error("NopCoordinator.RestoredAt should always return ok=false")
+	}
+}
+
+// TestRestoredAt_consumedOnce: RestoredAt は Restore 成功後 1 回だけ ok=true を返す
+func TestRestoredAt_consumedOnce(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+
+	now := time.Now().Truncate(time.Second)
+	snap := &port.Snapshot{
+		SchemaVersion: 1,
+		VideoID:       "vid-restored",
+		LiveChatID:    "chat-restored",
+		SavedAt:       now,
+	}
+	_ = sink.Save(context.Background(), snap)
+	_ = sink.SaveCurrent(context.Background(), &port.CurrentPointer{VideoID: "vid-restored"})
+
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
+	if err := c.Restore(context.Background()); err != nil {
+		t.Fatalf("Restore returned error: %v", err)
+	}
+
+	// 1 回目: ok=true で savedAt が一致する
+	_, gotSavedAt, ok := c.RestoredAt()
+	if !ok {
+		t.Fatal("RestoredAt: expected ok=true on first call")
+	}
+	if !gotSavedAt.Equal(now) {
+		t.Errorf("RestoredAt snapshotSavedAt = %v, want %v", gotSavedAt, now)
+	}
+
+	// 2 回目: ok=false（consumed）
+	_, _, ok2 := c.RestoredAt()
+	if ok2 {
+		t.Error("RestoredAt: expected ok=false on second call (consumed)")
+	}
+}
+
+// TestRestoredAt_noRestore: Restore 未実行では ok=false
+func TestRestoredAt_noRestore(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+
+	// current.json なし → Restore は no-op
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
+	if err := c.Restore(context.Background()); err != nil {
+		t.Fatalf("Restore returned error: %v", err)
+	}
+
+	_, _, ok := c.RestoredAt()
+	if ok {
+		t.Error("RestoredAt: expected ok=false when no snapshot was restored")
+	}
 }

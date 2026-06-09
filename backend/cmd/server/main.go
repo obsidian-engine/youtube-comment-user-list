@@ -74,7 +74,7 @@ func main() {
 	ucPull := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
 	ucReset := &usecase.Reset{Users: users, State: state, Snap: coord}
 
-	h := &ahttp.Handlers{Status: ucStatus, SwitchVideo: ucSwitch, Pull: ucPull, Reset: ucReset, Users: users, Comments: comments}
+	h := &ahttp.Handlers{Status: ucStatus, SwitchVideo: ucSwitch, Pull: ucPull, Reset: ucReset, Users: users, Comments: comments, Coord: coord}
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: ahttp.NewRouter(h, cfg.FrontendOrigin)}
 
 	// グレースフルシャットダウンのためのコンテキスト設定

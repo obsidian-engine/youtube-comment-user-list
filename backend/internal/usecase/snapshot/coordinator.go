@@ -20,6 +20,10 @@ type Coordinator interface {
 	Flush(ctx context.Context) error
 	Start(ctx context.Context)
 	Stop()
+	// RestoredAt は起動時 Restore 成功時の情報を 1 度だけ返します。
+	// ok=true の場合、restoredAt は Restore 実行時刻、snapshotSavedAt は snapshot の SavedAt です。
+	// 2 回目以降の呼出では ok=false を返します（consumed flag で管理）。
+	RestoredAt() (restoredAt, snapshotSavedAt time.Time, ok bool)
 }
 
 // coordinator は GCS sink を持つ Coordinator 実装です。
@@ -36,6 +40,11 @@ type coordinator struct {
 	liveChatID string
 	dirty      bool
 	lastSaved  time.Time
+
+	// Restore 成功時にセットされる情報（1 回限り消費）
+	restoredAt      time.Time
+	snapshotSavedAt time.Time
+	restoreConsumed bool
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -91,10 +100,13 @@ func (c *coordinator) Restore(ctx context.Context) error {
 	c.mu.Lock()
 	c.videoID = snap.VideoID
 	c.liveChatID = snap.LiveChatID
+	c.restoredAt = time.Now()
+	c.snapshotSavedAt = snap.SavedAt
+	c.restoreConsumed = false
 	c.mu.Unlock()
 
-	log.Printf("[INFO] snapshot: restored videoId=%s users=%d comments=%d",
-		snap.VideoID, len(snap.Users), len(snap.Comments))
+	log.Printf("[INFO] snapshot: restored videoId=%s users=%d comments=%d savedAt=%s",
+		snap.VideoID, len(snap.Users), len(snap.Comments), snap.SavedAt.Format(time.RFC3339))
 	return nil
 }
 
@@ -196,6 +208,18 @@ func (c *coordinator) Stop() {
 	c.wg.Wait()
 }
 
+// RestoredAt は起動時 Restore が成功していた場合、その情報を 1 度だけ返します。
+// 2 回目以降の呼出では ok=false を返します。
+func (c *coordinator) RestoredAt() (restoredAt, snapshotSavedAt time.Time, ok bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.restoreConsumed || c.restoredAt.IsZero() {
+		return time.Time{}, time.Time{}, false
+	}
+	c.restoreConsumed = true
+	return c.restoredAt, c.snapshotSavedAt, true
+}
+
 // save は snapshot を組み立てて sink に書き込みます。
 // saveMu で直列化し、並列 save による上書き race を防ぎます。
 func (c *coordinator) save(ctx context.Context, videoID, liveChatID string) error {
@@ -247,3 +271,6 @@ func (n *NopCoordinator) MarkDirty()                      {}
 func (n *NopCoordinator) Flush(_ context.Context) error   { return nil }
 func (n *NopCoordinator) Start(_ context.Context)         {}
 func (n *NopCoordinator) Stop()                           {}
+func (n *NopCoordinator) RestoredAt() (time.Time, time.Time, bool) {
+	return time.Time{}, time.Time{}, false
+}

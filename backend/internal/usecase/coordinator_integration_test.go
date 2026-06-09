@@ -35,6 +35,9 @@ func (m *mockCoord) Flush(_ context.Context) error {
 }
 func (m *mockCoord) Start(_ context.Context) {}
 func (m *mockCoord) Stop()                   {}
+func (m *mockCoord) RestoredAt() (time.Time, time.Time, bool) {
+	return time.Time{}, time.Time{}, false
+}
 
 // TestSwitchVideo_CoordinatorCallOrder: 旧 video Flush → SetVideo → MarkDirty → Flush の順序を検証
 func TestSwitchVideo_CoordinatorCallOrder(t *testing.T) {

@@ -5,12 +5,14 @@ import (
 	"log"
 	stdhttp "net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
 type Handlers struct {
@@ -20,17 +22,19 @@ type Handlers struct {
 	Reset       *usecase.Reset
 	Users       port.UserRepo
 	Comments    port.CommentRepo
+	Coord       snapshot.Coordinator
 }
 
 // StatusResponse represents the response for /status endpoint
 type StatusResponse struct {
-	Status       string      `json:"status"`
-	Count        int         `json:"count"`
-	VideoID      string      `json:"videoId"`
-	LiveChatID   string      `json:"liveChatId"`
-	StartedAt    interface{} `json:"startedAt"`
-	EndedAt      interface{} `json:"endedAt"`
-	LastPulledAt interface{} `json:"lastPulledAt"`
+	Status          string      `json:"status"`
+	Count           int         `json:"count"`
+	VideoID         string      `json:"videoId"`
+	LiveChatID      string      `json:"liveChatId"`
+	StartedAt       interface{} `json:"startedAt"`
+	EndedAt         interface{} `json:"endedAt"`
+	LastPulledAt    interface{} `json:"lastPulledAt"`
+	SnapshotSavedAt *time.Time  `json:"snapshotSavedAt,omitempty"`
 }
 
 // SwitchVideoResponse represents the response for /switch-video endpoint
@@ -96,6 +100,11 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			StartedAt:    out.StartedAt,
 			EndedAt:      out.EndedAt,
 			LastPulledAt: out.LastPulledAt,
+		}
+		if h.Coord != nil {
+			if _, savedAt, ok := h.Coord.RestoredAt(); ok {
+				response.SnapshotSavedAt = &savedAt
+			}
 		}
 		render.JSON(w, r, response)
 	})
