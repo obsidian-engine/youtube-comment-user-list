@@ -41,22 +41,22 @@ export function StatsCard({
 
   return (
     <div className="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800/50 dark:to-slate-700/50 backdrop-blur">
-      <div className="px-6 py-5">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="px-4 py-4 md:px-6 md:py-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
           {/* 総ユーザー数 */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <div className="flex-shrink-0">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/10 dark:bg-blue-400/10 flex items-center justify-center">
-                <span className="text-lg">👥</span>
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-blue-500/10 dark:bg-blue-400/10 flex items-center justify-center">
+                <span className="text-base md:text-lg">👥</span>
               </div>
             </div>
-            <div>
-              <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
+            <div className="min-w-0">
+              <div className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 truncate">
                 総ユーザー数
               </div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+              <div className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
                 {totalUsers}
-                <span className="text-sm font-normal text-slate-500 dark:text-slate-400 ml-1">
+                <span className="text-xs md:text-sm font-normal text-slate-500 dark:text-slate-400 ml-1">
                   人
                 </span>
               </div>
@@ -64,52 +64,52 @@ export function StatsCard({
           </div>
 
           {/* 監視開始時間 */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <div className="flex-shrink-0">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 dark:bg-purple-400/10 flex items-center justify-center">
-                <span className="text-lg">⏰</span>
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-purple-500/10 dark:bg-purple-400/10 flex items-center justify-center">
+                <span className="text-base md:text-lg">⏰</span>
               </div>
             </div>
-            <div>
-              <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
+            <div className="min-w-0">
+              <div className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 truncate">
                 監視開始時間
               </div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                <span className="text-lg">{monitoringStartTime}</span>
+              <div className="font-bold text-slate-900 dark:text-white">
+                <span className="text-sm md:text-lg break-all">{monitoringStartTime}</span>
               </div>
             </div>
           </div>
 
           {/* 画面最終更新 */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <div className="flex-shrink-0">
-              <div className="w-10 h-10 rounded-lg bg-green-500/10 dark:bg-green-400/10 flex items-center justify-center">
-                <span className="text-lg">🔄</span>
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-green-500/10 dark:bg-green-400/10 flex items-center justify-center">
+                <span className="text-base md:text-lg">🔄</span>
               </div>
             </div>
-            <div>
-              <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
+            <div className="min-w-0">
+              <div className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 truncate">
                 画面最終更新
               </div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                <span className="text-lg">{lastUpdated || '--:--:--'}</span>
+              <div className="font-bold text-slate-900 dark:text-white">
+                <span className="text-sm md:text-lg tabular-nums">{lastUpdated || '--:--:--'}</span>
               </div>
             </div>
           </div>
 
           {/* クラウド保存 */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <div className="flex-shrink-0">
-              <div className="w-10 h-10 rounded-lg bg-sky-500/10 dark:bg-sky-400/10 flex items-center justify-center">
-                <span className="text-lg">☁️</span>
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-sky-500/10 dark:bg-sky-400/10 flex items-center justify-center">
+                <span className="text-base md:text-lg">☁️</span>
               </div>
             </div>
-            <div>
-              <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
+            <div className="min-w-0">
+              <div className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 truncate">
                 クラウド保存
               </div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                <span className="text-lg">{lastSnapshotAt || '--:--'}</span>
+              <div className="font-bold text-slate-900 dark:text-white">
+                <span className="text-sm md:text-lg tabular-nums">{lastSnapshotAt || '--:--'}</span>
               </div>
             </div>
           </div>
