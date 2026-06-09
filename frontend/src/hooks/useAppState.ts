@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import {
   getStatus,
   getUsers,
@@ -58,7 +58,7 @@ interface LoadingStates {
 }
 
 interface AppState {
-  active: boolean
+  status: string
   users: User[]
   videoId: string
   intervalSec: number
@@ -93,7 +93,7 @@ type AddEntryFn = (
 
 export function useAppState(addEntry?: AddEntryFn) {
   const [state, setState] = useState<AppState>({
-    active: false,
+    status: 'WAITING',
     users: [],
     videoId: localStorage.getItem('videoId') || '',
     intervalSec: 60,
@@ -177,7 +177,7 @@ export function useAppState(addEntry?: AddEntryFn) {
 
           return {
             ...prev,
-            active: status === 'ACTIVE',
+            status,
             users: finalUsers,
             startTime: st.startedAt,
             errorMsg: '',
@@ -380,5 +380,7 @@ export function useAppState(addEntry?: AddEntryFn) {
     }
   }, [state.snapshotRestoreMsg])
 
-  return { state, actions }
+  const derivedState = useMemo(() => ({ ...state, active: state.status === 'ACTIVE' }), [state])
+
+  return { state: derivedState, actions }
 }

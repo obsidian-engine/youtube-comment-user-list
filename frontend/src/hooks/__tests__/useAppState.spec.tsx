@@ -58,6 +58,7 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState())
 
     expect(result.current.state).toEqual({
+      status: 'WAITING',
       active: false,
       users: [],
       videoId: '',
@@ -772,6 +773,35 @@ describe('useAppState', () => {
       // error entry (失敗メッセージ) のみ、logs 流し込みなし
       expect(addEntry).toHaveBeenCalledTimes(1)
       expect(addEntry).toHaveBeenCalledWith('error', '切替に失敗しました')
+    })
+  })
+
+  describe('state.status (Step 3)', () => {
+    test('state.status の初期値は WAITING', () => {
+      const { result } = renderHook(() => useAppState())
+      expect(result.current.state.status).toBe('WAITING')
+    })
+
+    test('refresh 後 state.status が server response の status と一致する', async () => {
+      mockGetStatus.mockResolvedValueOnce({ status: 'ACTIVE' })
+      mockGetUsers.mockResolvedValue([])
+
+      const { result } = renderHook(() => useAppState())
+
+      await act(async () => {
+        await result.current.actions.refresh()
+      })
+
+      expect(result.current.state.status).toBe('ACTIVE')
+
+      mockGetStatus.mockResolvedValueOnce({ status: 'WAITING' })
+      mockGetUsers.mockResolvedValue([])
+
+      await act(async () => {
+        await result.current.actions.refresh()
+      })
+
+      expect(result.current.state.status).toBe('WAITING')
     })
   })
 })
