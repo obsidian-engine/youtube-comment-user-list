@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Tooltip } from './Tooltip'
 import { isJapaneseTextTooLong, truncateJapaneseText } from '../utils/textUtils'
+import { SELECT_CLASS } from '../utils/styles'
 
 interface User {
   channelId?: string
@@ -289,7 +290,7 @@ export function UserTable({
                   value={intervalSec}
                   onChange={(e) => setIntervalSec(Number(e.target.value))}
                   disabled={isRefreshing}
-                  className="text-[12px] px-2 py-1 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10"
+                  className={SELECT_CLASS}
                 >
                   <option value="0">停止</option>
                   <option value="60">60s</option>
