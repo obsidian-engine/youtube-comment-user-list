@@ -178,3 +178,36 @@ export async function searchComments(
   const params = new URLSearchParams({ keywords: keywords.join(',') })
   return fetchWithRetry<Comment[] | null>(`${BASE}/comments?${params}`, { signal })
 }
+
+export interface HistorySummary {
+  videoId: string
+  savedAt: string
+  userCount: number
+  commentCount: number
+}
+
+export interface HistorySnapshot {
+  videoId: string
+  liveChatId?: string
+  savedAt: string
+  users: User[]
+  comments: Comment[]
+  processedMsgs?: string[]
+  state?: { status?: string; startedAt?: string; endedAt?: string }
+}
+
+export async function getHistorySnapshots(signal?: AbortSignal): Promise<HistorySummary[]> {
+  const res = await fetch(`${BASE}/history/snapshots`, { signal })
+  if (!res.ok) return parseErrorResponse(res)
+  const data = (await res.json()) as { items?: HistorySummary[] }
+  return data.items ?? []
+}
+
+export async function getHistorySnapshot(
+  videoId: string,
+  signal?: AbortSignal,
+): Promise<HistorySnapshot> {
+  const res = await fetch(`${BASE}/history/snapshots/${encodeURIComponent(videoId)}`, { signal })
+  if (!res.ok) return parseErrorResponse(res)
+  return res.json() as Promise<HistorySnapshot>
+}
