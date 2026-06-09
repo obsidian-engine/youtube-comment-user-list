@@ -70,9 +70,9 @@ func main() {
 
 	// UseCases
 	ucStatus := &usecase.Status{Users: users, State: state}
-	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord}
+	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
 	ucPull := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
-	ucReset := &usecase.Reset{Users: users, State: state, Snap: coord}
+	ucReset := &usecase.Reset{Users: users, Comments: comments, State: state, Snap: coord}
 
 	h := &ahttp.Handlers{Status: ucStatus, SwitchVideo: ucSwitch, Pull: ucPull, Reset: ucReset, Users: users, Comments: comments, Coord: coord}
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: ahttp.NewRouter(h, cfg.FrontendOrigin)}

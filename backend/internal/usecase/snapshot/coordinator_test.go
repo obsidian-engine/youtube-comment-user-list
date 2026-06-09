@@ -478,3 +478,141 @@ func TestRestoredAt_noRestore(t *testing.T) {
 		t.Error("RestoredAt: expected ok=false when no snapshot was restored")
 	}
 }
+
+// TestRestoreFor_NoSnapshot: sink が nil を返す場合 (false, nil) を返す
+func TestRestoreFor_NoSnapshot(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
+	restored, err := c.RestoreFor(context.Background(), "vid-notfound")
+	if err != nil {
+		t.Fatalf("RestoreFor returned error: %v", err)
+	}
+	if restored {
+		t.Error("RestoreFor: expected restored=false when no snapshot exists")
+	}
+	if ur.Count() != 0 {
+		t.Errorf("expected 0 users after RestoreFor(nil snap), got %d", ur.Count())
+	}
+}
+
+// TestRestoreFor_Success: snap あり → repo 上書き、coordinator.videoID 更新、dirty=false
+func TestRestoreFor_Success(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+	sr := memory.NewStateRepo()
+
+	now := time.Now()
+	state := domain.LiveState{
+		Status:     domain.StatusActive,
+		VideoID:    "vid-for",
+		LiveChatID: "chat-for",
+		StartedAt:  now,
+	}
+	snap := &port.Snapshot{
+		SchemaVersion: 1,
+		VideoID:       "vid-for",
+		LiveChatID:    "chat-for",
+		SavedAt:       now,
+		Users: []domain.User{
+			{ChannelID: "ch1", DisplayName: "Alice", JoinedAt: now},
+		},
+		Comments: []domain.Comment{
+			{ID: "c1", ChannelID: "ch1", DisplayName: "Alice", Message: "hello", PublishedAt: now},
+		},
+		ProcessedMsgs: []string{"msg1"},
+		State:         &state,
+	}
+	_ = sink.Save(context.Background(), snap)
+
+	c := snapshot.NewCoordinator(sink, ur, cr, sr, 30*time.Second)
+	restored, err := c.RestoreFor(context.Background(), "vid-for")
+	if err != nil {
+		t.Fatalf("RestoreFor returned error: %v", err)
+	}
+	if !restored {
+		t.Fatal("RestoreFor: expected restored=true")
+	}
+
+	// repo に反映されているか確認
+	if ur.Count() != 1 {
+		t.Errorf("expected 1 user after RestoreFor, got %d", ur.Count())
+	}
+	if cr.Count() != 1 {
+		t.Errorf("expected 1 comment after RestoreFor, got %d", cr.Count())
+	}
+
+	// State も復元されているか確認
+	gotState, err := sr.Get(context.Background())
+	if err != nil {
+		t.Fatalf("StateRepo.Get error: %v", err)
+	}
+	if gotState.VideoID != "vid-for" {
+		t.Errorf("State.VideoID = %q, want %q", gotState.VideoID, "vid-for")
+	}
+
+	// RestoreFor 直後は dirty=false を確認。
+	// background save が起きないことは Start を呼ばないことで保証（Start 未実行 = goroutine なし）。
+	// Flush は明示的 save なので dirty に関わらず save する（既存仕様）。
+	// MarkDirty → Flush で save が追加されることを確認。
+	savesBefore := sink.getSaveCount()
+	c.MarkDirty()
+	if err := c.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush returned error: %v", err)
+	}
+	savesAfter := sink.getSaveCount()
+	if savesAfter != savesBefore+1 {
+		t.Errorf("expected 1 additional save after MarkDirty+Flush, got %d -> %d", savesBefore, savesAfter)
+	}
+}
+
+// TestRestoreFor_LoadError: sink の Load がエラーを返す場合 (false, err) を返す
+func TestRestoreFor_LoadError(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+
+	sink.setLoadError(fmt.Errorf("gcs unavailable"))
+
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
+	restored, err := c.RestoreFor(context.Background(), "vid-error")
+	if err == nil {
+		t.Fatal("RestoreFor: expected error when sink Load returns error, got nil")
+	}
+	if restored {
+		t.Error("RestoreFor: expected restored=false on error")
+	}
+}
+
+// TestRestoreFor_DoesNotSetRestoredAt: RestoreFor は起動時 Restore 経由でないため RestoredAt ok=false のまま
+func TestRestoreFor_DoesNotSetRestoredAt(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+
+	now := time.Now()
+	snap := &port.Snapshot{
+		SchemaVersion: 1,
+		VideoID:       "vid-for2",
+		SavedAt:       now,
+	}
+	_ = sink.Save(context.Background(), snap)
+
+	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
+	restored, err := c.RestoreFor(context.Background(), "vid-for2")
+	if err != nil {
+		t.Fatalf("RestoreFor returned error: %v", err)
+	}
+	if !restored {
+		t.Fatal("RestoreFor: expected restored=true")
+	}
+
+	// 起動時 Restore を経由していないので RestoredAt は ok=false のまま
+	_, _, ok := c.RestoredAt()
+	if ok {
+		t.Error("RestoredAt: expected ok=false after RestoreFor (not startup Restore)")
+	}
+}

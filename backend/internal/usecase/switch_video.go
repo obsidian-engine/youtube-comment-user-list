@@ -18,11 +18,12 @@ type SwitchVideoOutput struct {
 }
 
 type SwitchVideo struct {
-	YT    port.YouTubePort
-	Users port.UserRepo
-	State port.StateRepo
-	Clock port.Clock
-	Snap  snapshot.Coordinator // 必須 (GCS 不要な場合は NopCoordinator を渡す)
+	YT       port.YouTubePort
+	Users    port.UserRepo
+	Comments port.CommentRepo
+	State    port.StateRepo
+	Clock    port.Clock
+	Snap     snapshot.Coordinator // 必須 (GCS 不要な場合は NopCoordinator を渡す)
 }
 
 // Execute: videoId 切替、ユーザー初期化、State=ACTIVE に遷移。
@@ -67,8 +68,18 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 	// 3. 同じ videoId への再切替は既存 users を維持する（別 videoId の場合のみクリア）
 	prevState, _ := uc.State.Get(ctx)
 	sameVideo := prevState.VideoID == in.VideoID
+	restored := false
 	if !sameVideo {
 		uc.Users.Clear()
+		if uc.Comments != nil {
+			uc.Comments.Clear()
+		}
+		r, rerr := uc.Snap.RestoreFor(ctx, in.VideoID)
+		if rerr != nil {
+			log.Printf("[WARN] switch_video: restoreFor failed: %v", rerr)
+		} else {
+			restored = r
+		}
 	}
 
 	// 4. StateをACTIVEに更新
@@ -76,6 +87,11 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 	startedAt := now
 	if sameVideo && !prevState.StartedAt.IsZero() {
 		startedAt = prevState.StartedAt
+	} else if restored {
+		// RestoreFor が State を復元している場合、復元された StartedAt を引き継ぐ
+		if restoredState, err := uc.State.Get(ctx); err == nil && !restoredState.StartedAt.IsZero() {
+			startedAt = restoredState.StartedAt
+		}
 	}
 	newState := domain.LiveState{
 		Status:        domain.StatusActive,

@@ -13,6 +13,11 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
+// buildCoordWithSink は fakeSinkForUsecase を使って snapshot.Coordinator を生成するヘルパー。
+func buildCoordWithSink(sink *fakeSinkForUsecase, users *memory.UserRepo, comments *memory.CommentRepo, state port.StateRepo) snapshot.Coordinator {
+	return snapshot.NewCoordinator(sink, users, comments, state, 0)
+}
+
 type fakeYT struct{}
 
 func (f *fakeYT) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
@@ -214,5 +219,131 @@ func TestSwitchVideo_APIError_SameVideoID_NoUsers_ReturnsError(t *testing.T) {
 	_, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "video123"})
 	if err == nil {
 		t.Fatal("Execute should return error when users are empty even on same videoId")
+	}
+}
+
+// TestSwitchVideo_DifferentVideo_ClearsComments: 別 video 切替で CommentRepo がクリアされる
+func TestSwitchVideo_DifferentVideo_ClearsComments(t *testing.T) {
+	ctx := context.Background()
+
+	users := memory.NewUserRepo()
+	comments := memory.NewCommentRepo()
+	_ = comments.Add(domain.Comment{ID: "c1", ChannelID: "ch1", DisplayName: "Alice", Message: "hello", PublishedAt: time.Now()})
+	_ = comments.Add(domain.Comment{ID: "c2", ChannelID: "ch2", DisplayName: "Bob", Message: "world", PublishedAt: time.Now()})
+	state := memory.NewStateRepo()
+	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "video-old"})
+
+	yt := &fakeYT{}
+	clock := fixedClock{t: time.Now()}
+	sink := newFakeSinkForUsecase()
+	coord := buildCoordWithSink(sink, users, comments, state)
+
+	uc := &usecase.SwitchVideo{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
+
+	_, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "video-new"})
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if got := comments.Count(); got != 0 {
+		t.Errorf("Comments.Count() = %d, want 0 (should be cleared on different video)", got)
+	}
+}
+
+// TestSwitchVideo_V1_to_V2_to_V1_RestoresFromGCS: V1→V2→V1 切替でユーザーが GCS から復元される
+func TestSwitchVideo_V1_to_V2_to_V1_RestoresFromGCS(t *testing.T) {
+	ctx := context.Background()
+
+	users := memory.NewUserRepo()
+	comments := memory.NewCommentRepo()
+	state := memory.NewStateRepo()
+	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v1", LiveChatID: "chat-v1"})
+
+	yt := &fakeYT{}
+	clock := fixedClock{t: time.Now()}
+	sink := newFakeSinkForUsecase()
+	coord := buildCoordWithSink(sink, users, comments, state)
+
+	// V1 配信: ユーザー追加
+	_ = users.UpsertWithJoinTime("ch1", "Alice", time.Now())
+	_ = users.UpsertWithJoinTime("ch2", "Bob", time.Now())
+	_ = comments.Add(domain.Comment{ID: "c1", ChannelID: "ch1", DisplayName: "Alice", Message: "hello", PublishedAt: time.Now()})
+
+	// V1 状態を coordinator に設定して Flush → V1.json 保存
+	coord.SetVideo("v1", "chat-v1")
+	coord.MarkDirty()
+	if err := coord.Flush(ctx); err != nil {
+		t.Fatalf("V1 Flush failed: %v", err)
+	}
+
+	// V2 に切替
+	uc := &usecase.SwitchVideo{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
+	_, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "v2"})
+	if err != nil {
+		t.Fatalf("Switch to V2 failed: %v", err)
+	}
+
+	// V2 切替後は users/comments がクリアされている
+	if got := users.Count(); got != 0 {
+		t.Errorf("after V2 switch: Users.Count() = %d, want 0", got)
+	}
+	if got := comments.Count(); got != 0 {
+		t.Errorf("after V2 switch: Comments.Count() = %d, want 0", got)
+	}
+
+	// V1 に戻す → GCS から復元
+	_, err = uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "v1"})
+	if err != nil {
+		t.Fatalf("Switch back to V1 failed: %v", err)
+	}
+
+	// V1 の users が復元されている
+	if got := users.Count(); got != 2 {
+		t.Errorf("after V1 restore: Users.Count() = %d, want 2 (restored from GCS)", got)
+	}
+	if got := comments.Count(); got != 1 {
+		t.Errorf("after V1 restore: Comments.Count() = %d, want 1 (restored from GCS)", got)
+	}
+}
+
+// TestSwitchVideo_SnapshotPreservedAcrossSwitch: V1→V2 切替後も V1.json が破壊されない（回帰テスト）
+func TestSwitchVideo_SnapshotPreservedAcrossSwitch(t *testing.T) {
+	ctx := context.Background()
+
+	users := memory.NewUserRepo()
+	comments := memory.NewCommentRepo()
+	state := memory.NewStateRepo()
+	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v1", LiveChatID: "chat-v1"})
+
+	yt := &fakeYT{}
+	clock := fixedClock{t: time.Now()}
+	sink := newFakeSinkForUsecase()
+	coord := buildCoordWithSink(sink, users, comments, state)
+
+	// V1 配信: ユーザー追加 → Flush
+	_ = users.UpsertWithJoinTime("ch1", "Alice", time.Now())
+	coord.SetVideo("v1", "chat-v1")
+	coord.MarkDirty()
+	if err := coord.Flush(ctx); err != nil {
+		t.Fatalf("V1 Flush failed: %v", err)
+	}
+
+	// V2 に切替 → V1.json が上書きされないことを確認
+	uc := &usecase.SwitchVideo{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
+	_, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "v2"})
+	if err != nil {
+		t.Fatalf("Switch to V2 failed: %v", err)
+	}
+
+	// V1 snapshot は sink に残っているか
+	v1Snap, err := sink.Load(ctx, "v1")
+	if err != nil {
+		t.Fatalf("sink.Load(v1) error: %v", err)
+	}
+	if v1Snap == nil {
+		t.Fatal("V1 snapshot was lost after switching to V2 (regression)")
+	}
+	if len(v1Snap.Users) != 1 {
+		t.Errorf("V1 snapshot users = %d, want 1", len(v1Snap.Users))
 	}
 }

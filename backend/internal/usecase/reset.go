@@ -14,9 +14,10 @@ type ResetOutput struct {
 }
 
 type Reset struct {
-	Users port.UserRepo
-	State port.StateRepo
-	Snap  snapshot.Coordinator // 必須 (GCS 不要な場合は NopCoordinator を渡す)
+	Users    port.UserRepo
+	Comments port.CommentRepo
+	State    port.StateRepo
+	Snap     snapshot.Coordinator // 必須 (GCS 不要な場合は NopCoordinator を渡す)
 }
 
 // Execute: Users クリア、State=WAITING
@@ -26,8 +27,11 @@ func (uc *Reset) Execute(ctx context.Context) (ResetOutput, error) {
 		log.Printf("[WARN] reset: snapshot flush (pre-reset) failed: %v", err)
 	}
 
-	// ユーザーをクリア
+	// ユーザーとコメントをクリア
 	uc.Users.Clear()
+	if uc.Comments != nil {
+		uc.Comments.Clear()
+	}
 
 	// StateをWAITINGに戻す
 	newState := domain.LiveState{

@@ -14,6 +14,7 @@ type fakeSink struct {
 	current    *port.CurrentPointer
 	saveCount  int
 	forceError error // nil でない場合、Save / SaveCurrent でこのエラーを返す
+	loadError  error // nil でない場合、Load でこのエラーを返す
 }
 
 func newFakeSink() *fakeSink {
@@ -25,6 +26,9 @@ func newFakeSink() *fakeSink {
 func (f *fakeSink) Load(_ context.Context, videoID string) (*port.Snapshot, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.loadError != nil {
+		return nil, f.loadError
+	}
 	snap, ok := f.snapshots[videoID]
 	if !ok {
 		return nil, nil
@@ -76,4 +80,10 @@ func (f *fakeSink) setForceError(err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.forceError = err
+}
+
+func (f *fakeSink) setLoadError(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.loadError = err
 }

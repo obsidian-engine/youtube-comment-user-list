@@ -15,6 +15,10 @@ import (
 // MarkDirty で dirty フラグを立て、throttle 経過後に自動 save します。
 type Coordinator interface {
 	Restore(ctx context.Context) error
+	// RestoreFor は指定 videoID の snapshot を GCS から読み込み、in-memory repo に復元します。
+	// snapshot が存在しない場合は (false, nil) を返します。
+	// 起動時 Restore とは異なり、restoredAt / snapshotSavedAt は更新しません（toast 発火させない）。
+	RestoreFor(ctx context.Context, videoID string) (restored bool, err error)
 	SetVideo(videoID, liveChatID string)
 	MarkDirty()
 	Flush(ctx context.Context) error
@@ -208,6 +212,37 @@ func (c *coordinator) Stop() {
 	c.wg.Wait()
 }
 
+// RestoreFor は指定 videoID の snapshot を GCS から読み込み、in-memory repo に復元します。
+// 起動時 Restore と異なり restoredAt / snapshotSavedAt / restoreConsumed は変更しません。
+func (c *coordinator) RestoreFor(ctx context.Context, videoID string) (bool, error) {
+	snap, err := c.sink.Load(ctx, videoID)
+	if err != nil {
+		return false, fmt.Errorf("snapshot: restoreFor %s: %w", videoID, err)
+	}
+	if snap == nil {
+		return false, nil
+	}
+
+	c.userRepo.LoadFrom(port.UserSnapshot{Users: snap.Users, ProcessedMsgs: snap.ProcessedMsgs})
+	c.commentRepo.LoadFrom(snap.Comments)
+
+	if snap.State != nil && c.stateRepo != nil {
+		if err := c.stateRepo.Set(ctx, *snap.State); err != nil {
+			return false, fmt.Errorf("snapshot: restoreFor %s state: %w", videoID, err)
+		}
+	}
+
+	c.mu.Lock()
+	c.videoID = snap.VideoID
+	c.liveChatID = snap.LiveChatID
+	c.dirty = false
+	c.mu.Unlock()
+
+	log.Printf("[INFO] snapshot: restoredFor videoId=%s users=%d comments=%d",
+		snap.VideoID, len(snap.Users), len(snap.Comments))
+	return true, nil
+}
+
 // RestoredAt は起動時 Restore が成功していた場合、その情報を 1 度だけ返します。
 // 2 回目以降の呼出では ok=false を返します。
 func (c *coordinator) RestoredAt() (restoredAt, snapshotSavedAt time.Time, ok bool) {
@@ -265,12 +300,13 @@ func (c *coordinator) save(ctx context.Context, videoID, liveChatID string) erro
 // NopCoordinator は GCS_BUCKET が空の場合に使う no-op 実装です。
 type NopCoordinator struct{}
 
-func (n *NopCoordinator) Restore(_ context.Context) error { return nil }
-func (n *NopCoordinator) SetVideo(_, _ string)            {}
-func (n *NopCoordinator) MarkDirty()                      {}
-func (n *NopCoordinator) Flush(_ context.Context) error   { return nil }
-func (n *NopCoordinator) Start(_ context.Context)         {}
-func (n *NopCoordinator) Stop()                           {}
+func (n *NopCoordinator) Restore(_ context.Context) error                      { return nil }
+func (n *NopCoordinator) RestoreFor(_ context.Context, _ string) (bool, error) { return false, nil }
+func (n *NopCoordinator) SetVideo(_, _ string)                                 {}
+func (n *NopCoordinator) MarkDirty()                                           {}
+func (n *NopCoordinator) Flush(_ context.Context) error                        { return nil }
+func (n *NopCoordinator) Start(_ context.Context)                              {}
+func (n *NopCoordinator) Stop()                                                {}
 func (n *NopCoordinator) RestoredAt() (time.Time, time.Time, bool) {
 	return time.Time{}, time.Time{}, false
 }

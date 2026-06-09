@@ -45,3 +45,27 @@ func TestReset_ClearsUsersAndSetsWaiting(t *testing.T) {
 		t.Errorf("Output.State.Status = %v, want %v", out.State.Status, domain.StatusWaiting)
 	}
 }
+
+// TestReset_ClearsComments: Reset 実行でコメントもクリアされる
+func TestReset_ClearsComments(t *testing.T) {
+	ctx := context.Background()
+
+	users := memory.NewUserRepo()
+	comments := memory.NewCommentRepo()
+	_ = comments.Add(domain.Comment{ID: "c1", ChannelID: "ch1", DisplayName: "Alice", Message: "hello", PublishedAt: time.Now()})
+	_ = comments.Add(domain.Comment{ID: "c2", ChannelID: "ch2", DisplayName: "Bob", Message: "world", PublishedAt: time.Now()})
+
+	state := memory.NewStateRepo()
+	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v123"})
+
+	uc := &usecase.Reset{Users: users, Comments: comments, State: state, Snap: &snapshot.NopCoordinator{}}
+
+	_, err := uc.Execute(ctx)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if got := comments.Count(); got != 0 {
+		t.Errorf("Comments.Count() = %d, want 0 (should be cleared on Reset)", got)
+	}
+}

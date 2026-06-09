@@ -9,6 +9,7 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
 // mockCoord は Coordinator の呼出し回数・引数を記録するテスト用 mock。
@@ -19,7 +20,8 @@ type mockCoord struct {
 	calls     []string // 呼出し順を記録
 }
 
-func (m *mockCoord) Restore(_ context.Context) error { return nil }
+func (m *mockCoord) Restore(_ context.Context) error                      { return nil }
+func (m *mockCoord) RestoreFor(_ context.Context, _ string) (bool, error) { return false, nil }
 func (m *mockCoord) SetVideo(videoID, liveChatID string) {
 	m.setVideo = append(m.setVideo, [2]string{videoID, liveChatID})
 	m.calls = append(m.calls, "SetVideo")
@@ -88,6 +90,67 @@ func TestSwitchVideo_CoordinatorCallOrder(t *testing.T) {
 	// Flush は 2 回呼ばれる
 	if coord.flush != 2 {
 		t.Errorf("flush count = %d, want 2", coord.flush)
+	}
+}
+
+// TestCoordinator_MultiVideoSnapshotIsolation: V1 save → SetVideo(V2) → V2 save → Load(V1) で V1 snapshot が破壊されない
+func TestCoordinator_MultiVideoSnapshotIsolation(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+
+	users := memory.NewUserRepo()
+	comments := memory.NewCommentRepo()
+	state := memory.NewStateRepo()
+
+	sink := newFakeSinkForUsecase()
+	coord := snapshot.NewCoordinator(sink, users, comments, state, 0)
+
+	// V1 配信: ユーザー追加 → save
+	_ = users.UpsertWithJoinTime("ch1", "Alice", time.Now())
+	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v1", LiveChatID: "chat-v1"})
+	coord.SetVideo("v1", "chat-v1")
+	coord.MarkDirty()
+	if err := coord.Flush(ctx); err != nil {
+		t.Fatalf("V1 Flush failed: %v", err)
+	}
+
+	// V2 に切替: users クリア → 別ユーザー追加 → save
+	users.Clear()
+	comments.Clear()
+	_ = users.UpsertWithJoinTime("ch2", "Bob", time.Now())
+	_ = users.UpsertWithJoinTime("ch3", "Carol", time.Now())
+	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v2", LiveChatID: "chat-v2"})
+	coord.SetVideo("v2", "chat-v2")
+	coord.MarkDirty()
+	if err := coord.Flush(ctx); err != nil {
+		t.Fatalf("V2 Flush failed: %v", err)
+	}
+
+	// V1 snapshot が破壊されていないか確認
+	v1Snap, err := sink.Load(ctx, "v1")
+	if err != nil {
+		t.Fatalf("sink.Load(v1) error: %v", err)
+	}
+	if v1Snap == nil {
+		t.Fatal("V1 snapshot was destroyed after V2 save")
+	}
+	if len(v1Snap.Users) != 1 {
+		t.Errorf("V1 snapshot users = %d, want 1", len(v1Snap.Users))
+	}
+	if v1Snap.Users[0].ChannelID != "ch1" {
+		t.Errorf("V1 snapshot user = %q, want ch1", v1Snap.Users[0].ChannelID)
+	}
+
+	// V2 snapshot も正しく保存されているか
+	v2Snap, err := sink.Load(ctx, "v2")
+	if err != nil {
+		t.Fatalf("sink.Load(v2) error: %v", err)
+	}
+	if v2Snap == nil {
+		t.Fatal("V2 snapshot not found")
+	}
+	if len(v2Snap.Users) != 2 {
+		t.Errorf("V2 snapshot users = %d, want 2", len(v2Snap.Users))
 	}
 }
 
