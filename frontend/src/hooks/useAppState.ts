@@ -247,10 +247,9 @@ export function useAppState(addEntry?: AddEntryFn) {
 
         // ユーザーリスト保持ロジック：
         // 1. サーバーから新しいユーザーがある場合は更新
-        // 2. サーバーが空でも既存ユーザーがいれば保持（ACTIVE時のみ、一時的な通信中断対策）
-        // 3. WAITING/IDLE時はサーバーの空リストをそのまま反映（自動リセット後の整合性確保）
-        const shouldKeepExistingUsers =
-          fetched.length === 0 && prev.users.length > 0 && status === 'ACTIVE'
+        // 2. サーバーが空でも既存ユーザーがいれば保持（配信終了 WAITING でも視聴者一覧を残す）
+        // 手動リセット・video 切替時は refreshWithClear 経由で強制置換するためここは通らない
+        const shouldKeepExistingUsers = fetched.length === 0 && prev.users.length > 0
         const finalUsers = shouldKeepExistingUsers ? prev.users : sortedUsers
 
         logger.log('📋 User list decision:', {
