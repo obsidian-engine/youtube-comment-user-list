@@ -21,6 +21,7 @@ export type StatusResponse = {
   videoId?: string
   startedAt?: string
   endedAt?: string
+  snapshotSavedAt?: string
 }
 
 export async function getStatus(signal?: AbortSignal): Promise<StatusResponse> {

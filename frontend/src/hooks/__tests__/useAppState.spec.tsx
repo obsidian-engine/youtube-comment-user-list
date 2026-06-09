@@ -61,6 +61,8 @@ describe('useAppState', () => {
       lastFetchTime: '',
       errorMsg: '',
       infoMsg: '',
+      snapshotRestoreMsg: '',
+      startTime: undefined,
       skippedCount: 0,
       loadingStates: {
         switching: false,
@@ -309,6 +311,57 @@ describe('useAppState', () => {
     expect(mockPostPull).toHaveBeenCalled()
     expect(result.current.state.infoMsg).toBe('') // メッセージなし
     expect(result.current.state.errorMsg).toBe('')
+  })
+
+  test('snapshotSavedAt がある場合 snapshotRestoreMsg をセットする (今日の場合 HH:MM 形式)', async () => {
+    vi.useFakeTimers()
+    // 今日を 2024-06-09 10:00 (ローカル時刻) に固定
+    vi.setSystemTime(new Date(2024, 5, 9, 10, 0, 0))
+
+    // sessionStorage をリセット
+    Object.defineProperty(window, 'sessionStorage', {
+      value: {
+        getItem: vi.fn(() => null),
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+        clear: vi.fn(),
+      },
+      writable: true,
+    })
+
+    // ローカル時刻 14:23 に相当する ISO 文字列を使う
+    const savedAt = new Date(2024, 5, 9, 14, 23, 0)
+    mockGetStatus.mockResolvedValue({
+      status: 'ACTIVE',
+      count: 0,
+      snapshotSavedAt: savedAt.toISOString(),
+    })
+    mockGetUsers.mockResolvedValue([])
+
+    const { result } = renderHook(() => useAppState())
+
+    await act(async () => {
+      await result.current.actions.refresh()
+    })
+
+    // HH:MM 形式 (今日のため)
+    expect(result.current.state.snapshotRestoreMsg).toContain('14:23')
+    expect(result.current.state.snapshotRestoreMsg).toContain('の保存状態を取得しました')
+
+    vi.useRealTimers()
+  })
+
+  test('snapshotSavedAt がない場合 snapshotRestoreMsg はセットされない', async () => {
+    mockGetStatus.mockResolvedValue({ status: 'ACTIVE', count: 0 })
+    mockGetUsers.mockResolvedValue([])
+
+    const { result } = renderHook(() => useAppState())
+
+    await act(async () => {
+      await result.current.actions.refresh()
+    })
+
+    expect(result.current.state.snapshotRestoreMsg).toBe('')
   })
 
   test('onPullは成功メッセージを表示する', async () => {

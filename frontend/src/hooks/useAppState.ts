@@ -21,6 +21,7 @@ interface AppState {
   lastFetchTime: string
   errorMsg: string
   infoMsg: string
+  snapshotRestoreMsg: string
   startTime?: string
   skippedCount: number
   loadingStates: LoadingStates
@@ -35,6 +36,7 @@ interface AppActions {
   onPullSilent: () => Promise<void>
   onReset: () => Promise<void>
   clearInfoMsg: () => void
+  clearSnapshotRestoreMsg: () => void
 }
 
 type AddEntryFn = (
@@ -53,6 +55,7 @@ export function useAppState(addEntry?: AddEntryFn) {
     lastFetchTime: '',
     errorMsg: '',
     infoMsg: '',
+    snapshotRestoreMsg: '',
     startTime: undefined,
     skippedCount: 0,
     loadingStates: {
@@ -62,6 +65,21 @@ export function useAppState(addEntry?: AddEntryFn) {
       refreshing: false,
     },
   })
+
+  // snapshotSavedAt を HH:MM または MM/DD HH:MM に整形する
+  const formatSnapshotSavedAt = (isoString: string): string => {
+    const d = new Date(isoString)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const today = new Date()
+    const isToday =
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate()
+    if (isToday) {
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+    }
+    return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
 
   // AbortController管理用のref
   const refreshControllerRef = useRef<AbortController | null>(null)
@@ -108,6 +126,14 @@ export function useAppState(addEntry?: AddEntryFn) {
       const status = st.status || 'WAITING'
       const fetched = Array.isArray(us) ? us : []
 
+      // snapshotSavedAt: 初回ロード時に 1 度だけ toast を表示（sessionStorage で抑制）
+      let snapshotRestoreMsg = ''
+      const TOAST_KEY = 'snapshotRestoreToastShown'
+      if (st.snapshotSavedAt && !sessionStorage.getItem(TOAST_KEY)) {
+        sessionStorage.setItem(TOAST_KEY, '1')
+        snapshotRestoreMsg = `${formatSnapshotSavedAt(st.snapshotSavedAt)} の保存状態を取得しました`
+      }
+
       setState((prev) => {
         const sortedUsers = sortUsersStable(fetched)
         logger.log('📋 Clearing and updating with fresh users:', { count: sortedUsers.length })
@@ -118,6 +144,7 @@ export function useAppState(addEntry?: AddEntryFn) {
           users: sortedUsers, // 強制的に新しいリストに置き換え
           startTime: st.startedAt,
           errorMsg: '',
+          ...(snapshotRestoreMsg ? { snapshotRestoreMsg } : {}),
         }
       })
 
@@ -174,6 +201,14 @@ export function useAppState(addEntry?: AddEntryFn) {
       const status = st.status || 'WAITING'
       const fetched = Array.isArray(us) ? us : []
 
+      // snapshotSavedAt: 初回ロード時に 1 度だけ toast を表示（sessionStorage で抑制）
+      let snapshotRestoreMsg = ''
+      const TOAST_KEY = 'snapshotRestoreToastShown'
+      if (st.snapshotSavedAt && !sessionStorage.getItem(TOAST_KEY)) {
+        sessionStorage.setItem(TOAST_KEY, '1')
+        snapshotRestoreMsg = `${formatSnapshotSavedAt(st.snapshotSavedAt)} の保存状態を取得しました`
+      }
+
       setState((prev) => {
         const sortedUsers = sortUsersStable(fetched)
         logger.log('📋 Updating state with users:', {
@@ -202,6 +237,7 @@ export function useAppState(addEntry?: AddEntryFn) {
           users: finalUsers,
           startTime: st.startedAt,
           errorMsg: '',
+          ...(snapshotRestoreMsg ? { snapshotRestoreMsg } : {}),
         }
       })
 
@@ -376,6 +412,10 @@ export function useAppState(addEntry?: AddEntryFn) {
 
     clearInfoMsg: useCallback(() => {
       setState((prev) => ({ ...prev, infoMsg: '' }))
+    }, []),
+
+    clearSnapshotRestoreMsg: useCallback(() => {
+      setState((prev) => ({ ...prev, snapshotRestoreMsg: '' }))
     }, []),
   }
 

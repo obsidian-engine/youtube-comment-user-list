@@ -53,8 +53,17 @@ export default function App() {
     hiddenState.hideAll(visibleIds)
   }
 
-  const { active, users, videoId, intervalSec, lastUpdated, errorMsg, infoMsg, loadingStates } =
-    state
+  const {
+    active,
+    users,
+    videoId,
+    intervalSec,
+    lastUpdated,
+    errorMsg,
+    infoMsg,
+    snapshotRestoreMsg,
+    loadingStates,
+  } = state
 
   // デバッグログはテスト環境では無効化
 
@@ -104,6 +113,14 @@ export default function App() {
             />
 
             {infoMsg && <Toast message={infoMsg} type="success" onClose={actions.clearInfoMsg} />}
+            {snapshotRestoreMsg && (
+              <Toast
+                message={snapshotRestoreMsg}
+                type="info"
+                duration={5000}
+                onClose={actions.clearSnapshotRestoreMsg}
+              />
+            )}
 
             <StatsCard
               users={users}
