@@ -47,13 +47,16 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 
 	// 配信終了検知
 	if isEnded {
-		// ユーザークリア
-		uc.Users.Clear()
-
-		// コメントクリア
-		uc.Comments.Clear()
+		// 配信中の users/comments はメモリに保持したまま snapshot へ永続化する
+		// （同じ videoId で再度「切替」を押したら復元できるようにするため）
+		uc.Snap.MarkDirty()
+		if err := uc.Snap.Flush(ctx); err != nil {
+			log.Printf("[WARN] pull: snapshot flush on stream end failed: %v", err)
+			// Flush 失敗は警告のみ、終了処理は継続
+		}
 
 		// WAITINGに戻す（現在時刻を終了時刻として設定）
+		// Users / Comments は意図的にクリアしない
 		state.Status = domain.StatusWaiting
 		state.EndedAt = uc.Clock.Now()
 		state.NextPageToken = ""

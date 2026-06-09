@@ -177,9 +177,9 @@ func TestPull_Ended_AutoReset(t *testing.T) {
 		t.Errorf("AutoReset = false, want true")
 	}
 
-	// ユーザーがクリアされたか確認
-	if users.Count() != 0 {
-		t.Errorf("Users.Count() = %d, want 0", users.Count())
+	// 配信終了でも users は保持される（同一 videoId 再切替で復元するため）
+	if users.Count() != 1 {
+		t.Errorf("Users.Count() = %d, want 1 (preserved on stream end)", users.Count())
 	}
 
 	// StateがWAITINGに戻ったか確認
@@ -326,5 +326,47 @@ func TestPull_MinimumPollingInterval(t *testing.T) {
 					output.PollingIntervalMillis, tt.expectedPollingMillis)
 			}
 		})
+	}
+}
+
+// spyCoordinator は Flush 呼出を記録する snapshot.Coordinator 実装
+type spyCoordinator struct {
+	snapshot.NopCoordinator
+	flushCount   int
+	markDirtyCnt int
+}
+
+func (s *spyCoordinator) MarkDirty()                    { s.markDirtyCnt++ }
+func (s *spyCoordinator) Flush(_ context.Context) error { s.flushCount++; return nil }
+
+func TestPull_Ended_FlushesSnapshotAndPreservesData(t *testing.T) {
+	ctx := context.Background()
+	users := memory.NewUserRepo()
+	_ = users.UpsertWithJoinTime("ch1", "Alice", time.Now())
+	comments := memory.NewCommentRepo()
+	state := memory.NewStateRepo()
+	_ = state.Set(ctx, domain.LiveState{
+		Status:     domain.StatusActive,
+		VideoID:    "v",
+		LiveChatID: "live:abc",
+		StartedAt:  time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC),
+	})
+	yt := &fakeYTForPull{items: nil, ended: true}
+	clock := &fakeClock{now: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)}
+	spy := &spyCoordinator{}
+
+	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: spy}
+	if _, err := uc.Execute(ctx); err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if spy.markDirtyCnt != 1 {
+		t.Errorf("MarkDirty calls = %d, want 1", spy.markDirtyCnt)
+	}
+	if spy.flushCount != 1 {
+		t.Errorf("Flush calls = %d, want 1", spy.flushCount)
+	}
+	if users.Count() != 1 {
+		t.Errorf("Users.Count() = %d, want 1 (preserved on stream end)", users.Count())
 	}
 }
