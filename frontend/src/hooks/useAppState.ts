@@ -7,8 +7,8 @@ import {
   postSwitchVideo,
   BackendError,
 } from '../utils/api'
-import { sortUsersStable } from '../utils/sortUsers'
 import { logger } from '../utils/logger'
+import { decideUsers } from '../utils/decideUsers'
 import type { User } from '../utils/api'
 import type { LogLevel } from './useLogEntries'
 
@@ -165,21 +165,9 @@ export function useAppState(addEntry?: AddEntryFn) {
           : undefined
 
         setState((prev) => {
-          const sortedUsers = sortUsersStable(fetched)
-          logger.log('📋 Updating state with users:', {
-            count: sortedUsers.length,
-            firstThree: sortedUsers.slice(0, 3).map((u) => u.displayName),
+          const finalUsers = decideUsers(prev.users, fetched, {
+            clearUsers: options.clearUsers ?? false,
           })
-
-          // ユーザーリスト保持ロジック：
-          // clearUsers=true: 強制置換（切替・リセット時）
-          // clearUsers=false: サーバーが空でも既存ユーザーがいれば保持（配信終了 WAITING でも視聴者一覧を残す）
-          const finalUsers = options.clearUsers
-            ? sortedUsers
-            : fetched.length === 0 && prev.users.length > 0
-              ? prev.users
-              : sortedUsers
-
           logger.log('📋 User list decision:', {
             clearUsers: options.clearUsers,
             serverUsers: fetched.length,
