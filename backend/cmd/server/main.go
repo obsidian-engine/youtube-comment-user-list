@@ -48,6 +48,8 @@ func main() {
 	// GCS_BUCKET が設定されている場合は GCS 経由で永続化、空の場合は no-op
 	initCtx := context.Background()
 	var coord snapshot.Coordinator
+	var listHistory *usecase.ListHistorySnapshots
+	var getHistory *usecase.GetHistorySnapshot
 	if cfg.GCSBucket != "" {
 		storageClient, err := storage.NewClient(initCtx)
 		if err != nil {
@@ -56,6 +58,8 @@ func main() {
 		defer func() { _ = storageClient.Close() }()
 		sink := gcs.NewSnapshotStore(storageClient, cfg.GCSBucket)
 		coord = snapshot.NewCoordinator(sink, users, comments, state, 60*time.Second)
+		listHistory = &usecase.ListHistorySnapshots{Sink: sink}
+		getHistory = &usecase.GetHistorySnapshot{Sink: sink}
 	} else {
 		coord = &snapshot.NopCoordinator{}
 	}
@@ -74,7 +78,17 @@ func main() {
 	ucPull := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
 	ucReset := &usecase.Reset{Users: users, Comments: comments, State: state, Snap: coord}
 
-	h := &ahttp.Handlers{Status: ucStatus, SwitchVideo: ucSwitch, Pull: ucPull, Reset: ucReset, Users: users, Comments: comments, Coord: coord}
+	h := &ahttp.Handlers{
+		Status:      ucStatus,
+		SwitchVideo: ucSwitch,
+		Pull:        ucPull,
+		Reset:       ucReset,
+		Users:       users,
+		Comments:    comments,
+		Coord:       coord,
+		ListHistory: listHistory,
+		GetHistory:  getHistory,
+	}
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: ahttp.NewRouter(h, cfg.FrontendOrigin)}
 
 	// グレースフルシャットダウンのためのコンテキスト設定

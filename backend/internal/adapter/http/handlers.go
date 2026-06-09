@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	stdhttp "net/http"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
@@ -23,6 +25,8 @@ type Handlers struct {
 	Users       port.UserRepo
 	Comments    port.CommentRepo
 	Coord       snapshot.Coordinator
+	ListHistory *usecase.ListHistorySnapshots
+	GetHistory  *usecase.GetHistorySnapshot
 }
 
 // StatusResponse represents the response for /status endpoint
@@ -207,6 +211,43 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			Status: string(out.State.Status),
 		}
 		render.JSON(w, r, response)
+	})
+
+	r.Get("/history/snapshots", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		if h.ListHistory == nil {
+			renderInternalError(w, r, "history listing is not available")
+			return
+		}
+		out, err := h.ListHistory.Execute(r.Context())
+		if err != nil {
+			log.Printf("[HISTORY_LIST] Error: %v", err)
+			renderInternalError(w, r, "Failed to list history snapshots")
+			return
+		}
+		items := make([]HistorySummaryResponse, len(out.Items))
+		for i, s := range out.Items {
+			items[i] = newHistorySummaryResponse(s)
+		}
+		render.JSON(w, r, HistoryListResponse{Items: items})
+	})
+
+	r.Get("/history/snapshots/{videoID}", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		if h.GetHistory == nil {
+			renderInternalError(w, r, "history detail is not available")
+			return
+		}
+		videoID := chi.URLParam(r, "videoID")
+		out, err := h.GetHistory.Execute(r.Context(), videoID)
+		if err != nil {
+			if errors.Is(err, domain.ErrNotFound) {
+				RenderNotFoundError(w, r, "snapshot not found")
+				return
+			}
+			log.Printf("[HISTORY_GET] Error: %v", err)
+			renderInternalError(w, r, "Failed to get history snapshot")
+			return
+		}
+		render.JSON(w, r, newHistorySnapshotResponse(out.Snapshot))
 	})
 
 	r.Get("/comments", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {

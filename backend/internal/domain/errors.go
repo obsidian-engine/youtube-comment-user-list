@@ -1,6 +1,12 @@
 package domain
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrNotFound はリソースが存在しない場合に返す sentinel error。
+var ErrNotFound = errors.New("not found")
 
 // APIErrorCode は YouTube API から返るエラー種別を表す。
 type APIErrorCode string
