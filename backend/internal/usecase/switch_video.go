@@ -31,6 +31,30 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 	// 1. YouTube APIでliveChatIDを取得（失敗時はここで返るので snapshot 操作はしない）
 	liveChatID, err := uc.YT.GetActiveLiveChatID(ctx, in.VideoID)
 	if err != nil {
+		// 配信終了済 video への再切替で API error が発生した場合、同一 videoId かつ
+		// in-memory に users が残っていれば snapshot 復元データとして WAITING 状態で表示する。
+		prevState, _ := uc.State.Get(ctx)
+		if prevState.VideoID == in.VideoID && uc.Users.Count() > 0 {
+			log.Printf("[INFO] switch_video: API error on same videoId, restoring from in-memory snapshot (videoId=%s, users=%d): %v",
+				in.VideoID, uc.Users.Count(), err)
+			now := uc.Clock.Now()
+			startedAt := prevState.StartedAt
+			if startedAt.IsZero() {
+				startedAt = now
+			}
+			restoredState := domain.LiveState{
+				Status:        domain.StatusWaiting,
+				VideoID:       in.VideoID,
+				LiveChatID:    prevState.LiveChatID,
+				StartedAt:     startedAt,
+				EndedAt:       now,
+				NextPageToken: "",
+			}
+			if setErr := uc.State.Set(ctx, restoredState); setErr != nil {
+				return SwitchVideoOutput{}, setErr
+			}
+			return SwitchVideoOutput{State: restoredState}, nil
+		}
 		return SwitchVideoOutput{}, err
 	}
 
