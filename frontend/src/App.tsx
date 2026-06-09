@@ -6,7 +6,6 @@ import { useCheckState } from './hooks/useCheckState'
 import { useHiddenState } from './hooks/useHiddenState'
 import { useLogEntries } from './hooks/useLogEntries'
 import { StatsCard } from './components/StatsCard'
-import { QuickGuide } from './components/QuickGuide'
 import { Controls } from './components/Controls'
 import { UserTable } from './components/UserTable'
 import { Toast } from './components/Toast'
@@ -86,7 +85,6 @@ export default function App() {
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
             <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
-            {activeTab === 'users' && <QuickGuide />}
           </div>
           <ThemeToggle />
         </div>
