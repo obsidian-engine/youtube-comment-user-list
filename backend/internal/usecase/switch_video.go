@@ -2,8 +2,9 @@ package usecase
 
 import (
 	"context"
-	"log"
+	"fmt"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
@@ -36,7 +37,7 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 		// in-memory に users が残っていれば snapshot 復元データとして WAITING 状態で表示する。
 		prevState, _ := uc.State.Get(ctx)
 		if prevState.VideoID == in.VideoID && uc.Users.Count() > 0 {
-			log.Printf("[INFO] switch_video: API error on same videoId, restoring from in-memory snapshot (videoId=%s, users=%d): %v",
+			logging.Log(ctx, "info", "SNAPSHOT", "switch_video: API error on same videoId, restoring from in-memory snapshot (videoId=%s, users=%d): %v",
 				in.VideoID, uc.Users.Count(), err)
 			now := uc.Clock.Now()
 			startedAt := prevState.StartedAt
@@ -52,16 +53,16 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 				NextPageToken: "",
 			}
 			if setErr := uc.State.Set(ctx, restoredState); setErr != nil {
-				return SwitchVideoOutput{}, setErr
+				return SwitchVideoOutput{}, fmt.Errorf("state_set: %w", setErr)
 			}
 			return SwitchVideoOutput{State: restoredState}, nil
 		}
-		return SwitchVideoOutput{}, err
+		return SwitchVideoOutput{}, fmt.Errorf("get_live_chat_id: %w", err)
 	}
 
 	// 2. 切替前の状態を snapshot に保存（旧 video の最終状態を確実に残す）
 	if err := uc.Snap.Flush(ctx); err != nil {
-		log.Printf("[WARN] switch_video: snapshot flush (pre-switch) failed: %v", err)
+		logging.Log(ctx, "warn", "SNAPSHOT", "switch_video: snapshot flush (pre-switch) failed: %v", err)
 		// Flush 失敗は警告のみ、切替処理は継続
 	}
 
@@ -76,7 +77,7 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 		}
 		r, rerr := uc.Snap.RestoreFor(ctx, in.VideoID)
 		if rerr != nil {
-			log.Printf("[WARN] switch_video: restoreFor failed: %v", rerr)
+			logging.Log(ctx, "warn", "SNAPSHOT", "switch_video: restoreFor failed: %v", rerr)
 		} else {
 			restored = r
 		}
@@ -102,14 +103,14 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 	}
 
 	if err := uc.State.Set(ctx, newState); err != nil {
-		return SwitchVideoOutput{}, err
+		return SwitchVideoOutput{}, fmt.Errorf("state_set: %w", err)
 	}
 
 	// 5. 新 videoId を Coordinator に設定し、current.json を即時更新
 	uc.Snap.SetVideo(in.VideoID, liveChatID)
 	uc.Snap.MarkDirty()
 	if err := uc.Snap.Flush(ctx); err != nil {
-		log.Printf("[WARN] switch_video: snapshot flush (post-switch) failed: %v", err)
+		logging.Log(ctx, "warn", "SNAPSHOT", "switch_video: snapshot flush (post-switch) failed: %v", err)
 	}
 
 	return SwitchVideoOutput{State: newState}, nil

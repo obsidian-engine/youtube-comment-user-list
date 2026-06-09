@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"google.golang.org/api/googleapi"
 )
@@ -512,6 +513,139 @@ func TestPaginationLogic(t *testing.T) {
 			t.Errorf("最後のユーザーが期待と異なる: got %s, want User%d", allMessages[len(allMessages)-1].DisplayName, expectedTotal)
 		}
 	})
+}
+
+func TestClassifyAPIError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		wantCode domain.APIErrorCode
+		wantNil  bool // 元の error をそのまま返す（APIError に変換しない）場合
+	}{
+		{
+			name:    "nil error はそのまま",
+			err:     nil,
+			wantNil: true,
+		},
+		{
+			name:    "non-googleapi error はそのまま",
+			err:     errors.New("network error"),
+			wantNil: true,
+		},
+		{
+			name: "403 quotaExceeded → ErrCodeQuotaExceeded",
+			err: &googleapi.Error{
+				Code:    403,
+				Message: "Quota exceeded",
+				Errors:  []googleapi.ErrorItem{{Reason: "quotaExceeded"}},
+			},
+			wantCode: domain.ErrCodeQuotaExceeded,
+		},
+		{
+			name: "403 userRateLimitExceeded → ErrCodeRateLimited",
+			err: &googleapi.Error{
+				Code:    403,
+				Message: "User rate limit exceeded",
+				Errors:  []googleapi.ErrorItem{{Reason: "userRateLimitExceeded"}},
+			},
+			wantCode: domain.ErrCodeRateLimited,
+		},
+		{
+			name: "404 videoNotFound → ErrCodeVideoNotFound",
+			err: &googleapi.Error{
+				Code:    404,
+				Message: "Video not found",
+				Errors:  []googleapi.ErrorItem{{Reason: "videoNotFound"}},
+			},
+			wantCode: domain.ErrCodeVideoNotFound,
+		},
+		{
+			name: "403 liveChatEnded → ErrCodeLiveChatEnded",
+			err: &googleapi.Error{
+				Code:    403,
+				Message: "Live chat has ended",
+				Errors:  []googleapi.ErrorItem{{Reason: "liveChatEnded"}},
+			},
+			wantCode: domain.ErrCodeLiveChatEnded,
+		},
+		{
+			name: "403 liveChatDisabled → ErrCodeLiveChatEnded",
+			err: &googleapi.Error{
+				Code:    403,
+				Message: "Live chat disabled",
+				Errors:  []googleapi.ErrorItem{{Reason: "liveChatDisabled"}},
+			},
+			wantCode: domain.ErrCodeLiveChatEnded,
+		},
+		{
+			name: "403 liveChatNotActive → ErrCodeLiveChatEnded",
+			err: &googleapi.Error{
+				Code:    403,
+				Message: "Live chat not active",
+				Errors:  []googleapi.ErrorItem{{Reason: "liveChatNotActive"}},
+			},
+			wantCode: domain.ErrCodeLiveChatEnded,
+		},
+		{
+			name: "401 → ErrCodeAuthFailed",
+			err: &googleapi.Error{
+				Code:    401,
+				Message: "Invalid API key",
+			},
+			wantCode: domain.ErrCodeAuthFailed,
+		},
+		{
+			name: "429 → ErrCodeRateLimited",
+			err: &googleapi.Error{
+				Code:    429,
+				Message: "Too Many Requests",
+			},
+			wantCode: domain.ErrCodeRateLimited,
+		},
+		{
+			name: "500 は分類せずそのまま",
+			err: &googleapi.Error{
+				Code:    500,
+				Message: "Internal Server Error",
+			},
+			wantNil: true, // APIError に変換しない、元の googleapi.Error が返る
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := classifyAPIError(tt.err)
+
+			if tt.err == nil {
+				if got != nil {
+					t.Errorf("classifyAPIError(nil) = %v, want nil", got)
+				}
+				return
+			}
+
+			if tt.wantNil {
+				// APIError に変換されていないことを確認
+				var apiErr *domain.APIError
+				if errors.As(got, &apiErr) {
+					t.Errorf("classifyAPIError(%v) unexpectedly returned APIError with code %q", tt.err, apiErr.Code)
+				}
+				return
+			}
+
+			// domain.APIError に変換されているか確認
+			var apiErr *domain.APIError
+			if !errors.As(got, &apiErr) {
+				t.Fatalf("classifyAPIError(%v) did not return *domain.APIError, got %T", tt.err, got)
+			}
+			if apiErr.Code != tt.wantCode {
+				t.Errorf("APIError.Code = %q, want %q", apiErr.Code, tt.wantCode)
+			}
+			// Wrapped が元 error を保持しているか確認
+			if !errors.Is(got, tt.err) {
+				t.Errorf("errors.Is(got, original) = false, wrapped error not preserved")
+			}
+		})
+	}
 }
 
 func TestIsTransientError(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
@@ -24,6 +25,42 @@ func New(apiKey string) *API {
 		APIKey:           apiKey,
 		channelNameCache: make(map[string]string),
 	}
+}
+
+// classifyAPIError は googleapi.Error を domain.APIError に変換する。
+// HTTP status + Errors[0].Reason に基づいて分類し、既存の logging.Log 呼出は維持する。
+// 分類できない場合は元のエラーをそのまま返す。
+func classifyAPIError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var gErr *googleapi.Error
+	if !errors.As(err, &gErr) {
+		return err
+	}
+
+	reason := ""
+	if len(gErr.Errors) > 0 {
+		reason = gErr.Errors[0].Reason
+	}
+
+	switch {
+	case gErr.Code == 403 && reason == "quotaExceeded":
+		return &domain.APIError{Code: domain.ErrCodeQuotaExceeded, Message: gErr.Message, Wrapped: err}
+	case gErr.Code == 403 && reason == "userRateLimitExceeded":
+		return &domain.APIError{Code: domain.ErrCodeRateLimited, Message: gErr.Message, Wrapped: err}
+	case gErr.Code == 404 && reason == "videoNotFound":
+		return &domain.APIError{Code: domain.ErrCodeVideoNotFound, Message: gErr.Message, Wrapped: err}
+	case gErr.Code == 403 && (reason == "liveChatEnded" || reason == "liveChatDisabled" || reason == "liveChatNotActive"):
+		return &domain.APIError{Code: domain.ErrCodeLiveChatEnded, Message: gErr.Message, Wrapped: err}
+	case gErr.Code == 401:
+		return &domain.APIError{Code: domain.ErrCodeAuthFailed, Message: gErr.Message, Wrapped: err}
+	case gErr.Code == 429:
+		return &domain.APIError{Code: domain.ErrCodeRateLimited, Message: gErr.Message, Wrapped: err}
+	}
+
+	return err
 }
 
 // isLiveChatEnded はエラーがライブチャットの終了または無効化を示すかどうかを判定します。
@@ -110,7 +147,7 @@ func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (string, 
 	response, err := call.Do()
 	if err != nil {
 		log.Printf("[YOUTUBE_API] Failed to get video details: %v", err)
-		return "", err
+		return "", classifyAPIError(err)
 	}
 
 	if len(response.Items) == 0 {
@@ -194,7 +231,7 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 			}
 		}
 
-		return nil, "", 0, 0, false, err
+		return nil, "", 0, 0, false, classifyAPIError(err)
 	}
 
 	if response == nil {

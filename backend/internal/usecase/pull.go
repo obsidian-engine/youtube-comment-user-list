@@ -2,9 +2,10 @@ package usecase
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"strings"
 
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
@@ -42,7 +43,7 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 	// YouTube APIからメッセージを取得（ページトークン対応）
 	items, nextToken, pollMs, skippedCount, isEnded, err := uc.YT.ListLiveChatMessages(ctx, state.LiveChatID, state.NextPageToken)
 	if err != nil {
-		return PullOutput{}, err
+		return PullOutput{}, fmt.Errorf("list_messages: %w", err)
 	}
 
 	// 配信終了検知
@@ -51,7 +52,7 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		// （同じ videoId で再度「切替」を押したら復元できるようにするため）
 		uc.Snap.MarkDirty()
 		if err := uc.Snap.Flush(ctx); err != nil {
-			log.Printf("[WARN] pull: snapshot flush on stream end failed: %v", err)
+			logging.Log(ctx, "warn", "SNAPSHOT", "pull: snapshot flush on stream end failed: %v", err)
 			// Flush 失敗は警告のみ、終了処理は継続
 		}
 
@@ -61,7 +62,7 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		state.EndedAt = uc.Clock.Now()
 		state.NextPageToken = ""
 		if err := uc.State.Set(ctx, state); err != nil {
-			return PullOutput{}, err
+			return PullOutput{}, fmt.Errorf("state_set: %w", err)
 		}
 
 		return PullOutput{AddedCount: 0, AutoReset: true, PollingIntervalMillis: 0}, nil
@@ -81,7 +82,7 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		var err error
 		channelNames, err = uc.YT.GetChannelDisplayNames(ctx, handleChannelIDs)
 		if err != nil {
-			log.Printf("[PULL] Failed to resolve channel display names: %v", err)
+			logging.Log(ctx, "warn", "PULL", "Failed to resolve channel display names: %v", err)
 		}
 	}
 
@@ -103,7 +104,7 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		// UpsertWithMessageUpdatedを使用してメッセージIDによる重複チェックを実行し、実際に更新された場合のみカウント
 		updated, err := uc.Users.UpsertWithMessageUpdated(msg.ChannelID, msg.DisplayName, msg.PublishedAt, msg.ID)
 		if err != nil {
-			return PullOutput{}, err
+			return PullOutput{}, fmt.Errorf("user_upsert: %w", err)
 		}
 		if updated {
 			addedCount++
@@ -117,7 +118,7 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 			Message:     msg.Message,
 			PublishedAt: msg.PublishedAt,
 		}); err != nil {
-			return PullOutput{}, err
+			return PullOutput{}, fmt.Errorf("comment_add: %w", err)
 		}
 	}
 
@@ -125,7 +126,7 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 	state.LastPulledAt = now
 	state.NextPageToken = nextToken
 	if err := uc.State.Set(ctx, state); err != nil {
-		return PullOutput{}, err
+		return PullOutput{}, fmt.Errorf("state_set: %w", err)
 	}
 
 	// minPollingIntervalMillis はYouTube Data API v3の無料枠制限（10,000 units/day）を考慮した最小ポーリング間隔
