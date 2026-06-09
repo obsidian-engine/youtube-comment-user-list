@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
+	"google.golang.org/api/iterator"
 )
 
 const (
@@ -108,6 +111,60 @@ func (s *SnapshotStore) LoadCurrent(ctx context.Context) (*port.CurrentPointer, 
 	}
 
 	return &ptr, nil
+}
+
+// List は snapshots/ 配下の全スナップショットサマリーを返します。
+// current.json は除外します。unmarshal 失敗は warn log + skip します。
+func (s *SnapshotStore) List(ctx context.Context) ([]port.SnapshotSummary, error) {
+	summaries := make([]port.SnapshotSummary, 0)
+
+	it := s.client.Bucket(s.bucket).Objects(ctx, &storage.Query{Prefix: snapshotPrefix})
+	for {
+		attrs, err := it.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("gcs: list snapshots: %w", err)
+		}
+
+		// current.json は skip
+		if attrs.Name == currentObject {
+			continue
+		}
+		// snapshots/ 配下の .json のみ処理する
+		if !strings.HasSuffix(attrs.Name, ".json") {
+			continue
+		}
+
+		rc, err := s.client.Bucket(s.bucket).Object(attrs.Name).NewReader(ctx)
+		if err != nil {
+			log.Printf("[WARN] gcs: open snapshot %s: %v (skip)", attrs.Name, err)
+			continue
+		}
+
+		data, err := io.ReadAll(rc)
+		_ = rc.Close()
+		if err != nil {
+			log.Printf("[WARN] gcs: read snapshot %s: %v (skip)", attrs.Name, err)
+			continue
+		}
+
+		var snap port.Snapshot
+		if err := json.Unmarshal(data, &snap); err != nil {
+			log.Printf("[WARN] gcs: unmarshal snapshot %s: %v (skip)", attrs.Name, err)
+			continue
+		}
+
+		summaries = append(summaries, port.SnapshotSummary{
+			VideoID:      snap.VideoID,
+			SavedAt:      snap.SavedAt,
+			UserCount:    len(snap.Users),
+			CommentCount: len(snap.Comments),
+		})
+	}
+
+	return summaries, nil
 }
 
 // SaveCurrent は current.json を書き込みます（上書き）。

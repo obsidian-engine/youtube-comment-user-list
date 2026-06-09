@@ -60,3 +60,18 @@ func (f *fakeSinkForUsecase) SaveCurrent(_ context.Context, ptr *port.CurrentPoi
 	f.current = &cp
 	return nil
 }
+
+func (f *fakeSinkForUsecase) List(_ context.Context) ([]port.SnapshotSummary, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	summaries := make([]port.SnapshotSummary, 0, len(f.snapshots))
+	for _, snap := range f.snapshots {
+		summaries = append(summaries, port.SnapshotSummary{
+			VideoID:      snap.VideoID,
+			SavedAt:      snap.SavedAt,
+			UserCount:    len(snap.Users),
+			CommentCount: len(snap.Comments),
+		})
+	}
+	return summaries, nil
+}

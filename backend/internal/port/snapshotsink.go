@@ -25,6 +25,14 @@ type CurrentPointer struct {
 	SavedAt time.Time `json:"savedAt"`
 }
 
+// SnapshotSummary は snapshot 一覧表示用のサマリーです。
+type SnapshotSummary struct {
+	VideoID      string
+	SavedAt      time.Time
+	UserCount    int
+	CommentCount int
+}
+
 // SnapshotSink はスナップショットの永続化 port です。
 // 不在時は (nil, nil) を返します。
 type SnapshotSink interface {
@@ -32,4 +40,7 @@ type SnapshotSink interface {
 	Save(ctx context.Context, snap *Snapshot) error
 	LoadCurrent(ctx context.Context) (*CurrentPointer, error)
 	SaveCurrent(ctx context.Context, ptr *CurrentPointer) error
+	// List は snapshots/ 配下の全スナップショットサマリーを返します。
+	// current.json は除外します。malformed file は warn skip します。
+	List(ctx context.Context) ([]SnapshotSummary, error)
 }
