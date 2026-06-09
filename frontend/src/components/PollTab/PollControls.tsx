@@ -48,7 +48,7 @@ export function PollControls({
             onChange={(e) => setInput(e.target.value)}
             placeholder="投票キーワードを入力"
             disabled={isLoading}
-            className="flex-1 px-3 py-2 rounded-md bg-white/90 border border-slate-300/80 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]"
+            className="flex-1 px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]"
           />
           <LoadingButton
             onClick={handleAdd}

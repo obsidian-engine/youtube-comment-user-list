@@ -28,7 +28,7 @@ export function CommentRow({ comment, index, isChecked, onToggle }: CommentRowPr
           type="checkbox"
           checked={isChecked}
           onChange={onToggle}
-          className="w-5 h-5 rounded cursor-pointer"
+          className="w-5 h-5 rounded cursor-pointer accent-blue-600 dark:accent-blue-400"
           aria-label="読み上げ済み"
         />
       </td>
