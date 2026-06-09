@@ -26,6 +26,7 @@ type SwitchVideo struct {
 }
 
 // Execute: videoId 切替、ユーザー初期化、State=ACTIVE に遷移。
+// 同じ videoId に対する切替の場合は users / state.StartedAt を維持する（配信再開ユースケース）。
 func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (SwitchVideoOutput, error) {
 	// 1. YouTube APIでliveChatIDを取得（失敗時はここで返るので snapshot 操作はしない）
 	liveChatID, err := uc.YT.GetActiveLiveChatID(ctx, in.VideoID)
@@ -39,16 +40,24 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 		// Flush 失敗は警告のみ、切替処理は継続
 	}
 
-	// 3. ユーザーをクリア
-	uc.Users.Clear()
+	// 3. 同じ videoId への再切替は既存 users を維持する（別 videoId の場合のみクリア）
+	prevState, _ := uc.State.Get(ctx)
+	sameVideo := prevState.VideoID == in.VideoID
+	if !sameVideo {
+		uc.Users.Clear()
+	}
 
 	// 4. StateをACTIVEに更新
 	now := uc.Clock.Now()
+	startedAt := now
+	if sameVideo && !prevState.StartedAt.IsZero() {
+		startedAt = prevState.StartedAt
+	}
 	newState := domain.LiveState{
 		Status:        domain.StatusActive,
 		VideoID:       in.VideoID,
 		LiveChatID:    liveChatID,
-		StartedAt:     now,
+		StartedAt:     startedAt,
 		NextPageToken: "",
 	}
 
