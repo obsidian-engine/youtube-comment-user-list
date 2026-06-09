@@ -126,171 +126,105 @@ export function useAppState(addEntry?: AddEntryFn) {
     setState((prev) => ({ ...prev, lastUpdated: timeString }))
   }, [])
 
-  // 切替・リセット時専用のrefresh（ユーザーリストを強制クリア）
-  const refreshWithClear = useCallback(async () => {
-    logger.log('🎯 refreshWithClear function called - will clear user list')
+  const refresh = useCallback(
+    async (options: { clearUsers?: boolean } = {}) => {
+      logger.log('🎯 refresh({ clearUsers:', options.clearUsers, '}) called from useAppState')
 
-    try {
-      // 前のリクエストをキャンセル
-      if (refreshControllerRef.current) {
-        logger.log('🛑 Aborting previous refresh request')
-        refreshControllerRef.current.abort()
-      }
-
-      logger.log('🔄 Refresh with clear starting...', new Date().toLocaleTimeString())
-      setState((prev) => ({
-        ...prev,
-        loadingStates: { ...prev.loadingStates, refreshing: true },
-      }))
-
-      // 新しいAbortControllerを作成
-      const controller = new AbortController()
-      refreshControllerRef.current = controller
-
-      const [st, us] = await Promise.all([
-        getStatus(controller.signal),
-        getUsers(controller.signal),
-      ])
-
-      // リクエストが成功したらcontrollerをクリア
-      refreshControllerRef.current = null
-
-      const status = st.status || 'WAITING'
-      const fetched = Array.isArray(us) ? us : []
-
-      // snapshotSavedAt: 初回ロード時に 1 度だけ toast を表示（sessionStorage への書込は useEffect で副作用化）
-      const snapshotRestoreMsg = consumeSnapshotRestoreMsg(st.snapshotSavedAt)
-      const newSnapshotAt = st.snapshotSavedAt
-        ? formatSnapshotSavedAt(st.snapshotSavedAt)
-        : undefined
-
-      setState((prev) => {
-        const sortedUsers = sortUsersStable(fetched)
-        logger.log('📋 Clearing and updating with fresh users:', { count: sortedUsers.length })
-
-        return {
-          ...prev,
-          active: status === 'ACTIVE',
-          users: sortedUsers, // 強制的に新しいリストに置き換え
-          startTime: st.startedAt,
-          errorMsg: '',
-          lastSnapshotAt: newSnapshotAt ?? prev.lastSnapshotAt,
-          ...(snapshotRestoreMsg ? { snapshotRestoreMsg } : {}),
+      try {
+        // 前のリクエストをキャンセル
+        if (refreshControllerRef.current) {
+          logger.log('🛑 Aborting previous refresh request')
+          refreshControllerRef.current.abort()
         }
-      })
 
-      logger.log('✅ Refresh with clear completed:', { status, userCount: fetched.length })
-    } catch (e) {
-      // AbortErrorの場合はエラーメッセージを表示しない
-      if (e instanceof Error && e.name === 'AbortError') {
-        logger.log('🚫 Refresh with clear aborted')
-        return
-      }
+        logger.log('🔄 Refresh starting...', new Date().toLocaleTimeString())
+        setState((prev) => ({
+          ...prev,
+          loadingStates: { ...prev.loadingStates, refreshing: true },
+        }))
 
-      logger.error('❌ Refresh with clear failed:', e)
-      setState((prev) => ({
-        ...prev,
-        errorMsg: '更新に失敗しました。しばらくしてから再試行してください。',
-      }))
-    } finally {
-      updateClock()
-      setState((prev) => ({
-        ...prev,
-        loadingStates: { ...prev.loadingStates, refreshing: false },
-      }))
-    }
-  }, [updateClock])
+        // 新しいAbortControllerを作成
+        const controller = new AbortController()
+        refreshControllerRef.current = controller
 
-  const refresh = useCallback(async () => {
-    logger.log('🎯 refresh function called from useAppState')
+        const [st, us] = await Promise.all([
+          getStatus(controller.signal),
+          getUsers(controller.signal),
+        ])
 
-    try {
-      // 前のリクエストをキャンセル
-      if (refreshControllerRef.current) {
-        logger.log('🛑 Aborting previous refresh request')
-        refreshControllerRef.current.abort()
-      }
+        // リクエストが成功したらcontrollerをクリア
+        refreshControllerRef.current = null
 
-      logger.log('🔄 Auto refresh starting...', new Date().toLocaleTimeString())
-      setState((prev) => ({
-        ...prev,
-        loadingStates: { ...prev.loadingStates, refreshing: true },
-      }))
+        const status = st.status || 'WAITING'
+        const fetched = Array.isArray(us) ? us : []
 
-      // 新しいAbortControllerを作成
-      const controller = new AbortController()
-      refreshControllerRef.current = controller
+        // snapshotSavedAt: 初回ロード時に 1 度だけ toast を表示（sessionStorage への書込は useEffect で副作用化）
+        const snapshotRestoreMsg = consumeSnapshotRestoreMsg(st.snapshotSavedAt)
+        const newSnapshotAt = st.snapshotSavedAt
+          ? formatSnapshotSavedAt(st.snapshotSavedAt)
+          : undefined
 
-      const [st, us] = await Promise.all([
-        getStatus(controller.signal),
-        getUsers(controller.signal),
-      ])
+        setState((prev) => {
+          const sortedUsers = sortUsersStable(fetched)
+          logger.log('📋 Updating state with users:', {
+            count: sortedUsers.length,
+            firstThree: sortedUsers.slice(0, 3).map((u) => u.displayName),
+          })
 
-      // リクエストが成功したらcontrollerをクリア
-      refreshControllerRef.current = null
+          // ユーザーリスト保持ロジック：
+          // clearUsers=true: 強制置換（切替・リセット時）
+          // clearUsers=false: サーバーが空でも既存ユーザーがいれば保持（配信終了 WAITING でも視聴者一覧を残す）
+          const finalUsers = options.clearUsers
+            ? sortedUsers
+            : fetched.length === 0 && prev.users.length > 0
+              ? prev.users
+              : sortedUsers
 
-      const status = st.status || 'WAITING'
-      const fetched = Array.isArray(us) ? us : []
+          logger.log('📋 User list decision:', {
+            clearUsers: options.clearUsers,
+            serverUsers: fetched.length,
+            existingUsers: prev.users.length,
+            finalCount: finalUsers.length,
+          })
 
-      // snapshotSavedAt: 初回ロード時に 1 度だけ toast を表示（sessionStorage への書込は useEffect で副作用化）
-      const snapshotRestoreMsg = consumeSnapshotRestoreMsg(st.snapshotSavedAt)
-      const newSnapshotAt = st.snapshotSavedAt
-        ? formatSnapshotSavedAt(st.snapshotSavedAt)
-        : undefined
-
-      setState((prev) => {
-        const sortedUsers = sortUsersStable(fetched)
-        logger.log('📋 Updating state with users:', {
-          count: sortedUsers.length,
-          firstThree: sortedUsers.slice(0, 3).map((u) => u.displayName),
+          return {
+            ...prev,
+            active: status === 'ACTIVE',
+            users: finalUsers,
+            startTime: st.startedAt,
+            errorMsg: '',
+            lastSnapshotAt: newSnapshotAt ?? prev.lastSnapshotAt,
+            ...(snapshotRestoreMsg ? { snapshotRestoreMsg } : {}),
+          }
         })
 
-        // ユーザーリスト保持ロジック：
-        // 1. サーバーから新しいユーザーがある場合は更新
-        // 2. サーバーが空でも既存ユーザーがいれば保持（配信終了 WAITING でも視聴者一覧を残す）
-        // 手動リセット・video 切替時は refreshWithClear 経由で強制置換するためここは通らない
-        const shouldKeepExistingUsers = fetched.length === 0 && prev.users.length > 0
-        const finalUsers = shouldKeepExistingUsers ? prev.users : sortedUsers
-
-        logger.log('📋 User list decision:', {
-          serverUsers: fetched.length,
-          existingUsers: prev.users.length,
-          keepExisting: shouldKeepExistingUsers,
-          finalCount: finalUsers.length,
+        logger.log('✅ Refresh completed:', {
+          status,
+          userCount: fetched.length,
+          clearUsers: options.clearUsers,
         })
-
-        return {
-          ...prev,
-          active: status === 'ACTIVE',
-          users: finalUsers,
-          startTime: st.startedAt,
-          errorMsg: '',
-          lastSnapshotAt: newSnapshotAt ?? prev.lastSnapshotAt,
-          ...(snapshotRestoreMsg ? { snapshotRestoreMsg } : {}),
+      } catch (e) {
+        // AbortErrorの場合はエラーメッセージを表示しない
+        if (e instanceof Error && e.name === 'AbortError') {
+          logger.log('🚫 Refresh aborted')
+          return
         }
-      })
 
-      logger.log('✅ Auto refresh completed:', { status, userCount: fetched.length })
-    } catch (e) {
-      // AbortErrorの場合はエラーメッセージを表示しない
-      if (e instanceof Error && e.name === 'AbortError') {
-        logger.log('🚫 Refresh aborted')
-        return
+        logger.error('❌ Refresh failed:', e)
+        setState((prev) => ({
+          ...prev,
+          errorMsg: '更新に失敗しました。しばらくしてから再試行してください。',
+        }))
+      } finally {
+        updateClock()
+        setState((prev) => ({
+          ...prev,
+          loadingStates: { ...prev.loadingStates, refreshing: false },
+        }))
       }
-
-      logger.error('❌ Auto refresh failed:', e)
-      setState((prev) => ({
-        ...prev,
-        errorMsg: '更新に失敗しました。しばらくしてから再試行してください。',
-      }))
-    } finally {
-      updateClock()
-      setState((prev) => ({
-        ...prev,
-        loadingStates: { ...prev.loadingStates, refreshing: false },
-      }))
-    }
-  }, [updateClock])
+    },
+    [updateClock],
+  )
 
   const handleAsyncAction = useCallback(
     async (
@@ -332,11 +266,7 @@ export function useAppState(addEntry?: AddEntryFn) {
         }
 
         // 切替・リセット時はユーザーリストをクリア、それ以外は保持
-        if (shouldClearUsers) {
-          await refreshWithClear()
-        } else {
-          await refresh()
-        }
+        await refresh({ clearUsers: shouldClearUsers })
       } catch (e) {
         // AbortErrorの場合はエラーメッセージを表示しない
         if (e instanceof Error && e.name === 'AbortError') {
@@ -361,7 +291,7 @@ export function useAppState(addEntry?: AddEntryFn) {
         }))
       }
     },
-    [refresh, refreshWithClear, addEntry],
+    [refresh, addEntry],
   )
 
   const pullAction = useCallback(
@@ -394,7 +324,7 @@ export function useAppState(addEntry?: AddEntryFn) {
       setState((prev) => ({ ...prev, intervalSec: value }))
     }, []),
 
-    refresh,
+    refresh: useCallback(() => refresh(), [refresh]),
 
     onSwitch: useCallback(async () => {
       if (!state.videoId) {

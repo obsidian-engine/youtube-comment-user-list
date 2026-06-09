@@ -446,6 +446,251 @@ describe('useAppState', () => {
     vi.useRealTimers()
   })
 
+  describe('refresh / refreshWithClear 挙動', () => {
+    test('refresh() 通常: ACTIVE + server 新 users → 置換 + sortUsersStable 適用 (順序検証)', async () => {
+      const userA = {
+        channelId: 'UC_A',
+        displayName: 'UserA',
+        joinedAt: '2024-01-01T09:00:00.000Z',
+        firstCommentedAt: '2024-01-01T10:00:00.000Z',
+      }
+      const userB = {
+        channelId: 'UC_B',
+        displayName: 'UserB',
+        joinedAt: '2024-01-01T08:00:00.000Z',
+        firstCommentedAt: '2024-01-01T09:00:00.000Z',
+      }
+      // server は A, B の順で返すが firstCommentedAt は B が先
+      mockGetStatus.mockResolvedValue({ status: 'ACTIVE' })
+      mockGetUsers.mockResolvedValue([userA, userB])
+
+      const { result } = renderHook(() => useAppState())
+
+      await act(async () => {
+        await result.current.actions.refresh()
+      })
+
+      // sortUsersStable により B (firstCommentedAt が早い) が先頭になる
+      expect(result.current.state.users).toHaveLength(2)
+      expect(result.current.state.users[0].channelId).toBe('UC_B')
+      expect(result.current.state.users[1].channelId).toBe('UC_A')
+      expect(result.current.state.active).toBe(true)
+    })
+
+    test('refresh() 通常: WAITING + server 空 [] + 既存 users あり → 既存保持 (bug 9c0e236 regression guard)', async () => {
+      const existingUser = {
+        channelId: 'UC_EXIST',
+        displayName: 'ExistingUser',
+        joinedAt: '2024-01-01T09:00:00.000Z',
+        firstCommentedAt: '2024-01-01T10:00:00.000Z',
+      }
+      // 1回目: users あり
+      mockGetStatus.mockResolvedValueOnce({ status: 'ACTIVE' })
+      mockGetUsers.mockResolvedValueOnce([existingUser])
+      // 2回目: WAITING + 空
+      mockGetStatus.mockResolvedValueOnce({ status: 'WAITING' })
+      mockGetUsers.mockResolvedValueOnce([])
+
+      const { result } = renderHook(() => useAppState())
+
+      // 1回目 refresh: users をセット
+      await act(async () => {
+        await result.current.actions.refresh()
+      })
+      expect(result.current.state.users).toHaveLength(1)
+
+      // 2回目 refresh: WAITING + server 空 → 既存保持
+      await act(async () => {
+        await result.current.actions.refresh()
+      })
+      expect(result.current.state.users).toHaveLength(1)
+      expect(result.current.state.users[0].channelId).toBe('UC_EXIST')
+    })
+
+    test('refresh() 通常: WAITING + server 空 + 既存も空 → 空のまま', async () => {
+      mockGetStatus.mockResolvedValue({ status: 'WAITING' })
+      mockGetUsers.mockResolvedValue([])
+
+      const { result } = renderHook(() => useAppState())
+
+      await act(async () => {
+        await result.current.actions.refresh()
+      })
+
+      expect(result.current.state.users).toHaveLength(0)
+    })
+
+    test('refresh() 通常: server 新 users → status 問わず置換', async () => {
+      const newUser = {
+        channelId: 'UC_NEW',
+        displayName: 'NewUser',
+        joinedAt: '2024-01-01T09:00:00.000Z',
+        firstCommentedAt: '2024-01-01T10:00:00.000Z',
+      }
+      mockGetStatus.mockResolvedValue({ status: 'WAITING' })
+      mockGetUsers.mockResolvedValue([newUser])
+
+      const { result } = renderHook(() => useAppState())
+
+      await act(async () => {
+        await result.current.actions.refresh()
+      })
+
+      expect(result.current.state.users).toHaveLength(1)
+      expect(result.current.state.users[0].channelId).toBe('UC_NEW')
+    })
+
+    test('refreshWithClear (onReset 経由): server 空でも強制 clear', async () => {
+      const existingUser = {
+        channelId: 'UC_EXIST',
+        displayName: 'ExistingUser',
+        joinedAt: '2024-01-01T09:00:00.000Z',
+        firstCommentedAt: '2024-01-01T10:00:00.000Z',
+      }
+      // 1回目: users をセット
+      mockGetStatus.mockResolvedValueOnce({ status: 'ACTIVE' })
+      mockGetUsers.mockResolvedValueOnce([existingUser])
+      // onReset: postReset
+      mockPostReset.mockResolvedValue(undefined)
+      // onReset 後の refresh (clear あり): 空
+      mockGetStatus.mockResolvedValueOnce({ status: 'WAITING' })
+      mockGetUsers.mockResolvedValueOnce([])
+
+      const { result } = renderHook(() => useAppState())
+
+      // 1回目 refresh: users をセット
+      await act(async () => {
+        await result.current.actions.refresh()
+      })
+      expect(result.current.state.users).toHaveLength(1)
+
+      // onReset 経由で refreshWithClear が発火 → server 空でも強制 clear
+      await act(async () => {
+        await result.current.actions.onReset()
+      })
+      expect(result.current.state.users).toHaveLength(0)
+    })
+
+    test('refreshWithClear (onReset 経由): server 新 users → 置換', async () => {
+      const newUser = {
+        channelId: 'UC_NEW',
+        displayName: 'NewUser',
+        joinedAt: '2024-01-01T09:00:00.000Z',
+        firstCommentedAt: '2024-01-01T10:00:00.000Z',
+      }
+      mockPostReset.mockResolvedValue(undefined)
+      mockGetStatus.mockResolvedValue({ status: 'ACTIVE' })
+      mockGetUsers.mockResolvedValue([newUser])
+
+      const { result } = renderHook(() => useAppState())
+
+      await act(async () => {
+        await result.current.actions.onReset()
+      })
+
+      expect(result.current.state.users).toHaveLength(1)
+      expect(result.current.state.users[0].channelId).toBe('UC_NEW')
+    })
+
+    test('abort 中の AbortError は errorMsg をセットしない (refresh)', async () => {
+      const abortError = Object.assign(new Error('The operation was aborted'), {
+        name: 'AbortError',
+      })
+      mockGetStatus.mockRejectedValue(abortError)
+
+      const { result } = renderHook(() => useAppState())
+
+      await act(async () => {
+        await result.current.actions.refresh()
+      })
+
+      expect(result.current.state.errorMsg).toBe('')
+    })
+
+    test('AbortError 以外の error は エラーメッセージをセットする (refresh)', async () => {
+      mockGetStatus.mockRejectedValue(new Error('network error'))
+
+      const { result } = renderHook(() => useAppState())
+
+      await act(async () => {
+        await result.current.actions.refresh()
+      })
+
+      expect(result.current.state.errorMsg).toBe(
+        '更新に失敗しました。しばらくしてから再試行してください。',
+      )
+    })
+
+    test('snapshotRestoreMsg が refresh でも onReset 経由でも consumeSnapshotRestoreMsg 経由でセットされる', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(2024, 5, 9, 10, 0, 0))
+
+      Object.defineProperty(window, 'sessionStorage', {
+        value: {
+          getItem: vi.fn(() => null),
+          setItem: vi.fn(),
+          removeItem: vi.fn(),
+          clear: vi.fn(),
+        },
+        writable: true,
+      })
+
+      const savedAt = new Date(2024, 5, 9, 14, 23, 0)
+      mockGetStatus.mockResolvedValue({
+        status: 'ACTIVE',
+        snapshotSavedAt: savedAt.toISOString(),
+      })
+      mockGetUsers.mockResolvedValue([])
+
+      const { result } = renderHook(() => useAppState())
+
+      await act(async () => {
+        await result.current.actions.refresh()
+      })
+
+      expect(result.current.state.snapshotRestoreMsg).toContain('14:23')
+      expect(result.current.state.snapshotRestoreMsg).toContain('の保存状態を取得しました')
+
+      vi.useRealTimers()
+    })
+
+    test('lastSnapshotAt が refresh でも onReset 経由でも formatSnapshotSavedAt 経由で更新される', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(2024, 5, 9, 10, 0, 0))
+
+      const savedAt = new Date(2024, 5, 9, 15, 45, 0)
+      // refresh 用
+      mockGetStatus.mockResolvedValueOnce({
+        status: 'ACTIVE',
+        snapshotSavedAt: savedAt.toISOString(),
+      })
+      mockGetUsers.mockResolvedValueOnce([])
+      // onReset 用
+      mockPostReset.mockResolvedValue(undefined)
+      mockGetStatus.mockResolvedValueOnce({
+        status: 'WAITING',
+        snapshotSavedAt: savedAt.toISOString(),
+      })
+      mockGetUsers.mockResolvedValueOnce([])
+
+      const { result } = renderHook(() => useAppState())
+
+      // refresh 経由
+      await act(async () => {
+        await result.current.actions.refresh()
+      })
+      expect(result.current.state.lastSnapshotAt).toBe('15:45')
+
+      // onReset 経由 (refreshWithClear)
+      await act(async () => {
+        await result.current.actions.onReset()
+      })
+      expect(result.current.state.lastSnapshotAt).toBe('15:45')
+
+      vi.useRealTimers()
+    })
+  })
+
   describe('BackendError logs 流し込み', () => {
     test('onSwitch が BackendError をスローした場合、error.logs が addEntry に流れる', async () => {
       const backendErr = new BackendError('動画が見つかりません', {
