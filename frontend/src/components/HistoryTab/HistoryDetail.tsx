@@ -2,6 +2,7 @@ import type { HistorySnapshot } from '../../utils/api'
 import { formatSnapshotSavedAt } from '../../hooks/useAppState'
 import { HistoryUserTable } from './HistoryUserTable'
 import { HistoryCommentSearch } from './HistoryCommentSearch'
+import { HistoryVotes } from './HistoryVotes'
 
 interface HistoryDetailProps {
   snapshot: HistorySnapshot
@@ -43,6 +44,12 @@ export function HistoryDetail({ snapshot, onBack }: HistoryDetailProps) {
 
       {/* コメント検索 */}
       <HistoryCommentSearch comments={snapshot.comments} />
+
+      {/* 投票集計 */}
+      <section>
+        <h3 className="text-sm font-semibold mb-2 text-slate-700 dark:text-slate-200">投票集計</h3>
+        <HistoryVotes comments={snapshot.comments} />
+      </section>
     </div>
   )
 }
