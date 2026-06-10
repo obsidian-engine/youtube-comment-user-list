@@ -39,13 +39,17 @@ go build -o server cmd/server/main.go
 
 ## 📋 API エンドポイント
 
-| Method | Endpoint | 説明 |
-|--------|----------|------|
-| GET | `/status` | 現在のライブ状態とユーザー数を取得 |
-| GET | `/users.json` | 参加者一覧を取得 |
-| POST | `/switch-video` | 配信URLを切り替え |
-| POST | `/pull` | コメント参加者を収集 |
-| POST | `/reset` | 参加者リストをリセット |
+| Method | Endpoint | 説明 | logs フィールド |
+|--------|----------|------|----------------|
+| GET | `/status` | 現在のライブ状態とユーザー数を取得 | あり |
+| GET | `/users.json` | 参加者一覧を取得 | **なし** (root array) |
+| POST | `/switch-video` | 配信URLを切り替え | あり |
+| POST | `/pull` | コメント参加者を収集 | あり |
+| POST | `/reset` | 参加者リストをリセット | あり |
+
+### `/users.json` の非対称性 (logs-non-conformant)
+
+`/users.json` のみ response root が `domain.User` の配列で、他全 endpoint が持つ `logs []LogDetail` フィールドを同梱できない。frontend は root array endpoint では `logs` を期待しない実装にすること。将来 `{users: [...], logs: [...]}` へのラップ re-design 案があるが現時点では着手しない。詳細は `internal/adapter/http/handlers.go` の `[logs-non-conformant]` コメントを参照。
 
 ## 🧪 テスト実行
 

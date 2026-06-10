@@ -127,12 +127,18 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		render.JSON(w, r, response)
 	})
 
+	// [logs-non-conformant] /users.json は root=array endpoint のため logs を同梱しない。
+	// 他全 endpoint (/status /switch-video /pull /reset /history/*) は
+	// ErrorResponse / SuccessResponse の logs フィールド ([]LogDetail) を持つが、
+	// /users.json は domain.User スライスをそのまま root に返す設計のため
+	// response wrapper を挿入できず logs 非対応のまま維持する。
+	//
+	// frontend 実装上の注意: root array endpoint は logs を期待しないこと。
+	// 将来的に {users: [...], logs: [...]} でラップする re-design 案があるが現時点では着手しない。
 	r.Get("/users.json", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		log.Printf("[USERS] Getting user list with join time")
 		users := h.Users.ListUsersSortedByJoinTime()
 		log.Printf("[USERS] Returning %d users sorted by join time", len(users))
-		// users.json は domain.User スライスをそのまま返す設計のため logs は同梱しない
-		// (users array が root になり response wrapper を追加できないため)
 		render.JSON(w, r, users)
 	})
 
