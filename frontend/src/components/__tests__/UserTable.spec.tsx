@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor, act } from '@testing-library/react'
 import { vi } from 'vitest'
 import { UserTable } from '../UserTable'
 
@@ -351,7 +351,9 @@ describe('UserTable コンポーネント', () => {
       render(<UserTable users={[mockUsers[0]]} />)
 
       const copyButton = screen.getByRole('button', { name: 'チャンネルURLをコピー' })
-      fireEvent.click(copyButton)
+      await act(async () => {
+        fireEvent.click(copyButton)
+      })
 
       expect(mockWriteText).toHaveBeenCalledWith(
         'TestUser1さん https://www.youtube.com/channel/UC1',
@@ -367,7 +369,9 @@ describe('UserTable コンポーネント', () => {
       const linkPath = copyButton.querySelector('path')
       expect(linkPath?.getAttribute('d')).toContain('M13.828')
 
-      fireEvent.click(copyButton)
+      await act(async () => {
+        fireEvent.click(copyButton)
+      })
 
       // コピー後: チェックマークアイコン
       await waitFor(() => {

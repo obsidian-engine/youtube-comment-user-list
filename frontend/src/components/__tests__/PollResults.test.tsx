@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PollResults } from '../PollTab/PollResults'
 
@@ -165,7 +165,9 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await user.click(screen.getByText('hoge'))
+      await act(async () => {
+        await user.click(screen.getByText('hoge'))
+      })
       expect(screen.getByText('taro')).toBeInTheDocument()
       expect(screen.getByText('hanako')).toBeInTheDocument()
       expect(screen.getByText('UC1')).toBeInTheDocument()
@@ -182,8 +184,12 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await user.click(screen.getByText('hoge'))
-      await user.click(screen.getByText('hoge'))
+      await act(async () => {
+        await user.click(screen.getByText('hoge'))
+      })
+      await act(async () => {
+        await user.click(screen.getByText('hoge'))
+      })
       expect(screen.queryByText('taro')).toBeNull()
     })
 
@@ -198,7 +204,9 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await user.click(screen.getByText('fuga'))
+      await act(async () => {
+        await user.click(screen.getByText('fuga'))
+      })
       expect(screen.getByText('投票したユーザーはいません')).toBeInTheDocument()
     })
   })
@@ -223,8 +231,12 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await user.click(screen.getByText('hoge'))
-      await user.click(screen.getByRole('button', { name: /名前\+channelId をコピー/ }))
+      await act(async () => {
+        await user.click(screen.getByText('hoge'))
+      })
+      await act(async () => {
+        await user.click(screen.getByRole('button', { name: /名前\+channelId をコピー/ }))
+      })
       expect(writeTextSpy).toHaveBeenCalledWith('taro\tUC1')
       expect(screen.getByRole('button', { name: 'コピー済' })).toBeInTheDocument()
     })
