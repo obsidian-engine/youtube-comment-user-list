@@ -86,10 +86,14 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 	r := chi.NewRouter()
 
 	// ミドルウェアの設定
+	// 登録順 = 外から内の順: Recover → Logging → CORS → Collector
+	// RecoverMiddleware を最外周にすることで、内側の全 handler の panic を catch できる。
+	// CollectorMiddleware は Recover の内側にあるため、panic 発生時も collector が context に存在し
+	// RecoverMiddleware が collectorFromRequest(r) で stack trace を logs に追加できる。
+	r.Use(RecoverMiddleware)
 	r.Use(LoggingMiddleware)
 	r.Use(CORSMiddleware(frontendOrigin))
 	r.Use(CollectorMiddleware)
-	r.Use(RecoverMiddleware)
 
 	r.Get("/status", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		log.Printf("[STATUS] Getting current status")
