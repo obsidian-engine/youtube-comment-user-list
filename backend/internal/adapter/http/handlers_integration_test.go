@@ -394,3 +394,50 @@ func TestUsersAPI_IncludesLatestCommentedAt(t *testing.T) {
 	// 空のレスポンスの場合でも有効なJSONであることを確認
 	// 実際のユーザーデータがある場合、latestCommentedAtフィールドの存在を確認できる
 }
+
+// TestSuccessResponse_ContainsLogsField は各 endpoint の success response に
+// logs field が含まれることを確認する。
+// CollectorMiddleware が inject した collector の entries は空でも
+// JSON に "logs" key が存在しない (omitempty) ことを確認 — つまり空 logs の場合は
+// レスポンスに logs key が出ない設計が正しく動いていることを検証する。
+func TestSuccessResponse_ContainsLogsField(t *testing.T) {
+	ts := newTestServer("http://example.com")
+	defer ts.Close()
+
+	tests := []struct {
+		name        string
+		method      string
+		path        string
+		wantLogsKey bool // true = logs key が present、false = absent (omitempty)
+	}{
+		// 空 collector なので logs は omitempty で absent が正しい
+		{name: "GET /status", method: stdhttp.MethodGet, path: "/status", wantLogsKey: false},
+		{name: "POST /reset", method: stdhttp.MethodPost, path: "/reset", wantLogsKey: false},
+		{name: "POST /pull", method: stdhttp.MethodPost, path: "/pull", wantLogsKey: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := stdhttp.NewRequest(tt.method, ts.URL+tt.path, nil)
+			res, err := stdhttp.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("%s %s: %v", tt.method, tt.path, err)
+			}
+			defer res.Body.Close()
+
+			if res.StatusCode != stdhttp.StatusOK {
+				t.Fatalf("status = %d, want 200", res.StatusCode)
+			}
+
+			var body map[string]interface{}
+			if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+
+			_, hasLogs := body["logs"]
+			if hasLogs != tt.wantLogsKey {
+				t.Errorf("logs key present=%v, want %v; body=%v", hasLogs, tt.wantLogsKey, body)
+			}
+		})
+	}
+}

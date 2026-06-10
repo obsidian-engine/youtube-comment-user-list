@@ -2,10 +2,12 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 )
 
 func TestRenderError(t *testing.T) {
@@ -301,6 +303,91 @@ func TestRenderErrorWithCollectorLogs(t *testing.T) {
 	}
 	if response.Logs[1].Level != "error" || response.Logs[1].Source != "DB" {
 		t.Errorf("Unexpected second log: %+v", response.Logs[1])
+	}
+}
+
+func TestRenderUsecaseError_APIError_StatusMapping(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     domain.APIErrorCode
+		wantHTTP int
+	}{
+		{name: "quota_exceeded → 429", code: domain.ErrCodeQuotaExceeded, wantHTTP: 429},
+		{name: "video_not_found → 404", code: domain.ErrCodeVideoNotFound, wantHTTP: 404},
+		{name: "live_chat_ended → 410", code: domain.ErrCodeLiveChatEnded, wantHTTP: 410},
+		{name: "auth_failed → 401", code: domain.ErrCodeAuthFailed, wantHTTP: 401},
+		{name: "rate_limited → 429", code: domain.ErrCodeRateLimited, wantHTTP: 429},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest("GET", "/", nil)
+
+			apiErr := &domain.APIError{Code: tt.code, Message: "test message"}
+			renderUsecaseError(w, r, apiErr, "test", nil, StatusBadGateway, "bad_gateway")
+
+			if w.Code != tt.wantHTTP {
+				t.Errorf("HTTP status = %d, want %d", w.Code, tt.wantHTTP)
+			}
+
+			var resp ErrorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			if resp.Code != string(tt.code) {
+				t.Errorf("code = %q, want %q", resp.Code, string(tt.code))
+			}
+			if resp.HTTPCode != tt.wantHTTP {
+				t.Errorf("httpCode = %d, want %d", resp.HTTPCode, tt.wantHTTP)
+			}
+		})
+	}
+}
+
+func TestRenderUsecaseError_GenericError_FallsBack(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+
+	genericErr := fmt.Errorf("some internal failure")
+	renderUsecaseError(w, r, genericErr, "generic error", nil, StatusInternalServerError, "internal_error")
+
+	if w.Code != StatusInternalServerError {
+		t.Errorf("HTTP status = %d, want %d", w.Code, StatusInternalServerError)
+	}
+
+	var resp ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.Error != "internal_error" {
+		t.Errorf("error = %q, want internal_error", resp.Error)
+	}
+}
+
+func TestRenderUsecaseError_APIError_LogsIncluded(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+
+	collector := logging.NewCollector()
+	collector.Add("warn", "YOUTUBE", "quota will be exceeded")
+
+	apiErr := &domain.APIError{Code: domain.ErrCodeQuotaExceeded, Message: "quota exceeded"}
+	renderUsecaseError(w, r, apiErr, "quota exceeded", collector, StatusBadGateway, "bad_gateway")
+
+	if w.Code != 429 {
+		t.Errorf("HTTP status = %d, want 429", w.Code)
+	}
+
+	var resp ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(resp.Logs) != 1 {
+		t.Fatalf("logs len = %d, want 1", len(resp.Logs))
+	}
+	if resp.Logs[0].Source != "YOUTUBE" {
+		t.Errorf("log source = %q, want YOUTUBE", resp.Logs[0].Source)
 	}
 }
 

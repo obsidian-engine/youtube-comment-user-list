@@ -39,6 +39,7 @@ type StatusResponse struct {
 	EndedAt         interface{} `json:"endedAt"`
 	LastPulledAt    interface{} `json:"lastPulledAt"`
 	SnapshotSavedAt *time.Time  `json:"snapshotSavedAt,omitempty"`
+	Logs            []LogDetail `json:"logs,omitempty"`
 }
 
 // SwitchVideoResponse represents the response for /switch-video endpoint
@@ -47,6 +48,7 @@ type SwitchVideoResponse struct {
 	VideoID    string      `json:"videoId"`
 	LiveChatID string      `json:"liveChatId"`
 	StartedAt  interface{} `json:"startedAt"`
+	Logs       []LogDetail `json:"logs,omitempty"`
 }
 
 // LogDetail represents a single log entry in the response
@@ -62,12 +64,13 @@ type PullResponse struct {
 	SkippedCount          int         `json:"skippedCount"`
 	AutoReset             bool        `json:"autoReset"`
 	PollingIntervalMillis int64       `json:"pollingIntervalMillis"`
-	Logs                  []LogDetail `json:"logs"`
+	Logs                  []LogDetail `json:"logs,omitempty"`
 }
 
 // ResetResponse represents the response for /reset endpoint
 type ResetResponse struct {
-	Status string `json:"status"`
+	Status string      `json:"status"`
+	Logs   []LogDetail `json:"logs,omitempty"`
 }
 
 func collectLogs(collector *logging.Collector) []LogDetail {
@@ -114,6 +117,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			StartedAt:    out.StartedAt,
 			EndedAt:      out.EndedAt,
 			LastPulledAt: out.LastPulledAt,
+			Logs:         collectLogs(collector),
 		}
 		if h.Coord != nil {
 			if savedAt := h.Coord.LastSavedAt(); !savedAt.IsZero() {
@@ -125,8 +129,13 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 
 	r.Get("/users.json", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		log.Printf("[USERS] Getting user list with join time")
+		collector := collectorFromRequest(r)
 		users := h.Users.ListUsersSortedByJoinTime()
 		log.Printf("[USERS] Returning %d users sorted by join time", len(users))
+		// users.json は domain.User スライスをそのまま返す設計のため
+		// logs は response wrapper ではなく X-Logs ヘッダーで渡す代わりに
+		// 現 API shape を維持して logs は同梱しない (users array が root なため)
+		_ = collector
 		render.JSON(w, r, users)
 	})
 
@@ -174,6 +183,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 			VideoID:    out.State.VideoID,
 			LiveChatID: out.State.LiveChatID,
 			StartedAt:  out.State.StartedAt,
+			Logs:       collectLogs(collector),
 		}
 		render.JSON(w, r, response)
 	})
@@ -213,31 +223,34 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		log.Printf("[RESET] Reset complete, status: %s", out.State.Status)
 		response := ResetResponse{
 			Status: string(out.State.Status),
+			Logs:   collectLogs(collector),
 		}
 		render.JSON(w, r, response)
 	})
 
 	r.Get("/history/snapshots", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		collector := collectorFromRequest(r)
 		if h.ListHistory == nil {
-			renderInternalError(w, r, "history listing is not available")
+			renderInternalErrorWithCollector(w, r, "history listing is not available", collector)
 			return
 		}
 		out, err := h.ListHistory.Execute(r.Context())
 		if err != nil {
 			log.Printf("[HISTORY_LIST] Error: %v", err)
-			renderInternalError(w, r, "Failed to list history snapshots")
+			renderInternalErrorWithCollector(w, r, "Failed to list history snapshots", collector)
 			return
 		}
 		items := make([]HistorySummaryResponse, len(out.Items))
 		for i, s := range out.Items {
 			items[i] = newHistorySummaryResponse(s)
 		}
-		render.JSON(w, r, HistoryListResponse{Items: items})
+		render.JSON(w, r, HistoryListResponse{Items: items, Logs: collectLogs(collector)})
 	})
 
 	r.Get("/history/snapshots/{videoID}", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		collector := collectorFromRequest(r)
 		if h.GetHistory == nil {
-			renderInternalError(w, r, "history detail is not available")
+			renderInternalErrorWithCollector(w, r, "history detail is not available", collector)
 			return
 		}
 		videoID := chi.URLParam(r, "videoID")
@@ -248,10 +261,12 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 				return
 			}
 			log.Printf("[HISTORY_GET] Error: %v", err)
-			renderInternalError(w, r, "Failed to get history snapshot")
+			renderInternalErrorWithCollector(w, r, "Failed to get history snapshot", collector)
 			return
 		}
-		render.JSON(w, r, newHistorySnapshotResponse(out.Snapshot))
+		resp := newHistorySnapshotResponse(out.Snapshot)
+		resp.Logs = collectLogs(collector)
+		render.JSON(w, r, resp)
 	})
 
 	r.Get("/comments", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {

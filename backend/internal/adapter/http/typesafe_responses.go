@@ -102,6 +102,7 @@ type HistorySummaryResponse struct {
 // HistoryListResponse は /history/snapshots のレスポンスです。
 type HistoryListResponse struct {
 	Items []HistorySummaryResponse `json:"items"`
+	Logs  []LogDetail              `json:"logs,omitempty"`
 }
 
 // newHistorySummaryResponse は port.SnapshotSummary から HistorySummaryResponse を生成します。
@@ -122,6 +123,7 @@ type HistorySnapshotResponse struct {
 	Users    []domain.User     `json:"users"`
 	Comments []domain.Comment  `json:"comments"`
 	State    *domain.LiveState `json:"state,omitempty"`
+	Logs     []LogDetail       `json:"logs,omitempty"`
 }
 
 // newHistorySnapshotResponse は port.Snapshot から HistorySnapshotResponse を生成します。

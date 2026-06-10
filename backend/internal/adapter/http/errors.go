@@ -81,11 +81,6 @@ func renderBadGateway(w stdhttp.ResponseWriter, r *stdhttp.Request, message stri
 	renderErrorWithCollector(w, r, StatusBadGateway, "bad_gateway", message, nil)
 }
 
-// renderBadGatewayWithCollector はバッドゲートウェイ用のヘルパー (collector 付き)
-func renderBadGatewayWithCollector(w stdhttp.ResponseWriter, r *stdhttp.Request, message string, collector *logging.Collector) {
-	renderErrorWithCollector(w, r, StatusBadGateway, "bad_gateway", message, collector)
-}
-
 // renderUsecaseError は usecase 層 error を ErrorResponse に変換する。
 // domain.APIError を含む場合は機械可読 Code + 対応 HTTP status に振り分ける。
 // それ以外は fallbackStatus + fallbackErr ("bad_gateway" 等) を使う。
