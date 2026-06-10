@@ -306,6 +306,159 @@ func TestSwitchVideo_V1_to_V2_to_V1_RestoresFromGCS(t *testing.T) {
 	}
 }
 
+// TestSwitchVideo_APIError_RestoreFromGCS_succeeds: V1 終了済 + Users 空 + GCS に V1 snapshot あり → 復元成功
+func TestSwitchVideo_APIError_RestoreFromGCS_succeeds(t *testing.T) {
+	ctx := context.Background()
+
+	users := memory.NewUserRepo()
+	comments := memory.NewCommentRepo()
+	state := memory.NewStateRepo()
+	// prevState は別 video (cold start 後などを想定)
+	_ = state.Set(ctx, domain.LiveState{
+		Status:  domain.StatusWaiting,
+		VideoID: "v0",
+	})
+
+	yt := &failingYT{}
+	now := time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC)
+	clock := fixedClock{t: now}
+
+	// GCS 側に v1 snapshot を事前保存
+	sink := newFakeSinkForUsecase()
+	v1StartedAt := time.Date(2024, 6, 1, 10, 0, 0, 0, time.UTC)
+	savedSnap := &port.Snapshot{
+		VideoID:    "v1",
+		LiveChatID: "chat-v1",
+		Users: []domain.User{
+			{ChannelID: "ch1", DisplayName: "Alice"},
+			{ChannelID: "ch2", DisplayName: "Bob"},
+		},
+		Comments: []domain.Comment{
+			{ID: "c1", ChannelID: "ch1", DisplayName: "Alice", Message: "hello", PublishedAt: now},
+		},
+		State: &domain.LiveState{
+			Status:     domain.StatusActive,
+			VideoID:    "v1",
+			LiveChatID: "chat-v1",
+			StartedAt:  v1StartedAt,
+		},
+	}
+	_ = sink.Save(ctx, savedSnap)
+
+	coord := buildCoordWithSink(sink, users, comments, state)
+	uc := &usecase.SwitchVideo{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
+
+	out, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "v1"})
+	if err != nil {
+		t.Fatalf("Execute should succeed (GCS restore), got: %v", err)
+	}
+
+	if out.State.Status != domain.StatusWaiting {
+		t.Errorf("State.Status = %v, want %v", out.State.Status, domain.StatusWaiting)
+	}
+	if out.State.VideoID != "v1" {
+		t.Errorf("State.VideoID = %v, want v1", out.State.VideoID)
+	}
+	if got := users.Count(); got != 2 {
+		t.Errorf("Users.Count() = %d, want 2 (restored from GCS)", got)
+	}
+	if got := comments.Count(); got != 1 {
+		t.Errorf("Comments.Count() = %d, want 1 (restored from GCS)", got)
+	}
+	// StartedAt は復元値を使う
+	if !out.State.StartedAt.Equal(v1StartedAt) {
+		t.Errorf("State.StartedAt = %v, want %v (from GCS snapshot)", out.State.StartedAt, v1StartedAt)
+	}
+	// EndedAt は now
+	if !out.State.EndedAt.Equal(now) {
+		t.Errorf("State.EndedAt = %v, want %v", out.State.EndedAt, now)
+	}
+}
+
+// TestSwitchVideo_APIError_RestoreFromGCS_notFound: GCS にも snapshot なし → error return
+func TestSwitchVideo_APIError_RestoreFromGCS_notFound(t *testing.T) {
+	ctx := context.Background()
+
+	users := memory.NewUserRepo()
+	comments := memory.NewCommentRepo()
+	state := memory.NewStateRepo()
+	_ = state.Set(ctx, domain.LiveState{
+		Status:  domain.StatusWaiting,
+		VideoID: "v0",
+	})
+
+	yt := &failingYT{}
+	clock := fixedClock{t: time.Now()}
+
+	// GCS に v1 snapshot なし (空の sink)
+	sink := newFakeSinkForUsecase()
+	coord := buildCoordWithSink(sink, users, comments, state)
+	uc := &usecase.SwitchVideo{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
+
+	_, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "v1"})
+	if err == nil {
+		t.Fatal("Execute should return error when GCS also has no snapshot")
+	}
+}
+
+// TestSwitchVideo_APIError_inMemoryFallback_priorityOverGCS: 1st fallback (同 videoId + Users 残存) が GCS より優先される
+func TestSwitchVideo_APIError_inMemoryFallback_priorityOverGCS(t *testing.T) {
+	ctx := context.Background()
+
+	users := memory.NewUserRepo()
+	_ = users.UpsertWithJoinTime("ch1", "Alice", time.Now())
+	_ = users.UpsertWithJoinTime("ch2", "Bob", time.Now())
+	comments := memory.NewCommentRepo()
+
+	originalStartedAt := time.Date(2024, 1, 1, 9, 0, 0, 0, time.UTC)
+	state := memory.NewStateRepo()
+	_ = state.Set(ctx, domain.LiveState{
+		Status:     domain.StatusWaiting,
+		VideoID:    "v1",
+		LiveChatID: "chat-v1",
+		StartedAt:  originalStartedAt,
+	})
+
+	yt := &failingYT{}
+	now := time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC)
+	clock := fixedClock{t: now}
+
+	// GCS にも v1 snapshot あり（ただし 1st fallback が優先されるべき）
+	sink := newFakeSinkForUsecase()
+	gcsStartedAt := time.Date(2024, 1, 1, 8, 0, 0, 0, time.UTC)
+	_ = sink.Save(ctx, &port.Snapshot{
+		VideoID:    "v1",
+		LiveChatID: "chat-v1",
+		Users: []domain.User{
+			{ChannelID: "ch3", DisplayName: "GCS-Only-User"},
+		},
+		State: &domain.LiveState{
+			Status:    domain.StatusActive,
+			VideoID:   "v1",
+			StartedAt: gcsStartedAt,
+		},
+	})
+	coord := buildCoordWithSink(sink, users, comments, state)
+	uc := &usecase.SwitchVideo{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
+
+	out, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "v1"})
+	if err != nil {
+		t.Fatalf("Execute should succeed (in-memory fallback), got: %v", err)
+	}
+
+	// 1st fallback が当たるので in-memory の users (2件) が残存
+	if got := users.Count(); got != 2 {
+		t.Errorf("Users.Count() = %d, want 2 (in-memory fallback, not GCS)", got)
+	}
+	// StartedAt は in-memory 由来 (originalStartedAt)
+	if !out.State.StartedAt.Equal(originalStartedAt) {
+		t.Errorf("State.StartedAt = %v, want %v (in-memory, not GCS)", out.State.StartedAt, originalStartedAt)
+	}
+	if out.State.Status != domain.StatusWaiting {
+		t.Errorf("State.Status = %v, want %v", out.State.Status, domain.StatusWaiting)
+	}
+}
+
 // TestSwitchVideo_SnapshotPreservedAcrossSwitch: V1→V2 切替後も V1.json が破壊されない（回帰テスト）
 func TestSwitchVideo_SnapshotPreservedAcrossSwitch(t *testing.T) {
 	ctx := context.Background()

@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
@@ -57,7 +58,45 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 			}
 			return SwitchVideoOutput{State: restoredState}, nil
 		}
-		return SwitchVideoOutput{}, fmt.Errorf("get_live_chat_id: %w", err)
+		// 2nd fallback: GCS snapshot から復元 (M シナリオ対応)
+		// 配信終了済 + in-memory 空のケース (cold start 後 / 別 video 経由) を救う
+		if prevState.VideoID != in.VideoID {
+			// 別 video データが残っている場合はクリアしてから復元
+			uc.Users.Clear()
+			if uc.Comments != nil {
+				uc.Comments.Clear()
+			}
+		}
+		gcsRestored, rerr := uc.Snap.RestoreFor(ctx, in.VideoID)
+		if rerr != nil {
+			log.Printf("[WARN] switch_video: GCS fallback restoreFor failed: %v", rerr)
+			return SwitchVideoOutput{}, fmt.Errorf("get_live_chat_id: %w", err)
+		}
+		if !gcsRestored {
+			// GCS にも snapshot なし → 元の API error を返す
+			return SwitchVideoOutput{}, fmt.Errorf("get_live_chat_id: %w", err)
+		}
+
+		// 復元成功 → WAITING で表示
+		now := uc.Clock.Now()
+		restoredState, _ := uc.State.Get(ctx)
+		startedAt := restoredState.StartedAt
+		if startedAt.IsZero() {
+			startedAt = now
+		}
+		finalState := domain.LiveState{
+			Status:        domain.StatusWaiting,
+			VideoID:       in.VideoID,
+			LiveChatID:    restoredState.LiveChatID,
+			StartedAt:     startedAt,
+			EndedAt:       now,
+			NextPageToken: "",
+		}
+		if setErr := uc.State.Set(ctx, finalState); setErr != nil {
+			return SwitchVideoOutput{}, setErr
+		}
+		log.Printf("[INFO] switch_video: restored from GCS (videoId=%s, users=%d)", in.VideoID, uc.Users.Count())
+		return SwitchVideoOutput{State: finalState}, nil
 	}
 
 	// 2. 切替前の状態を snapshot に保存（旧 video の最終状態を確実に残す）
