@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PollControls } from '../PollTab/PollControls'
 
@@ -8,12 +8,16 @@ interface LoadingButtonProps {
   onClick: () => void
   disabled?: boolean
   isLoading?: boolean
-  [key: string]: unknown
+  loadingText?: string
+  variant?: string
+  size?: string
+  ariaLabel?: string
+  className?: string
 }
 
 vi.mock('../LoadingButton', () => ({
-  LoadingButton: ({ children, onClick, disabled, isLoading, ...props }: LoadingButtonProps) => (
-    <button onClick={onClick} disabled={(disabled as boolean) || (isLoading as boolean)} {...props}>
+  LoadingButton: ({ children, onClick, disabled, isLoading }: LoadingButtonProps) => (
+    <button onClick={onClick} disabled={(disabled as boolean) || (isLoading as boolean)}>
       {children}
     </button>
   ),
@@ -75,9 +79,13 @@ describe('PollControls', () => {
       renderControls({ keywords: [] })
 
       const input = screen.getByPlaceholderText('投票キーワードを入力') as HTMLInputElement
-      await user.type(input, 'newword')
+      await act(async () => {
+        await user.type(input, 'newword')
+      })
       const addBtn = screen.getByRole('button', { name: '追加' })
-      await user.click(addBtn)
+      await act(async () => {
+        await user.click(addBtn)
+      })
 
       expect(onAddKeyword).toHaveBeenCalledWith('newword')
       expect(input.value).toBe('')
@@ -91,7 +99,9 @@ describe('PollControls', () => {
       expect(addBtn).toBeDisabled()
 
       const input = screen.getByPlaceholderText('投票キーワードを入力')
-      await user.type(input, '   ')
+      await act(async () => {
+        await user.type(input, '   ')
+      })
       expect(addBtn).toBeDisabled()
     })
   })
@@ -102,7 +112,9 @@ describe('PollControls', () => {
       renderControls({ keywords: ['hoge'] })
 
       const removeBtn = screen.getByLabelText('hogeを削除')
-      await user.click(removeBtn)
+      await act(async () => {
+        await user.click(removeBtn)
+      })
 
       expect(onRemoveKeyword).toHaveBeenCalledWith('hoge')
     })
@@ -114,7 +126,9 @@ describe('PollControls', () => {
       renderControls({ keywords: ['hoge'] })
 
       const clearBtn = screen.getByRole('button', { name: 'クリア' })
-      await user.click(clearBtn)
+      await act(async () => {
+        await user.click(clearBtn)
+      })
 
       expect(onClear).toHaveBeenCalled()
     })
@@ -129,7 +143,9 @@ describe('PollControls', () => {
       renderControls()
 
       const button = screen.getByRole('button', { name: '今すぐ集計' })
-      await user.click(button)
+      await act(async () => {
+        await user.click(button)
+      })
 
       expect(onRecount).toHaveBeenCalled()
     })

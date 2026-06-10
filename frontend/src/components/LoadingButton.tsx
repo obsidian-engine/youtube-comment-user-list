@@ -43,6 +43,7 @@ export function LoadingButton({
 }: Props) {
   const isDisabled = disabled || isLoading
   const label = isLoading && loadingText ? loadingText : children
+  // loadingText は React custom prop のため button DOM 要素には渡さない
   const effectiveAriaLabel = isLoading && loadingText ? loadingText : ariaLabel
 
   return (
