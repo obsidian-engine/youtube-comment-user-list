@@ -10,12 +10,8 @@ export default defineConfig({
 
     // 並列実行設定（軽量化のため並列実行有効化）
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        maxWorkers: 4, // 軽量化のため並列実行
-        minWorkers: 1,
-      },
-    },
+    maxWorkers: 4,
+    minWorkers: 1,
 
     // タイムアウト設定の軽量化
     testTimeout: 10000, // 10秒に短縮
