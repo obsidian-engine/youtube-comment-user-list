@@ -308,10 +308,7 @@ func (a *API) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (
 	// YouTube Channels API: 1リクエストあたり最大50件
 	const batchSize = 50
 	for i := 0; i < len(uncached); i += batchSize {
-		end := i + batchSize
-		if end > len(uncached) {
-			end = len(uncached)
-		}
+		end := min(i+batchSize, len(uncached))
 		batch := uncached[i:end]
 
 		service, err := youtube.NewService(ctx, option.WithAPIKey(a.APIKey))

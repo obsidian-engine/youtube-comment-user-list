@@ -35,9 +35,9 @@ type StatusResponse struct {
 	Count           int         `json:"count"`
 	VideoID         string      `json:"videoId"`
 	LiveChatID      string      `json:"liveChatId"`
-	StartedAt       interface{} `json:"startedAt"`
-	EndedAt         interface{} `json:"endedAt"`
-	LastPulledAt    interface{} `json:"lastPulledAt"`
+	StartedAt       any         `json:"startedAt"`
+	EndedAt         any         `json:"endedAt"`
+	LastPulledAt    any         `json:"lastPulledAt"`
 	SnapshotSavedAt *time.Time  `json:"snapshotSavedAt,omitempty"`
 	Logs            []LogDetail `json:"logs,omitempty"`
 }
@@ -47,7 +47,7 @@ type SwitchVideoResponse struct {
 	Status     string      `json:"status"`
 	VideoID    string      `json:"videoId"`
 	LiveChatID string      `json:"liveChatId"`
-	StartedAt  interface{} `json:"startedAt"`
+	StartedAt  any         `json:"startedAt"`
 	Logs       []LogDetail `json:"logs,omitempty"`
 }
 
@@ -281,7 +281,7 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		const maxKeywords = 20
 
 		keywords := []string{}
-		for _, keyword := range strings.Split(keywordsParam, ",") {
+		for keyword := range strings.SplitSeq(keywordsParam, ",") {
 			trimmed := strings.TrimSpace(keyword)
 			if trimmed != "" {
 				if len(trimmed) > maxKeywordLength {

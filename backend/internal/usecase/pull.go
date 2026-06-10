@@ -88,11 +88,11 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 
 	// 解決した名前で置換、失敗時は@除去でフォールバック
 	for i, msg := range items {
-		if strings.HasPrefix(msg.DisplayName, "@") {
+		if after, found := strings.CutPrefix(msg.DisplayName, "@"); found {
 			if name, ok := channelNames[msg.ChannelID]; ok {
 				items[i].DisplayName = name
 			} else {
-				items[i].DisplayName = strings.TrimPrefix(msg.DisplayName, "@")
+				items[i].DisplayName = after
 			}
 		}
 	}

@@ -202,7 +202,7 @@ func TestStatus_snapshotSavedAt_returnedAlways(t *testing.T) {
 	if res.StatusCode != stdhttp.StatusOK {
 		t.Fatalf("1st GET /status status = %d, want 200", res.StatusCode)
 	}
-	var body1 map[string]interface{}
+	var body1 map[string]any
 	if err := json.NewDecoder(res.Body).Decode(&body1); err != nil {
 		t.Fatalf("decode 1st response: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestStatus_snapshotSavedAt_returnedAlways(t *testing.T) {
 		t.Fatalf("2nd GET /status: %v", err)
 	}
 	defer res2.Body.Close()
-	var body2 map[string]interface{}
+	var body2 map[string]any
 	if err := json.NewDecoder(res2.Body).Decode(&body2); err != nil {
 		t.Fatalf("decode 2nd response: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestStatus_noSnapshot_noSavedAt(t *testing.T) {
 		t.Fatalf("GET /status: %v", err)
 	}
 	defer res.Body.Close()
-	var body map[string]interface{}
+	var body map[string]any
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -282,7 +282,7 @@ func TestGET_HistorySnapshots(t *testing.T) {
 	}
 
 	var body struct {
-		Items []map[string]interface{} `json:"items"`
+		Items []map[string]any `json:"items"`
 	}
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -323,7 +323,7 @@ func TestGET_HistorySnapshot_byVideoID(t *testing.T) {
 		t.Fatalf("status = %d, want 200", res.StatusCode)
 	}
 
-	var body map[string]interface{}
+	var body map[string]any
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -355,7 +355,7 @@ func TestGET_HistorySnapshot_notFound(t *testing.T) {
 		t.Fatalf("status = %d, want 404", res.StatusCode)
 	}
 
-	var body map[string]interface{}
+	var body map[string]any
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -429,7 +429,7 @@ func TestSuccessResponse_ContainsLogsField(t *testing.T) {
 				t.Fatalf("status = %d, want 200", res.StatusCode)
 			}
 
-			var body map[string]interface{}
+			var body map[string]any
 			if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 				t.Fatalf("decode response: %v", err)
 			}
