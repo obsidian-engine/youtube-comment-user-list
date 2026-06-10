@@ -27,6 +27,17 @@ func New(apiKey string) *API {
 	}
 }
 
+// reasonToCode は googleapi.Error の Errors[0].Reason を domain.APIErrorCode にマッピングする。
+// YouTube Data API v3 が返す reason 文字列を機械可読コードに変換する。
+var reasonToCode = map[string]domain.APIErrorCode{
+	"quotaExceeded":         domain.ErrCodeQuotaExceeded,
+	"userRateLimitExceeded": domain.ErrCodeRateLimited,
+	"videoNotFound":         domain.ErrCodeVideoNotFound,
+	"liveChatEnded":         domain.ErrCodeLiveChatEnded,
+	"liveChatDisabled":      domain.ErrCodeLiveChatEnded,
+	"liveChatNotActive":     domain.ErrCodeLiveChatEnded,
+}
+
 // classifyAPIError は googleapi.Error を domain.APIError に変換する。
 // HTTP status + Errors[0].Reason に基づいて分類し、既存の logging.Log 呼出は維持する。
 // 分類できない場合は元のエラーをそのまま返す。
@@ -40,23 +51,29 @@ func classifyAPIError(err error) error {
 		return err
 	}
 
+	// 401/403 で reason 不明な場合は auth_failed にフォールバック
+	if gErr.Code == 401 || gErr.Code == 403 {
+		reason := ""
+		if len(gErr.Errors) > 0 {
+			reason = gErr.Errors[0].Reason
+		}
+		if code, ok := reasonToCode[reason]; ok {
+			return &domain.APIError{Code: code, Message: gErr.Message, Wrapped: err}
+		}
+		return &domain.APIError{Code: domain.ErrCodeAuthFailed, Message: gErr.Message, Wrapped: err}
+	}
+
+	// reason マップで変換を試みる
 	reason := ""
 	if len(gErr.Errors) > 0 {
 		reason = gErr.Errors[0].Reason
 	}
+	if code, ok := reasonToCode[reason]; ok {
+		return &domain.APIError{Code: code, Message: gErr.Message, Wrapped: err}
+	}
 
-	switch {
-	case gErr.Code == 403 && reason == "quotaExceeded":
-		return &domain.APIError{Code: domain.ErrCodeQuotaExceeded, Message: gErr.Message, Wrapped: err}
-	case gErr.Code == 403 && reason == "userRateLimitExceeded":
-		return &domain.APIError{Code: domain.ErrCodeRateLimited, Message: gErr.Message, Wrapped: err}
-	case gErr.Code == 404 && reason == "videoNotFound":
-		return &domain.APIError{Code: domain.ErrCodeVideoNotFound, Message: gErr.Message, Wrapped: err}
-	case gErr.Code == 403 && (reason == "liveChatEnded" || reason == "liveChatDisabled" || reason == "liveChatNotActive"):
-		return &domain.APIError{Code: domain.ErrCodeLiveChatEnded, Message: gErr.Message, Wrapped: err}
-	case gErr.Code == 401:
-		return &domain.APIError{Code: domain.ErrCodeAuthFailed, Message: gErr.Message, Wrapped: err}
-	case gErr.Code == 429:
+	// 429 は reason なしでも rate_limited
+	if gErr.Code == 429 {
 		return &domain.APIError{Code: domain.ErrCodeRateLimited, Message: gErr.Message, Wrapped: err}
 	}
 
