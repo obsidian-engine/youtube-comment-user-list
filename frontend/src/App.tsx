@@ -41,6 +41,8 @@ export default function App() {
 
   const handleSwitch = async () => {
     logEntries.clear()
+    commentSearch.clearComments()
+    pollCount.clearResults()
     await actions.onSwitch()
   }
 
