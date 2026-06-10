@@ -32,7 +32,7 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 	// 現在の状態を取得
 	state, err := uc.State.Get(ctx)
 	if err != nil {
-		return PullOutput{}, err
+		return PullOutput{}, fmt.Errorf("state_get: %w", err)
 	}
 
 	// WAITING状態の場合は何もしない

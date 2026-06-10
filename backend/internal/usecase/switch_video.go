@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
@@ -69,7 +68,7 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 		}
 		gcsRestored, rerr := uc.Snap.RestoreFor(ctx, in.VideoID)
 		if rerr != nil {
-			log.Printf("[WARN] switch_video: GCS fallback restoreFor failed: %v", rerr)
+			logging.Log(ctx, "warn", "SNAPSHOT", "switch_video: GCS fallback restoreFor failed: %v", rerr)
 			return SwitchVideoOutput{}, fmt.Errorf("get_live_chat_id: %w", err)
 		}
 		if !gcsRestored {
@@ -93,9 +92,9 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 			NextPageToken: "",
 		}
 		if setErr := uc.State.Set(ctx, finalState); setErr != nil {
-			return SwitchVideoOutput{}, setErr
+			return SwitchVideoOutput{}, fmt.Errorf("state_set: %w", setErr)
 		}
-		log.Printf("[INFO] switch_video: restored from GCS (videoId=%s, users=%d)", in.VideoID, uc.Users.Count())
+		logging.Log(ctx, "info", "SNAPSHOT", "switch_video: restored from GCS (videoId=%s, users=%d)", in.VideoID, uc.Users.Count())
 		return SwitchVideoOutput{State: finalState}, nil
 	}
 
