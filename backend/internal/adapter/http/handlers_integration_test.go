@@ -364,12 +364,11 @@ func TestGET_HistorySnapshot_notFound(t *testing.T) {
 	}
 }
 
-// TestRouter_PanicResponseDoesNotIncludeStack は production と同じ middleware 順
-// (Recover 外側 → Collector 内側) で panic が起きたとき、
-// HTTP 500 を返しつつ logs field が response に含まれないことを確認する (方針 B)。
-func TestRouter_PanicResponseDoesNotIncludeStack(t *testing.T) {
-	t.Helper()
-
+// TestRouter_StatusResponseHasNoLogsField は production と同じ middleware 順
+// (Recover 外側 → Collector 内側) を組んだ router 上で、collector が空の正常系 response に
+// logs field が omitempty で含まれないことを smoke 確認する。panic 時の logs 不在は
+// middleware_test.go の TestRecoverMiddleware_PanicReturns500WithoutLogsInResponse が unit で担保する。
+func TestRouter_StatusResponseHasNoLogsField(t *testing.T) {
 	users := memory.NewUserRepo()
 	state := memory.NewStateRepo()
 	yt := youtube.New("")

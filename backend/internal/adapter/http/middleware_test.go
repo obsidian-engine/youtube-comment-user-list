@@ -198,7 +198,7 @@ func TestLoggingMiddleware(t *testing.T) {
 }
 
 func TestCollectorMiddleware_InjectsCollector(t *testing.T) {
-	var capturedCollector interface{}
+	var capturedCollector any
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedCollector = r.Context().Value(collectorCtxKey{})
@@ -216,7 +216,7 @@ func TestCollectorMiddleware_InjectsCollector(t *testing.T) {
 }
 
 func TestCollectorFromRequest_ReturnsCollector(t *testing.T) {
-	var got interface{}
+	var got any
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = collectorFromRequest(r)
