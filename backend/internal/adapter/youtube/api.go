@@ -169,18 +169,18 @@ func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (string, 
 
 	if len(response.Items) == 0 {
 		log.Printf("[YOUTUBE_API] Video not found: %s", videoID)
-		return "", errors.New("video not found")
+		return "", &domain.APIError{Code: domain.ErrCodeVideoNotFound, Message: "video not found"}
 	}
 
 	video := response.Items[0]
 	if video.LiveStreamingDetails == nil {
 		log.Printf("[YOUTUBE_API] Video is not a live stream: %s", videoID)
-		return "", errors.New("video is not a live stream")
+		return "", &domain.APIError{Code: domain.ErrCodeVideoNotFound, Message: "video is not a live stream"}
 	}
 
 	if video.LiveStreamingDetails.ActiveLiveChatId == "" {
 		log.Printf("[YOUTUBE_API] Live chat is not active for video: %s", videoID)
-		return "", errors.New("live chat is not active")
+		return "", &domain.APIError{Code: domain.ErrCodeLiveChatEnded, Message: "live chat is not active"}
 	}
 
 	liveChatID := video.LiveStreamingDetails.ActiveLiveChatId
