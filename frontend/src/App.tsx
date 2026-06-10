@@ -16,6 +16,7 @@ import { CommentControls } from './components/CommentTab/CommentControls'
 import { CommentList } from './components/CommentTab/CommentList'
 import { LogPanel } from './components/LogPanel'
 import { HelpPanel } from './components/HelpPanel'
+import { HistoryTab } from './components/HistoryTab'
 import { PollControls } from './components/PollTab/PollControls'
 import { PollResults } from './components/PollTab/PollResults'
 import { usePollCount, POLL_INTERVAL_SEC } from './hooks/usePollCount'
@@ -209,6 +210,8 @@ export default function App() {
         {activeTab === 'logs' && (
           <LogPanel entries={logEntries.entries} onClear={logEntries.clear} />
         )}
+
+        {activeTab === 'history' && <HistoryTab />}
 
         {activeTab === 'help' && <HelpPanel />}
       </main>

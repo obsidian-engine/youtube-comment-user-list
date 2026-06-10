@@ -103,6 +103,9 @@ export function HelpPanel() {
             アプリの裏側で起きたことを時系列で見られます。うまく動かないときに役立ちます。
           </li>
           <li>
+            <strong>履歴</strong>: 過去配信の視聴者一覧・コメントを閲覧します。
+          </li>
+          <li>
             <strong>ヘルプ</strong>: 今あなたが見ているページです。
           </li>
         </ul>
@@ -235,6 +238,24 @@ export function HelpPanel() {
           投票の集計は、集めたコメントをもとに毎回その場で数え直す仕組みです。
           コメントはサーバーに保存されているので、再起動後でも再集計すれば結果を再現できます。
           確実に結果を残したい場合は、「コピー」ボタンでスプレッドシートに貼り付けておくと安心です。
+        </Note>
+      </Section>
+
+      <Section id="history" title="履歴タブの使い方">
+        <p>過去 7 日分の配信 snapshot を一覧で確認できます。</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>一覧の行を選ぶと、その配信の視聴者一覧と全コメント（検索可）を閲覧できます。</li>
+          <li>
+            閲覧は<strong>読み取り専用</strong>です。現在の配信には影響しません。
+          </li>
+          <li>
+            snapshot は<strong>自動で 7 日後に削除</strong>されます（GCS Lifecycle
+            による自動管理）。
+          </li>
+        </ul>
+        <Note tone="info">
+          配信が終わると自動で snapshot
+          が保存されます。履歴タブから当時の参加者やコメントを振り返れます。
         </Note>
       </Section>
 

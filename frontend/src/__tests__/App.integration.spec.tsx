@@ -5,6 +5,18 @@ import { http, HttpResponse } from 'msw'
 import App from '../App.jsx'
 import type { User } from '../utils/api'
 
+vi.mock('../hooks/useHistory', () => ({
+  useHistory: () => ({
+    snapshots: [],
+    selected: null,
+    loading: false,
+    error: '',
+    loadList: vi.fn().mockResolvedValue(undefined),
+    select: vi.fn(),
+    clearSelected: vi.fn(),
+  }),
+}))
+
 // Note: matchMedia and localStorage are mocked globally in setup.ts
 
 describe('App Integration (MSW)', () => {
@@ -285,6 +297,27 @@ describe('App Integration (MSW)', () => {
     expect(screen.getByText('ExistingUser2')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.queryByText('ユーザーがいません。')).not.toBeInTheDocument()
+  })
+
+  test('履歴タブに切り替えると HistoryTab コンポーネントが表示される', async () => {
+    server.use(
+      http.get('*/status', () => HttpResponse.json({ status: 'WAITING', count: 0 })),
+      http.get('*/users.json', () => HttpResponse.json([])),
+    )
+
+    render(<App />)
+
+    // 履歴タブボタンの存在確認
+    const historyTab = screen.getByRole('button', { name: '履歴' })
+    expect(historyTab).toBeInTheDocument()
+
+    // 履歴タブクリックで HistoryTab が表示される
+    fireEvent.click(historyTab)
+
+    // useHistory mock が返す空リスト状態で HistoryList が描画される
+    await waitFor(() => {
+      expect(screen.getByText('履歴がありません')).toBeInTheDocument()
+    })
   })
 
   test('切替実行時のみユーザーリストがクリアされる', async () => {
