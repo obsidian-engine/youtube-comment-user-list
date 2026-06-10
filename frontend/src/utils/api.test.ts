@@ -7,6 +7,7 @@ import {
   postSwitchVideo,
   postPull,
   postReset,
+  searchComments,
   BackendError,
   type StatusResponse,
   type User,
@@ -295,6 +296,32 @@ describe('API functions', () => {
       expect(backendErr.logs).toHaveLength(2)
       expect(backendErr.logs[0].level).toBe('warn')
       expect(backendErr.logs[1].level).toBe('error')
+    })
+  })
+
+  describe('searchComments BackendError', () => {
+    test('ErrorResponse を含む 4xx で BackendError をスロー (fetchWithRetry 経由)', async () => {
+      const errResp: ErrorResponse = {
+        error: 'quota_exceeded',
+        code: 'quota_exceeded',
+        message: 'クォータ超過',
+        httpCode: 429,
+        logs: [{ level: 'error', source: 'YOUTUBE', message: 'quota exceeded' }],
+      }
+
+      server.use(
+        http.get('*/comments', () => {
+          return HttpResponse.json(errResp, { status: 429 })
+        }),
+      )
+
+      const err = await searchComments(['test']).catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(BackendError)
+      const backendErr = err as BackendError
+      expect(backendErr.code).toBe('quota_exceeded')
+      expect(backendErr.httpCode).toBe(429)
+      expect(backendErr.logs).toHaveLength(1)
+      expect(backendErr.logs[0].source).toBe('YOUTUBE')
     })
   })
 })

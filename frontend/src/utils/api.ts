@@ -149,7 +149,7 @@ async function fetchWithRetry<T>(
     try {
       const res = await fetch(url, options)
       if (!res.ok) {
-        throw new HttpError(res.status)
+        return parseErrorResponse(res)
       }
       return (await res.json()) as T
     } catch (e) {
