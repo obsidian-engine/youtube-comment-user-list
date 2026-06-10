@@ -102,6 +102,16 @@ export function usePollCount() {
     setState(initialState)
   }, [])
 
+  const clearResults = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      counts: {},
+      voters: {},
+      errorMsg: '',
+      lastUpdated: '--:--:--',
+    }))
+  }, [])
+
   const recount = useCallback(async () => {
     const keywords = state.keywords
     if (keywords.length === 0) {
@@ -147,6 +157,7 @@ export function usePollCount() {
     addKeyword,
     removeKeyword,
     clearKeywords,
+    clearResults,
     recount,
   }
 }

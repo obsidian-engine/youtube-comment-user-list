@@ -378,3 +378,88 @@ describe('usePollCount - localStorage 永続化', () => {
     expect(result.current.keywords).toEqual([])
   })
 })
+
+describe('usePollCount - clearResults', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
+
+  it('clearResults 呼出後 counts が空オブジェクトになる', async () => {
+    mockedSearch.mockResolvedValue([
+      c('u1', 'hoge', '2024-01-01T00:00:01Z'),
+      c('u2', 'hoge', '2024-01-01T00:00:02Z'),
+    ])
+
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.addKeyword('hoge'))
+    await act(async () => {
+      await result.current.recount()
+    })
+    expect(result.current.counts).toEqual({ hoge: 2 })
+
+    act(() => result.current.clearResults())
+    expect(result.current.counts).toEqual({})
+  })
+
+  it('clearResults 呼出後 voters が空オブジェクトになる', async () => {
+    mockedSearch.mockResolvedValue([c('u1', 'hoge', '2024-01-01T00:00:01Z')])
+
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.addKeyword('hoge'))
+    await act(async () => {
+      await result.current.recount()
+    })
+    expect(result.current.voters).toEqual({ hoge: expect.any(Array) })
+
+    act(() => result.current.clearResults())
+    expect(result.current.voters).toEqual({})
+  })
+
+  it('clearResults 呼出後 errorMsg が空文字になる', async () => {
+    mockedSearch.mockRejectedValue(new api.HttpError(500))
+
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.addKeyword('hoge'))
+    await act(async () => {
+      await result.current.recount()
+    })
+    expect(result.current.errorMsg).not.toBe('')
+
+    act(() => result.current.clearResults())
+    expect(result.current.errorMsg).toBe('')
+  })
+
+  it('clearResults 呼出後 lastUpdated が --:--:-- になる', async () => {
+    mockedSearch.mockResolvedValue([])
+
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.addKeyword('hoge'))
+    await act(async () => {
+      await result.current.recount()
+    })
+    expect(result.current.lastUpdated).not.toBe('--:--:--')
+
+    act(() => result.current.clearResults())
+    expect(result.current.lastUpdated).toBe('--:--:--')
+  })
+
+  it('clearResults 呼出後 keywords は保持される', async () => {
+    mockedSearch.mockResolvedValue([])
+
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.addKeyword('hoge'))
+    act(() => result.current.addKeyword('fuga'))
+    await act(async () => {
+      await result.current.recount()
+    })
+
+    act(() => result.current.clearResults())
+    expect(result.current.keywords).toEqual(['hoge', 'fuga'])
+  })
+
+  it('clearResults が公開されている', () => {
+    const { result } = renderHook(() => usePollCount())
+    expect(typeof result.current.clearResults).toBe('function')
+  })
+})
