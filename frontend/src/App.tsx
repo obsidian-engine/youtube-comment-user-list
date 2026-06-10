@@ -165,7 +165,7 @@ export default function App() {
               setIntervalSec={commentSearch.setIntervalSec}
               commentsCount={commentSearch.comments?.length ?? 0}
               checkedCount={checkState.checkedCount}
-              lastUpdated={commentSearch.lastUpdated}
+              lastUpdated={commentSearch.lastUpdated ?? '--:--:--'}
             />
 
             <CommentList

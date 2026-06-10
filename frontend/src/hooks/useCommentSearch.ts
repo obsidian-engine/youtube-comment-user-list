@@ -17,8 +17,8 @@ interface SearchState {
   keywords: string[]
   comments: Comment[]
   isLoading: boolean
-  errorMsg: string
-  lastUpdated: string
+  errorMsg: string | null
+  lastUpdated: string | null
   intervalSec: number
 }
 
@@ -56,6 +56,15 @@ export function useCommentSearch() {
 
   const setIntervalSec = useCallback((value: number) => {
     setState((prev) => ({ ...prev, intervalSec: value }))
+  }, [])
+
+  const clearComments = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      comments: [],
+      errorMsg: null,
+      lastUpdated: null,
+    }))
   }, [])
 
   const search = useCallback(async () => {
@@ -117,5 +126,6 @@ export function useCommentSearch() {
     removeKeyword,
     setIntervalSec,
     search,
+    clearComments,
   }
 }
