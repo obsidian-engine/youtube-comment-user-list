@@ -89,10 +89,10 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 	r := chi.NewRouter()
 
 	// ミドルウェアの設定
-	// 登録順 = 外から内の順: Recover → Logging → CORS → Collector
-	// RecoverMiddleware を最外周にすることで、内側の全 handler の panic を catch できる。
-	// CollectorMiddleware は Recover の内側にあるため、panic 発生時も collector が context に存在し
-	// RecoverMiddleware が collectorFromRequest(r) で stack trace を logs に追加できる。
+	// chi の r.Use 登録順 = 外側から内側
+	// RecoverMiddleware を最外周にし、内側全 handler の panic を catch して Cloud Run server log に stack trace を残す。
+	// CollectorMiddleware は usecase / handler 層で context から取り出して frontend に logs を返すためのもの。
+	// 設計判断: panic 時の stack trace は frontend に流さず (security 観点と非対称性回避)、server log のみ。
 	r.Use(RecoverMiddleware)
 	r.Use(LoggingMiddleware)
 	r.Use(CORSMiddleware(frontendOrigin))
@@ -129,13 +129,10 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 
 	r.Get("/users.json", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		log.Printf("[USERS] Getting user list with join time")
-		collector := collectorFromRequest(r)
 		users := h.Users.ListUsersSortedByJoinTime()
 		log.Printf("[USERS] Returning %d users sorted by join time", len(users))
-		// users.json は domain.User スライスをそのまま返す設計のため
-		// logs は response wrapper ではなく X-Logs ヘッダーで渡す代わりに
-		// 現 API shape を維持して logs は同梱しない (users array が root なため)
-		_ = collector
+		// users.json は domain.User スライスをそのまま返す設計のため logs は同梱しない
+		// (users array が root になり response wrapper を追加できないため)
 		render.JSON(w, r, users)
 	})
 

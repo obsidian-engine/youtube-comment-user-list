@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"log"
 	stdhttp "net/http"
 	"runtime/debug"
@@ -94,18 +93,16 @@ func collectorFromRequest(r *stdhttp.Request) *logging.Collector {
 	return c
 }
 
-// RecoverMiddleware はpanicをrecoverして500レスポンスを返すミドルウェア
+// RecoverMiddleware はpanicをrecoverして500レスポンスを返すミドルウェア。
+// stack trace は Cloud Run server log のみに出力し、frontend に伝播しない
+// (security 観点と middleware 順序の非対称性回避)。
 func RecoverMiddleware(next stdhttp.Handler) stdhttp.Handler {
 	return stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
 				stack := debug.Stack()
 				log.Printf("[PANIC] %v\n%s", rec, stack)
-				if c := collectorFromRequest(r); c != nil {
-					c.Add("error", "PANIC", fmt.Sprintf("%v", rec))
-					c.Add("error", "PANIC_STACK", string(stack))
-				}
-				renderInternalErrorWithCollector(w, r, fmt.Sprintf("internal panic: %v", rec), collectorFromRequest(r))
+				renderInternalError(w, r, "internal panic")
 			}
 		}()
 		next.ServeHTTP(w, r)

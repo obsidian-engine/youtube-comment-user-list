@@ -241,14 +241,14 @@ func TestCollectorFromRequest_NilWithoutMiddleware(t *testing.T) {
 	}
 }
 
-func TestRecoverMiddleware_PanicReturns500WithLogs(t *testing.T) {
-	// CollectorMiddleware → RecoverMiddleware の順で積む
+func TestRecoverMiddleware_PanicReturns500WithoutLogsInResponse(t *testing.T) {
+	// production と同じ middleware 順: Recover(外側) → Collector(内側)
+	// panic 時は stack trace を frontend に流さない (方針 B)
 	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("test panic message")
 	})
 
-	// CollectorMiddleware を先に適用してから RecoverMiddleware を適用
-	chain := CollectorMiddleware(RecoverMiddleware(panicHandler))
+	chain := RecoverMiddleware(CollectorMiddleware(panicHandler))
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
@@ -267,24 +267,13 @@ func TestRecoverMiddleware_PanicReturns500WithLogs(t *testing.T) {
 		t.Errorf("Expected httpCode 500, got %d", resp.HTTPCode)
 	}
 
-	if !strings.Contains(resp.Message, "test panic message") {
-		t.Errorf("Expected message to contain panic value, got %q", resp.Message)
+	if !strings.Contains(resp.Message, "internal panic") {
+		t.Errorf("Expected message to contain 'internal panic', got %q", resp.Message)
 	}
 
-	// PANIC log entry が含まれること
-	if len(resp.Logs) == 0 {
-		t.Fatal("Expected logs to be non-empty after panic recovery")
-	}
-
-	foundPanic := false
-	for _, l := range resp.Logs {
-		if l.Source == "PANIC" {
-			foundPanic = true
-			break
-		}
-	}
-	if !foundPanic {
-		t.Errorf("Expected PANIC source in logs, got %+v", resp.Logs)
+	// 方針 B: panic 時は stack trace を frontend に返さない (logs は空)
+	if len(resp.Logs) != 0 {
+		t.Errorf("Expected logs to be empty after panic recovery (stack trace must not reach frontend), got %+v", resp.Logs)
 	}
 }
 
@@ -294,7 +283,8 @@ func TestRecoverMiddleware_NoPanicPassesThrough(t *testing.T) {
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	chain := CollectorMiddleware(RecoverMiddleware(handler))
+	// production と同じ middleware 順: Recover(外側) → Collector(内側)
+	chain := RecoverMiddleware(CollectorMiddleware(handler))
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
