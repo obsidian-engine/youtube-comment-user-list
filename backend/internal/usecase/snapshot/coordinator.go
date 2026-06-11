@@ -18,7 +18,7 @@ type Coordinator interface {
 	// RestoreFor は指定 videoID の snapshot を GCS から読み込み、in-memory repo に復元します。
 	// snapshot が存在しない場合は (false, nil) を返します。
 	RestoreFor(ctx context.Context, videoID string) (restored bool, err error)
-	SetVideo(videoID, liveChatID string)
+	SetVideo(videoID, liveChatID, videoTitle, channelTitle string)
 	MarkDirty()
 	Flush(ctx context.Context) error
 	Start(ctx context.Context)
@@ -36,12 +36,14 @@ type coordinator struct {
 	stateRepo   port.StateRepo
 	throttle    time.Duration
 
-	mu         sync.Mutex
-	saveMu     sync.Mutex // save を直列化する
-	videoID    string
-	liveChatID string
-	dirty      bool
-	lastSaved  time.Time
+	mu           sync.Mutex
+	saveMu       sync.Mutex // save を直列化する
+	videoID      string
+	liveChatID   string
+	videoTitle   string
+	channelTitle string
+	dirty        bool
+	lastSaved    time.Time
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -106,11 +108,13 @@ func (c *coordinator) Restore(ctx context.Context) error {
 }
 
 // SetVideo は video 切替時に呼びます。
-func (c *coordinator) SetVideo(videoID, liveChatID string) {
+func (c *coordinator) SetVideo(videoID, liveChatID, videoTitle, channelTitle string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.videoID = videoID
 	c.liveChatID = liveChatID
+	c.videoTitle = videoTitle
+	c.channelTitle = channelTitle
 	c.dirty = false
 }
 
@@ -127,6 +131,8 @@ func (c *coordinator) Flush(ctx context.Context) error {
 	c.mu.Lock()
 	videoID := c.videoID
 	liveChatID := c.liveChatID
+	videoTitle := c.videoTitle
+	channelTitle := c.channelTitle
 	c.mu.Unlock()
 
 	if videoID == "" {
@@ -145,7 +151,7 @@ func (c *coordinator) Flush(ctx context.Context) error {
 		return nil
 	}
 
-	if err := c.save(ctx, videoID, liveChatID); err != nil {
+	if err := c.save(ctx, videoID, liveChatID, videoTitle, channelTitle); err != nil {
 		return fmt.Errorf("snapshot: flush: %w", err)
 	}
 	// save 成功後にのみ dirty をクリア
@@ -176,10 +182,12 @@ func (c *coordinator) Start(ctx context.Context) {
 				shouldSave := c.dirty && time.Since(c.lastSaved) > c.throttle
 				videoID := c.videoID
 				liveChatID := c.liveChatID
+				videoTitle := c.videoTitle
+				channelTitle := c.channelTitle
 				c.mu.Unlock()
 
 				if shouldSave && videoID != "" {
-					if err := c.save(innerCtx, videoID, liveChatID); err != nil {
+					if err := c.save(innerCtx, videoID, liveChatID, videoTitle, channelTitle); err != nil {
 						log.Printf("[WARN] snapshot: background save failed: %v", err)
 						// save 失敗時は dirty を維持して次 tick で再試行
 					} else {
@@ -245,7 +253,7 @@ func (c *coordinator) LastSavedAt() time.Time {
 
 // save は snapshot を組み立てて sink に書き込みます。
 // saveMu で直列化し、並列 save による上書き race を防ぎます。
-func (c *coordinator) save(ctx context.Context, videoID, liveChatID string) error {
+func (c *coordinator) save(ctx context.Context, videoID, liveChatID, videoTitle, channelTitle string) error {
 	c.saveMu.Lock()
 	defer c.saveMu.Unlock()
 
@@ -266,6 +274,8 @@ func (c *coordinator) save(ctx context.Context, videoID, liveChatID string) erro
 		SchemaVersion: 1,
 		VideoID:       videoID,
 		LiveChatID:    liveChatID,
+		VideoTitle:    videoTitle,
+		ChannelTitle:  channelTitle,
 		SavedAt:       time.Now(),
 		Users:         userSnap.Users,
 		Comments:      comments,
@@ -290,7 +300,7 @@ type NopCoordinator struct{}
 
 func (n *NopCoordinator) Restore(_ context.Context) error                      { return nil }
 func (n *NopCoordinator) RestoreFor(_ context.Context, _ string) (bool, error) { return false, nil }
-func (n *NopCoordinator) SetVideo(_, _ string)                                 {}
+func (n *NopCoordinator) SetVideo(_, _, _, _ string)                           {}
 func (n *NopCoordinator) MarkDirty()                                           {}
 func (n *NopCoordinator) Flush(_ context.Context) error                        { return nil }
 func (n *NopCoordinator) Start(_ context.Context)                              {}

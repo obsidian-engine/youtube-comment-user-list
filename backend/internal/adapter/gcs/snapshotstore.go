@@ -161,6 +161,8 @@ func (s *SnapshotStore) List(ctx context.Context) ([]port.SnapshotSummary, error
 			SavedAt:      snap.SavedAt,
 			UserCount:    len(snap.Users),
 			CommentCount: len(snap.Comments),
+			VideoTitle:   snap.VideoTitle,
+			ChannelTitle: snap.ChannelTitle,
 		})
 	}
 

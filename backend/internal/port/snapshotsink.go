@@ -12,6 +12,8 @@ type Snapshot struct {
 	SchemaVersion int               `json:"schemaVersion"`
 	VideoID       string            `json:"videoId"`
 	LiveChatID    string            `json:"liveChatId"`
+	VideoTitle    string            `json:"videoTitle,omitempty"`
+	ChannelTitle  string            `json:"channelTitle,omitempty"`
 	SavedAt       time.Time         `json:"savedAt"`
 	Users         []domain.User     `json:"users"`
 	Comments      []domain.Comment  `json:"comments"`
@@ -31,6 +33,8 @@ type SnapshotSummary struct {
 	SavedAt      time.Time
 	UserCount    int
 	CommentCount int
+	VideoTitle   string
+	ChannelTitle string
 }
 
 // SnapshotSink はスナップショットの永続化 port です。
