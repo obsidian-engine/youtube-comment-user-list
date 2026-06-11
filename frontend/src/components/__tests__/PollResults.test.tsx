@@ -115,7 +115,7 @@ describe('PollResults', () => {
           isLoading={true}
         />,
       )
-      expect(container.querySelector('.animate-spin')).toBeInTheDocument()
+      expect(container.querySelector('[data-testid="poll-loading-spinner"]')).toBeInTheDocument()
     })
 
     it('isLoading=false でスピナー非表示', () => {
@@ -128,7 +128,7 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      expect(container.querySelector('.animate-spin')).toBeNull()
+      expect(container.querySelector('[data-testid="poll-loading-spinner"]')).toBeNull()
     })
   })
 
@@ -235,7 +235,7 @@ describe('PollResults', () => {
         await user.click(screen.getByText('hoge'))
       })
       await act(async () => {
-        await user.click(screen.getByRole('button', { name: /名前\+channelId をコピー/ }))
+        await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       })
       expect(writeTextSpy).toHaveBeenCalledWith('taro\tUC1')
       expect(screen.getByRole('button', { name: 'コピー済' })).toBeInTheDocument()

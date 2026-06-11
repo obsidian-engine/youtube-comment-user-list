@@ -308,7 +308,7 @@ describe('App Integration (MSW)', () => {
     render(<App />)
 
     // 履歴タブボタンの存在確認
-    const historyTab = screen.getByRole('button', { name: '履歴' })
+    const historyTab = screen.getByRole('tab', { name: '履歴' })
     expect(historyTab).toBeInTheDocument()
 
     // 履歴タブクリックで HistoryTab が表示される

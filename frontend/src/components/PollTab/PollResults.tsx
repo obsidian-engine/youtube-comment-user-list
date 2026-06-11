@@ -22,13 +22,22 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+const thStyle: React.CSSProperties = {
+  padding: '12px 16px',
+  fontFamily: 'var(--f-mono)',
+  fontWeight: 700,
+  fontSize: '11px',
+  letterSpacing: '0.18em',
+  textTransform: 'uppercase',
+  color: '#fff',
+  background: 'var(--c-ink)',
+}
+
 export function PollResults({ keywords, counts, voters, totalVotes, isLoading }: PollResultsProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [copiedKeyword, setCopiedKeyword] = useState<string | null>(null)
 
-  if (keywords.length === 0) {
-    return null
-  }
+  if (keywords.length === 0) return null
 
   const toggleExpand = (word: string) => {
     setExpanded((prev) => {
@@ -50,38 +59,97 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
   }
 
   return (
-    <section className="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 bg-white/80 backdrop-blur">
-      <table className="w-full text-[14px]">
-        <thead className="bg-gradient-to-br from-slate-400 to-slate-500 text-white">
+    <section className="card-editorial">
+      <div className="eyebrow">
+        TALLY · RESULTS
+        <div className="eyebrow__rule" />
+      </div>
+
+      <table className="w-full" style={{ fontSize: '14px', marginTop: '8px' }}>
+        <thead>
           <tr>
-            <th className="text-left px-4 py-3.5 font-semibold text-[13px]">キーワード</th>
-            <th className="text-right px-4 py-3.5 w-[120px] font-semibold text-[13px]">票数</th>
+            <th style={{ ...thStyle, textAlign: 'left' }}>キーワード</th>
+            <th style={{ ...thStyle, textAlign: 'right', width: '120px' }}>票数</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200/60">
+        <tbody>
           {keywords.map((word) => {
             const list = voters[word] ?? []
             const isOpen = expanded.has(word)
             return (
               <Fragment key={word}>
-                <tr className="cursor-pointer hover:bg-slate-50" onClick={() => toggleExpand(word)}>
-                  <td className="px-4 py-3 text-slate-800">
-                    <span className="inline-block w-4 text-slate-400">{isOpen ? '▼' : '▶'}</span>
+                <tr
+                  style={{
+                    borderBottom: '1px solid var(--c-line)',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s',
+                  }}
+                  onClick={() => toggleExpand(word)}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLTableRowElement).style.background =
+                      'rgba(0,95,120,0.06)'
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLTableRowElement).style.background = ''
+                  }}
+                >
+                  <td style={{ padding: '12px 16px', color: 'var(--c-ink)' }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: '16px',
+                        color: 'var(--c-accent-2)',
+                        fontFamily: 'var(--f-mono)',
+                      }}
+                    >
+                      {isOpen ? '▼' : '▶'}
+                    </span>
                     {word}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums font-semibold">
+                  <td
+                    style={{
+                      padding: '12px 16px',
+                      textAlign: 'right',
+                      fontFamily: 'var(--f-mono)',
+                      fontWeight: 700,
+                      color: 'var(--c-ink)',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
                     {counts[word] ?? 0}
                   </td>
                 </tr>
                 {isOpen && (
-                  <tr className="bg-slate-50/60">
-                    <td colSpan={2} className="px-4 py-3">
+                  <tr
+                    style={{ background: 'var(--c-bg)', borderBottom: '1px solid var(--c-line)' }}
+                  >
+                    <td colSpan={2} style={{ padding: '12px 16px' }}>
                       {list.length === 0 ? (
-                        <div className="text-[12px] text-slate-500">投票したユーザーはいません</div>
+                        <div
+                          style={{
+                            fontFamily: 'var(--f-mono)',
+                            fontSize: '12px',
+                            color: 'var(--c-ink-mute)',
+                          }}
+                        >
+                          投票したユーザーはいません
+                        </div>
                       ) : (
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[12px] text-slate-600">
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontFamily: 'var(--f-mono)',
+                                fontSize: '11px',
+                                color: 'var(--c-ink-dim)',
+                              }}
+                            >
                               投票ユーザー ({list.length}人)
                             </span>
                             <button
@@ -89,19 +157,43 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
                                 e.stopPropagation()
                                 void handleCopy(word)
                               }}
-                              className="text-[12px] px-2 py-1 rounded-md bg-white border border-slate-300/80 hover:bg-slate-100"
+                              aria-label={
+                                copiedKeyword === word ? 'コピー済' : 'クリップボードにコピー'
+                              }
+                              style={{
+                                fontFamily: 'var(--f-mono)',
+                                fontSize: '11px',
+                                letterSpacing: '0.1em',
+                                padding: '4px 10px',
+                                background: 'transparent',
+                                color: 'var(--c-ink)',
+                                border: '1px solid var(--c-line-strong)',
+                                cursor: 'pointer',
+                              }}
                             >
                               {copiedKeyword === word ? 'コピー済' : '名前+channelId をコピー'}
                             </button>
                           </div>
-                          <ul className="space-y-1 text-[13px]">
+                          <ul className="space-y-1">
                             {list.map((v) => (
                               <li
                                 key={v.channelId}
-                                className="flex items-center gap-2 text-slate-700"
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  fontSize: '13px',
+                                  color: 'var(--c-ink)',
+                                }}
                               >
                                 <span>{v.displayName}</span>
-                                <span className="text-[11px] text-slate-400 font-mono">
+                                <span
+                                  style={{
+                                    fontFamily: 'var(--f-mono)',
+                                    fontSize: '11px',
+                                    color: 'var(--c-ink-mute)',
+                                  }}
+                                >
                                   {v.channelId}
                                 </span>
                               </li>
@@ -116,10 +208,30 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
             )
           })}
         </tbody>
-        <tfoot className="bg-slate-50/60">
-          <tr>
-            <td className="px-4 py-3 text-[13px] text-slate-600">合計</td>
-            <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-700">
+        <tfoot>
+          <tr style={{ background: 'var(--c-bg)', borderTop: '1px solid var(--c-line-strong)' }}>
+            <td
+              style={{
+                padding: '12px 16px',
+                fontFamily: 'var(--f-mono)',
+                fontSize: '12px',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'var(--c-ink-dim)',
+              }}
+            >
+              合計
+            </td>
+            <td
+              style={{
+                padding: '12px 16px',
+                textAlign: 'right',
+                fontFamily: 'var(--f-mono)',
+                fontWeight: 700,
+                color: 'var(--c-ink)',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
               {totalVotes}
             </td>
           </tr>
@@ -127,8 +239,26 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
       </table>
 
       {isLoading && (
-        <div className="flex items-center justify-center py-4">
-          <div className="animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-slate-600" />
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            data-testid="poll-loading-spinner"
+            className="animate-spin"
+            style={{
+              width: '22px',
+              height: '22px',
+              border: '2px solid var(--c-line-strong)',
+              borderTopColor: 'var(--c-ink)',
+              borderRadius: '50%',
+              animation: 'spin 0.7s linear infinite',
+            }}
+          />
         </div>
       )}
     </section>

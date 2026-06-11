@@ -13,22 +13,57 @@ export function HistoryDetail({ snapshot, onBack }: HistoryDetailProps) {
   return (
     <div className="space-y-4">
       {/* ヘッダー */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         <button
           aria-label="戻る"
           onClick={onBack}
-          className="px-3 py-1.5 text-[13px] rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+          style={{
+            fontFamily: 'var(--f-mono)',
+            fontSize: '11px',
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            padding: '6px 12px',
+            background: 'transparent',
+            color: 'var(--c-ink)',
+            border: '1px solid var(--c-line-strong)',
+            cursor: 'pointer',
+          }}
         >
           ← 戻る
         </button>
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '4px 10px',
+            fontFamily: 'var(--f-mono)',
+            fontSize: '11px',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            background: 'rgba(181, 107, 0, 0.1)',
+            color: '#b56b00',
+            border: '1px solid rgba(181, 107, 0, 0.3)',
+          }}
+        >
           閲覧モード (read-only)
         </span>
-        <span className="text-[13px] text-slate-600 dark:text-slate-300 font-mono">
+        <span
+          style={{
+            fontFamily: 'var(--f-mono)',
+            fontSize: '12px',
+            color: 'var(--c-ink-dim)',
+          }}
+        >
           {snapshot.videoId}
         </span>
         {snapshot.savedAt && (
-          <span className="text-[12px] text-slate-500 dark:text-slate-400">
+          <span
+            style={{
+              fontFamily: 'var(--f-mono)',
+              fontSize: '11px',
+              color: 'var(--c-ink-mute)',
+            }}
+          >
             保存日時: {formatSnapshotSavedAt(snapshot.savedAt)}
           </span>
         )}
@@ -36,7 +71,16 @@ export function HistoryDetail({ snapshot, onBack }: HistoryDetailProps) {
 
       {/* 視聴者一覧 */}
       <section>
-        <h3 className="text-sm font-semibold mb-2 text-slate-700 dark:text-slate-200">
+        <h3
+          style={{
+            fontFamily: 'var(--f-mono)',
+            fontSize: '11px',
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+            color: 'var(--c-accent-2)',
+            marginBottom: '8px',
+          }}
+        >
           視聴者一覧 ({snapshot.users.length} 人)
         </h3>
         <HistoryUserTable users={snapshot.users} />
@@ -47,7 +91,18 @@ export function HistoryDetail({ snapshot, onBack }: HistoryDetailProps) {
 
       {/* 投票集計 */}
       <section>
-        <h3 className="text-sm font-semibold mb-2 text-slate-700 dark:text-slate-200">投票集計</h3>
+        <h3
+          style={{
+            fontFamily: 'var(--f-mono)',
+            fontSize: '11px',
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+            color: 'var(--c-accent-2)',
+            marginBottom: '8px',
+          }}
+        >
+          投票集計
+        </h3>
         <HistoryVotes comments={snapshot.comments} />
       </section>
     </div>

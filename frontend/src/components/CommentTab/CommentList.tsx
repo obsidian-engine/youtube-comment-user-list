@@ -8,19 +8,31 @@ interface CommentListProps {
   isLoading: boolean
 }
 
+const thStyle: React.CSSProperties = {
+  padding: '12px 16px',
+  fontFamily: 'var(--f-mono)',
+  fontWeight: 700,
+  fontSize: '11px',
+  letterSpacing: '0.18em',
+  textTransform: 'uppercase',
+  color: '#fff',
+  background: 'var(--c-ink)',
+  textAlign: 'center',
+}
+
 export function CommentList({ comments, isChecked, onToggle, isLoading }: CommentListProps) {
   return (
-    <section className="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur">
-      <table className="w-full table-fixed text-[14px] leading-7">
-        <thead className="bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700 text-white dark:text-slate-100">
+    <section className="card-editorial">
+      <table className="w-full table-fixed" style={{ fontSize: '14px', lineHeight: 1.7 }}>
+        <thead>
           <tr>
-            <th className="text-center px-4 py-3.5 w-[80px] font-semibold text-[13px]">済</th>
-            <th className="text-center px-4 py-3.5 w-[100px] font-semibold text-[13px]">時刻</th>
-            <th className="text-center px-4 py-3.5 w-[150px] font-semibold text-[13px]">投稿者</th>
-            <th className="text-center px-4 py-3.5 font-semibold text-[13px]">コメント</th>
+            <th style={{ ...thStyle, width: '80px' }}>済</th>
+            <th style={{ ...thStyle, width: '100px' }}>時刻</th>
+            <th style={{ ...thStyle, width: '150px' }}>投稿者</th>
+            <th style={{ ...thStyle, textAlign: 'left' }}>コメント</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200/60 dark:divide-slate-600/40">
+        <tbody>
           {comments.map((comment, i) => (
             <CommentRow
               key={comment.id}
@@ -34,14 +46,37 @@ export function CommentList({ comments, isChecked, onToggle, isLoading }: Commen
       </table>
 
       {comments.length === 0 && !isLoading && (
-        <p className="px-4 py-5 text-[13px] text-slate-500 dark:text-slate-400">
+        <p
+          style={{
+            padding: '20px 16px',
+            fontFamily: 'var(--f-mono)',
+            fontSize: '12px',
+            color: 'var(--c-ink-mute)',
+          }}
+        >
           該当するコメントがありません。
         </p>
       )}
 
       {isLoading && (
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-300 border-t-slate-600" />
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '32px',
+          }}
+        >
+          <div
+            style={{
+              width: '28px',
+              height: '28px',
+              border: '2px solid var(--c-line-strong)',
+              borderTopColor: 'var(--c-ink)',
+              borderRadius: '50%',
+              animation: 'spin 0.7s linear infinite',
+            }}
+          />
         </div>
       )}
     </section>

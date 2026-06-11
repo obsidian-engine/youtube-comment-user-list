@@ -21,19 +21,12 @@ export function Tooltip({ children, content, disabled = false, className = '' }:
       const viewportHeight = window.innerHeight
 
       let top = targetRect.bottom + 8
-      let left = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2)
+      let left = targetRect.left + targetRect.width / 2 - tooltipRect.width / 2
 
-      // 画面右端を超える場合の調整
       if (left + tooltipRect.width > viewportWidth - 16) {
         left = viewportWidth - tooltipRect.width - 16
       }
-
-      // 画面左端を超える場合の調整
-      if (left < 16) {
-        left = 16
-      }
-
-      // 画面下端を超える場合は上側に表示
+      if (left < 16) left = 16
       if (top + tooltipRect.height > viewportHeight - 16) {
         top = targetRect.top - tooltipRect.height - 8
       }
@@ -43,12 +36,18 @@ export function Tooltip({ children, content, disabled = false, className = '' }:
   }, [isVisible])
 
   const handleMouseEnter = () => {
-    if (!disabled && content.trim()) {
-      setIsVisible(true)
-    }
+    if (!disabled && content.trim()) setIsVisible(true)
   }
 
   const handleMouseLeave = () => {
+    setIsVisible(false)
+  }
+
+  const handleFocus = () => {
+    if (!disabled && content.trim()) setIsVisible(true)
+  }
+
+  const handleBlur = () => {
     setIsVisible(false)
   }
 
@@ -59,21 +58,46 @@ export function Tooltip({ children, content, disabled = false, className = '' }:
         className={className}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
       >
         {children}
       </div>
-      
+
       {isVisible && !disabled && (
         <div
           ref={tooltipRef}
-          className="fixed z-50 px-3 py-2 text-sm text-white bg-slate-900 dark:bg-slate-700 rounded-lg shadow-lg border border-slate-700 dark:border-slate-500 max-w-xs break-words"
           style={{
+            position: 'fixed',
+            zIndex: 50,
+            padding: '8px 12px',
+            background: 'var(--c-ink)',
+            color: '#fff',
+            fontFamily: 'var(--f-mono)',
+            fontSize: '12px',
+            letterSpacing: '0.06em',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            maxWidth: '300px',
+            wordBreak: 'break-word',
             top: `${position.top}px`,
             left: `${position.left}px`,
           }}
         >
           {content}
-          <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-slate-900 dark:bg-slate-700 border-l border-t border-slate-700 dark:border-slate-500 rotate-45" />
+          <div
+            style={{
+              position: 'absolute',
+              top: '-5px',
+              left: '50%',
+              transform: 'translateX(-50%) rotate(45deg)',
+              width: '8px',
+              height: '8px',
+              background: 'var(--c-ink)',
+              borderLeft: '1px solid rgba(255,255,255,0.1)',
+              borderTop: '1px solid rgba(255,255,255,0.1)',
+            }}
+          />
         </div>
       )}
     </>

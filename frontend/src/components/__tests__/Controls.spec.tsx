@@ -10,11 +10,11 @@ describe('Controls コンポーネント', () => {
       switching: false,
       pulling: false,
       resetting: false,
-      refreshing: false
+      refreshing: false,
     },
     onSwitch: vi.fn(),
     onPull: vi.fn(),
-    onReset: vi.fn()
+    onReset: vi.fn(),
   }
 
   beforeEach(() => {
@@ -88,7 +88,8 @@ describe('Controls コンポーネント', () => {
     })
   })
 
-  test('リセットボタンクリック時にonResetが呼ばれる', async () => {
+  test('リセットボタンクリック時にconfirm を通過すると onReset が呼ばれる', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     render(<Controls {...mockProps} />)
 
     const resetButton = screen.getByRole('button', { name: 'リセット' })
@@ -97,6 +98,18 @@ describe('Controls コンポーネント', () => {
     await waitFor(() => {
       expect(mockProps.onReset).toHaveBeenCalled()
     })
+    confirmSpy.mockRestore()
+  })
+
+  test('リセットボタンクリック時に confirm をキャンセルすると onReset は呼ばれない', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    render(<Controls {...mockProps} />)
+
+    const resetButton = screen.getByRole('button', { name: 'リセット' })
+    fireEvent.click(resetButton)
+
+    expect(mockProps.onReset).not.toHaveBeenCalled()
+    confirmSpy.mockRestore()
   })
 
   test('ローディング状態でボタンが無効化される', () => {
@@ -104,7 +117,7 @@ describe('Controls コンポーネント', () => {
       switching: true,
       pulling: false,
       resetting: false,
-      refreshing: false
+      refreshing: false,
     }
     render(<Controls {...mockProps} loadingStates={loadingStates} />)
 
@@ -120,7 +133,7 @@ describe('Controls コンポーネント', () => {
       switching: false,
       pulling: true,
       resetting: false,
-      refreshing: false
+      refreshing: false,
     }
     render(<Controls {...mockProps} loadingStates={loadingStates} />)
 

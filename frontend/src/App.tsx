@@ -9,7 +9,6 @@ import { StatsCard } from './components/StatsCard'
 import { Controls } from './components/Controls'
 import { UserTable } from './components/UserTable'
 import { Toast } from './components/Toast'
-import { ThemeToggle } from './components/ThemeToggle'
 import { Tabs } from './components/Tabs'
 import type { TabType } from './components/Tabs'
 import { CommentControls } from './components/CommentTab/CommentControls'
@@ -20,6 +19,7 @@ import { HistoryTab } from './components/HistoryTab'
 import { PollControls } from './components/PollTab/PollControls'
 import { PollResults } from './components/PollTab/PollResults'
 import { usePollCount, POLL_INTERVAL_SEC } from './hooks/usePollCount'
+import { ErrorBanner } from './components/ErrorBanner'
 
 export default function App() {
   const logEntries = useLogEntries()
@@ -52,6 +52,13 @@ export default function App() {
   // リセット: 表示中の全コメントを非表示
   const handleReset = () => {
     const visibleIds = visibleComments.map((c) => c.id)
+    if (visibleIds.length === 0) return
+    if (
+      !window.confirm(
+        `表示中の ${visibleIds.length} 件のコメントを全て非表示にします。よろしいですか?`,
+      )
+    )
+      return
     hiddenState.hideAll(visibleIds)
   }
 
@@ -68,8 +75,6 @@ export default function App() {
     loadingStates,
   } = state
 
-  // デバッグログはテスト環境では無効化
-
   // 名前読み上げタブの自動更新
   useAutoRefresh(intervalSec, actions.onPullSilent)
 
@@ -83,25 +88,34 @@ export default function App() {
   )
 
   return (
-    <div className="min-h-screen bg-canvas-light dark:bg-canvas-dark text-slate-900 dark:text-slate-100">
-      <div className="fixed inset-0 -z-10 bg-field" />
-      <main className="mx-auto max-w-4xl px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
-          </div>
-          <ThemeToggle />
+    <div className="min-h-dvh" style={{ background: 'var(--c-bg)', color: 'var(--c-ink)' }}>
+      {/* Topbar */}
+      <header className="topbar">
+        <div className="topbar__left">
+          <span className="topbar__dot" aria-hidden="true" />
+          <span className="topbar__brand">OBSIDIAN ENGINE</span>
+        </div>
+        <div className="topbar__center text-balance" aria-hidden="true">
+          配信卓の隣にあるツール箱
+        </div>
+        <div className="topbar__right">
+          <a
+            href="https://github.com/obsidian-engine/youtube-comment-user-list"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="topbar__link"
+          >
+            SOURCE
+          </a>
+        </div>
+      </header>
+
+      <main className="relative z-10 mx-auto max-w-4xl px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
+        <div className="flex items-center">
+          <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
         </div>
 
-        {errorMsg && (
-          <div
-            role="alert"
-            aria-live="assertive"
-            className="rounded-lg ring-1 ring-rose-300/60 bg-rose-50 text-rose-800 px-4 py-3"
-          >
-            {errorMsg}
-          </div>
-        )}
+        {errorMsg && <ErrorBanner message={errorMsg} />}
 
         {activeTab === 'users' && (
           <>
@@ -146,15 +160,7 @@ export default function App() {
 
         {activeTab === 'comments' && (
           <>
-            {commentSearch.errorMsg && (
-              <div
-                role="alert"
-                aria-live="assertive"
-                className="rounded-lg ring-1 ring-rose-300/60 bg-rose-50 text-rose-800 px-4 py-3"
-              >
-                {commentSearch.errorMsg}
-              </div>
-            )}
+            {commentSearch.errorMsg && <ErrorBanner message={commentSearch.errorMsg} />}
 
             <CommentControls
               keywords={commentSearch.keywords}
@@ -181,15 +187,7 @@ export default function App() {
 
         {activeTab === 'votes' && (
           <>
-            {pollCount.errorMsg && (
-              <div
-                role="alert"
-                aria-live="assertive"
-                className="rounded-lg ring-1 ring-rose-300/60 bg-rose-50 text-rose-800 px-4 py-3"
-              >
-                {pollCount.errorMsg}
-              </div>
-            )}
+            {pollCount.errorMsg && <ErrorBanner message={pollCount.errorMsg} />}
             <PollControls
               keywords={pollCount.keywords}
               onAddKeyword={pollCount.addKeyword}

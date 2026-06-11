@@ -12,21 +12,45 @@ type Props = {
   type?: 'button' | 'submit'
   ariaLabel?: string
   loadingText?: string
+  title?: string
+  style?: React.CSSProperties
   onClick?: () => void | Promise<void>
   children: React.ReactNode
   className?: string
 }
 
-const clsByVariant: Record<Variant, string> = {
-  primary:
-    'px-3.5 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90 transition text-[14px]',
-  outline:
-    'px-3.5 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 disabled:opacity-60 disabled:cursor-not-allowed transition text-[14px]',
+const primaryStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '9px 18px',
+  background: 'var(--c-ink)',
+  color: '#fff',
+  fontFamily: 'var(--f-mono)',
+  fontWeight: 700,
+  fontSize: '12px',
+  letterSpacing: '0.16em',
+  textTransform: 'uppercase',
+  border: '1px solid var(--c-ink)',
+  cursor: 'pointer',
+  transition: 'background 0.2s, border-color 0.2s',
 }
 
-const clsBySize: Record<Size, string> = {
-  sm: 'text-[13px]',
-  md: 'text-[14px]',
+const outlineStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '9px 18px',
+  background: 'transparent',
+  color: 'var(--c-ink)',
+  fontFamily: 'var(--f-mono)',
+  fontWeight: 700,
+  fontSize: '12px',
+  letterSpacing: '0.16em',
+  textTransform: 'uppercase',
+  border: '2px solid var(--c-ink)',
+  cursor: 'pointer',
+  transition: 'background 0.2s, border-color 0.2s, color 0.2s',
 }
 
 export function LoadingButton({
@@ -37,14 +61,18 @@ export function LoadingButton({
   type = 'button',
   ariaLabel,
   loadingText,
+  title,
+  style: styleProp,
   onClick,
   children,
   className = '',
 }: Props) {
   const isDisabled = disabled || isLoading
   const label = isLoading && loadingText ? loadingText : children
-  // loadingText は React custom prop のため button DOM 要素には渡さない
   const effectiveAriaLabel = isLoading && loadingText ? loadingText : ariaLabel
+  const baseStyle = variant === 'primary' ? primaryStyle : outlineStyle
+  const sizeAdj = size === 'sm' ? { fontSize: '11px' } : {}
+  const disabledAdj = isDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}
 
   return (
     <button
@@ -52,22 +80,31 @@ export function LoadingButton({
       aria-label={effectiveAriaLabel}
       aria-busy={isLoading}
       disabled={isDisabled}
+      title={title}
       onClick={async () => {
         if (isDisabled) return
         try {
           await onClick?.()
         } catch (error) {
-          // エラーをログに記録して再スロー
           logger.error('LoadingButton onClick error:', error)
           throw error
         }
       }}
-      className={`${clsByVariant[variant]} ${clsBySize[size]} ${className}`}
+      style={{ ...baseStyle, ...sizeAdj, ...disabledAdj, ...styleProp }}
+      className={className}
     >
       {isLoading && (
         <span
           aria-hidden="true"
-          className="mr-2 inline-block h-4 w-4 border-2 border-current border-r-transparent rounded-full animate-spin align-[-2px]"
+          style={{
+            display: 'inline-block',
+            width: '14px',
+            height: '14px',
+            border: '2px solid currentColor',
+            borderRightColor: 'transparent',
+            borderRadius: '50%',
+            animation: 'spin 0.7s linear infinite',
+          }}
         />
       )}
       {label}
