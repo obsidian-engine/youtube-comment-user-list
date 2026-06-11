@@ -89,27 +89,6 @@ export default function App() {
 
   return (
     <div className="min-h-dvh" style={{ background: 'var(--c-bg)', color: 'var(--c-ink)' }}>
-      {/* Topbar */}
-      <header className="topbar">
-        <div className="topbar__left">
-          <span className="topbar__dot" aria-hidden="true" />
-          <span className="topbar__brand">OBSIDIAN ENGINE</span>
-        </div>
-        <div className="topbar__center text-balance" aria-hidden="true">
-          配信卓の隣にあるツール箱
-        </div>
-        <div className="topbar__right">
-          <a
-            href="https://github.com/obsidian-engine/youtube-comment-user-list"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="topbar__link"
-          >
-            SOURCE
-          </a>
-        </div>
-      </header>
-
       <main className="relative z-10 mx-auto max-w-4xl px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
         <div className="flex items-center">
           <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
