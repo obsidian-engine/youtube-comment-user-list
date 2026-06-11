@@ -44,8 +44,20 @@ describe('HistoryTab', () => {
     mockUseHistory.mockReturnValue({
       ...baseHookReturn,
       snapshots: [
-        { videoId: 'vid1', savedAt: '2024-06-01T10:00:00Z', userCount: 10, commentCount: 5 },
-        { videoId: 'vid2', savedAt: '2024-06-02T12:00:00Z', userCount: 20, commentCount: 8 },
+        {
+          videoId: 'vid1',
+          savedAt: '2024-06-01T10:00:00Z',
+          userCount: 10,
+          commentCount: 5,
+          videoTitle: '動画タイトル1',
+        },
+        {
+          videoId: 'vid2',
+          savedAt: '2024-06-02T12:00:00Z',
+          userCount: 20,
+          commentCount: 8,
+          videoTitle: '動画タイトル2',
+        },
       ],
     })
     render(<HistoryTab />)

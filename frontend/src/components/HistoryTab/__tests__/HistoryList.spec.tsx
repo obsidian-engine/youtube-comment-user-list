@@ -8,9 +8,28 @@ vi.mock('../../../hooks/useAppState', () => ({
 }))
 
 const mockSnapshots: HistorySummary[] = [
-  { videoId: 'vid-1', savedAt: '2024-06-01T10:00:00Z', userCount: 10, commentCount: 50 },
-  { videoId: 'vid-2', savedAt: '2024-06-15T11:00:00Z', userCount: 5, commentCount: 20 },
-  { videoId: 'vid-3', savedAt: '2024-07-01T09:00:00Z', userCount: 3, commentCount: 10 },
+  {
+    videoId: 'vid-1',
+    savedAt: '2024-06-01T10:00:00Z',
+    userCount: 10,
+    commentCount: 50,
+    videoTitle: 'テスト動画1',
+    channelTitle: 'テストチャンネル',
+  },
+  {
+    videoId: 'vid-2',
+    savedAt: '2024-06-15T11:00:00Z',
+    userCount: 5,
+    commentCount: 20,
+    videoTitle: 'テスト動画2',
+  },
+  {
+    videoId: 'vid-3',
+    savedAt: '2024-07-01T09:00:00Z',
+    userCount: 3,
+    commentCount: 10,
+    videoTitle: 'テスト動画3',
+  },
 ]
 
 const noop = vi.fn().mockResolvedValue(undefined)
