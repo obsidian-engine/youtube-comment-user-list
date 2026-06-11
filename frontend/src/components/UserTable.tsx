@@ -306,7 +306,7 @@ export function UserTable({
               color: isSorted ? '#fff' : 'var(--c-ink-mute)',
               border: `1px solid ${isSorted ? 'var(--c-ink)' : 'var(--c-line-strong)'}`,
               cursor: isSorted ? 'pointer' : 'not-allowed',
-              transition: 'all 0.2s',
+              transition: 'background 0.2s, color 0.2s, border-color 0.2s',
             }}
           >
             ↻ 参加早い人が上
@@ -381,7 +381,7 @@ export function UserTable({
                   color: 'var(--c-ink-dim)',
                 }}
               >
-                更新中...
+                更新中…
               </span>
             </div>
           )}

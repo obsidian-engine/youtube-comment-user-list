@@ -43,6 +43,14 @@ export function Tooltip({ children, content, disabled = false, className = '' }:
     setIsVisible(false)
   }
 
+  const handleFocus = () => {
+    if (!disabled && content.trim()) setIsVisible(true)
+  }
+
+  const handleBlur = () => {
+    setIsVisible(false)
+  }
+
   return (
     <>
       <div
@@ -50,6 +58,8 @@ export function Tooltip({ children, content, disabled = false, className = '' }:
         className={className}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
       >
         {children}
       </div>

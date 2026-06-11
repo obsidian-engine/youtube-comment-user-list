@@ -93,7 +93,7 @@ describe('UserTable コンポーネント', () => {
     expect(screen.getByTestId('loading-spinner')).toBeInTheDocument()
 
     // 更新中テキストが表示される
-    expect(screen.getByText('更新中...')).toBeInTheDocument()
+    expect(screen.getByText('更新中…')).toBeInTheDocument()
   })
 
   test('リフレッシュ中でない場合はローディング要素が表示されない', () => {

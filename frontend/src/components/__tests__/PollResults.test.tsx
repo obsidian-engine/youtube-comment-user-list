@@ -235,7 +235,7 @@ describe('PollResults', () => {
         await user.click(screen.getByText('hoge'))
       })
       await act(async () => {
-        await user.click(screen.getByRole('button', { name: /名前\+channelId をコピー/ }))
+        await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       })
       expect(writeTextSpy).toHaveBeenCalledWith('taro\tUC1')
       expect(screen.getByRole('button', { name: 'コピー済' })).toBeInTheDocument()

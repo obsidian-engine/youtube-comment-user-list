@@ -86,11 +86,11 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
                   }}
                   onClick={() => toggleExpand(word)}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLTableRowElement).style.background =
+                    ;(e.currentTarget as HTMLTableRowElement).style.background =
                       'rgba(0,95,120,0.06)'
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLTableRowElement).style.background = ''
+                    ;(e.currentTarget as HTMLTableRowElement).style.background = ''
                   }}
                 >
                   <td style={{ padding: '12px 16px', color: 'var(--c-ink)' }}>
@@ -157,6 +157,9 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
                                 e.stopPropagation()
                                 void handleCopy(word)
                               }}
+                              aria-label={
+                                copiedKeyword === word ? 'コピー済' : 'クリップボードにコピー'
+                              }
                               style={{
                                 fontFamily: 'var(--f-mono)',
                                 fontSize: '11px',

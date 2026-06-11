@@ -36,7 +36,6 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--c-ink)',
   fontFamily: 'var(--f-mono)',
   fontSize: '13px',
-  outline: 'none',
 }
 
 export function HistoryList({ snapshots, loading, error, onSelect }: HistoryListProps) {
@@ -80,7 +79,7 @@ export function HistoryList({ snapshots, loading, error, onSelect }: HistoryList
             animation: 'spin 0.7s linear infinite',
           }}
         />
-        <span>読み込み中...</span>
+        <span>読み込み中…</span>
       </div>
     )
   }

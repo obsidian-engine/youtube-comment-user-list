@@ -68,6 +68,7 @@ export function CommentControls({
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
               placeholder="キーワードを入力"
+              aria-label="キーワード入力"
               disabled={isLoading}
               className="input-rule"
               style={{ flex: 1 }}
@@ -134,12 +135,12 @@ export function CommentControls({
           <LoadingButton
             onClick={onSearch}
             isLoading={isLoading}
-            loadingText="検索中..."
+            loadingText="検索中…"
             variant="primary"
           >
             今すぐ検索
           </LoadingButton>
-          <LoadingButton onClick={onReset} variant="outline">
+          <LoadingButton onClick={onReset} variant="outline" ariaLabel="非表示にリセット">
             リセット
           </LoadingButton>
           <select

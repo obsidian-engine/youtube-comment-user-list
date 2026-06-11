@@ -71,6 +71,7 @@ export function PollControls({
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
               placeholder="投票キーワードを入力"
+              aria-label="キーワード入力"
               disabled={isLoading}
               className="input-rule"
               style={{ flex: 1 }}
@@ -151,7 +152,7 @@ export function PollControls({
         <LoadingButton
           onClick={onRecount}
           isLoading={isLoading}
-          loadingText="集計中..."
+          loadingText="集計中…"
           variant="primary"
           disabled={keywords.length === 0}
         >

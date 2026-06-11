@@ -16,7 +16,6 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
     padding: '10px 16px 8px',
     cursor: 'pointer',
     transition: 'color 0.15s, border-color 0.15s',
-    outline: 'none',
   }
 
   const activeStyle: React.CSSProperties = {
@@ -45,6 +44,7 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
 
   return (
     <div
+      role="tablist"
       style={{
         display: 'flex',
         flexWrap: 'wrap',
@@ -56,6 +56,8 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
       {tabs.map((t) => (
         <button
           key={t.id}
+          role="tab"
+          aria-selected={activeTab === t.id}
           onClick={() => onTabChange(t.id)}
           style={tabStyle(t.id)}
           onMouseEnter={(e) => {

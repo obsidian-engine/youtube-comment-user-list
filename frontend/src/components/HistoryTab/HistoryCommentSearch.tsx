@@ -58,7 +58,6 @@ export function HistoryCommentSearch({ comments }: HistoryCommentSearchProps) {
           color: 'var(--c-ink)',
           fontFamily: 'var(--f-mono)',
           fontSize: '13px',
-          outline: 'none',
         }}
       />
       <div

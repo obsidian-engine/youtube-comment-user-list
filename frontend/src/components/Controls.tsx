@@ -44,6 +44,8 @@ export function Controls({
               onChange={(e) => setVideoId(e.target.value)}
               placeholder="videoId を入力"
               disabled={loadingStates.switching}
+              autoComplete="off"
+              spellCheck={false}
               className="input-rule"
               style={{ flex: 1 }}
               onFocus={(e) => {
