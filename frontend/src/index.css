@@ -179,7 +179,7 @@ body::before {
   display: block;
   width: 24px;
   height: 3px;
-  background: var(--c-accent);
+  background: var(--c-ink);
   flex-shrink: 0;
 }
 .eyebrow__rule {
@@ -209,12 +209,12 @@ body::before {
 }
 
 /* ================================================================
-   Editorial card (left magenta stripe)
+   Editorial card (left ink stripe)
    ================================================================ */
 .card-editorial {
   background: var(--c-bg-2);
   border: 1px solid var(--c-line);
-  border-left: 4px solid var(--c-accent);
+  border-left: 4px solid var(--c-ink);
   border-radius: 4px;
   box-shadow: 0 1px 0 var(--c-line-strong);
   overflow: hidden;
