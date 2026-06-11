@@ -19,6 +19,7 @@ import { HistoryTab } from './components/HistoryTab'
 import { PollControls } from './components/PollTab/PollControls'
 import { PollResults } from './components/PollTab/PollResults'
 import { usePollCount, POLL_INTERVAL_SEC } from './hooks/usePollCount'
+import { ErrorBanner } from './components/ErrorBanner'
 
 export default function App() {
   const logEntries = useLogEntries()
@@ -114,23 +115,7 @@ export default function App() {
           <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
         </div>
 
-        {errorMsg && (
-          <div
-            role="alert"
-            aria-live="assertive"
-            className="border-l-4 px-4 py-3 text-sm"
-            style={{
-              borderLeftColor: 'var(--c-error)',
-              background: 'rgba(179,0,27,0.06)',
-              color: 'var(--c-error)',
-              borderTop: '1px solid rgba(179,0,27,0.18)',
-              borderRight: '1px solid rgba(179,0,27,0.18)',
-              borderBottom: '1px solid rgba(179,0,27,0.18)',
-            }}
-          >
-            {errorMsg}
-          </div>
-        )}
+        {errorMsg && <ErrorBanner message={errorMsg} />}
 
         {activeTab === 'users' && (
           <>
@@ -175,23 +160,7 @@ export default function App() {
 
         {activeTab === 'comments' && (
           <>
-            {commentSearch.errorMsg && (
-              <div
-                role="alert"
-                aria-live="assertive"
-                className="border-l-4 px-4 py-3 text-sm"
-                style={{
-                  borderLeftColor: 'var(--c-error)',
-                  background: 'rgba(179,0,27,0.06)',
-                  color: 'var(--c-error)',
-                  borderTop: '1px solid rgba(179,0,27,0.18)',
-                  borderRight: '1px solid rgba(179,0,27,0.18)',
-                  borderBottom: '1px solid rgba(179,0,27,0.18)',
-                }}
-              >
-                {commentSearch.errorMsg}
-              </div>
-            )}
+            {commentSearch.errorMsg && <ErrorBanner message={commentSearch.errorMsg} />}
 
             <CommentControls
               keywords={commentSearch.keywords}
@@ -218,23 +187,7 @@ export default function App() {
 
         {activeTab === 'votes' && (
           <>
-            {pollCount.errorMsg && (
-              <div
-                role="alert"
-                aria-live="assertive"
-                className="border-l-4 px-4 py-3 text-sm"
-                style={{
-                  borderLeftColor: 'var(--c-error)',
-                  background: 'rgba(179,0,27,0.06)',
-                  color: 'var(--c-error)',
-                  borderTop: '1px solid rgba(179,0,27,0.18)',
-                  borderRight: '1px solid rgba(179,0,27,0.18)',
-                  borderBottom: '1px solid rgba(179,0,27,0.18)',
-                }}
-              >
-                {pollCount.errorMsg}
-              </div>
-            )}
+            {pollCount.errorMsg && <ErrorBanner message={pollCount.errorMsg} />}
             <PollControls
               keywords={pollCount.keywords}
               onAddKeyword={pollCount.addKeyword}

@@ -12,6 +12,8 @@ type Props = {
   type?: 'button' | 'submit'
   ariaLabel?: string
   loadingText?: string
+  title?: string
+  style?: React.CSSProperties
   onClick?: () => void | Promise<void>
   children: React.ReactNode
   className?: string
@@ -59,6 +61,8 @@ export function LoadingButton({
   type = 'button',
   ariaLabel,
   loadingText,
+  title,
+  style: styleProp,
   onClick,
   children,
   className = '',
@@ -76,6 +80,7 @@ export function LoadingButton({
       aria-label={effectiveAriaLabel}
       aria-busy={isLoading}
       disabled={isDisabled}
+      title={title}
       onClick={async () => {
         if (isDisabled) return
         try {
@@ -85,7 +90,7 @@ export function LoadingButton({
           throw error
         }
       }}
-      style={{ ...baseStyle, ...sizeAdj, ...disabledAdj }}
+      style={{ ...baseStyle, ...sizeAdj, ...disabledAdj, ...styleProp }}
       className={className}
     >
       {isLoading && (

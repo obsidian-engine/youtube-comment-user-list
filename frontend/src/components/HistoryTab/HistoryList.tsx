@@ -92,7 +92,7 @@ export function HistoryList({ snapshots, loading, error, onSelect }: HistoryList
           padding: '16px',
           background: 'rgba(179,0,27,0.06)',
           border: '1px solid rgba(179,0,27,0.25)',
-          borderLeft: '3px solid var(--c-error)',
+          borderLeft: '4px solid var(--c-error)',
           color: 'var(--c-error)',
           fontFamily: 'var(--f-mono)',
           fontSize: '12px',
@@ -294,17 +294,22 @@ export function HistoryList({ snapshots, loading, error, onSelect }: HistoryList
                           textTransform: 'uppercase',
                           padding: '4px 10px',
                           background: 'transparent',
-                          color: 'var(--c-accent-2)',
-                          border: '1px solid var(--c-accent-2)',
+                          color: 'var(--c-ink)',
+                          border: '1px solid var(--c-ink)',
                           cursor: 'pointer',
-                          transition: 'background 0.2s',
+                          transition: 'background 0.2s, color 0.2s, border-color 0.2s',
                         }}
                         onMouseEnter={(e) => {
                           (e.currentTarget as HTMLButtonElement).style.background =
-                            'rgba(0,95,120,0.08)'
+                            'rgba(179,0,27,0.06)'
+                          ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--c-accent)'
+                          ;(e.currentTarget as HTMLButtonElement).style.borderColor =
+                            'var(--c-accent)'
                         }}
                         onMouseLeave={(e) => {
                           (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                          ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--c-ink)'
+                          ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--c-ink)'
                         }}
                       >
                         表示

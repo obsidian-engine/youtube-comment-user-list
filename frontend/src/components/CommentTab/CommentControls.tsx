@@ -54,7 +54,7 @@ export function CommentControls({
               fontSize: '11px',
               letterSpacing: '0.2em',
               textTransform: 'uppercase',
-              color: 'var(--c-accent-2)',
+              color: 'var(--c-ink-dim)',
               marginBottom: '14px',
             }}
           >

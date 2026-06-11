@@ -44,7 +44,7 @@ export function PollControls({
               fontSize: '11px',
               letterSpacing: '0.2em',
               textTransform: 'uppercase',
-              color: 'var(--c-accent-2)',
+              color: 'var(--c-ink-dim)',
               marginBottom: '8px',
             }}
           >
@@ -155,6 +155,8 @@ export function PollControls({
           loadingText="集計中…"
           variant="primary"
           disabled={keywords.length === 0}
+          title={keywords.length === 0 ? 'キーワードを追加すると有効になります' : undefined}
+          style={keywords.length === 0 ? { cursor: 'not-allowed' } : undefined}
         >
           今すぐ集計
         </LoadingButton>

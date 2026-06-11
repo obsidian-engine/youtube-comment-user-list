@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+
 export type TabType = 'users' | 'comments' | 'votes' | 'logs' | 'history' | 'help'
 
 interface TabsProps {
@@ -5,14 +7,20 @@ interface TabsProps {
   onTabChange: (tab: TabType) => void
 }
 
+const TABS: TabType[] = ['users', 'comments', 'votes', 'logs', 'history', 'help']
+
 export function Tabs({ activeTab, onTabChange }: TabsProps) {
+  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
+
   const baseStyle: React.CSSProperties = {
     fontFamily: 'var(--f-mono)',
     fontSize: '12px',
     letterSpacing: '0.14em',
     background: 'transparent',
     border: 'none',
-    borderBottom: '3px solid transparent',
+    borderBottomWidth: '3px',
+    borderBottomStyle: 'solid',
+    borderBottomColor: 'transparent',
     padding: '10px 16px 8px',
     cursor: 'pointer',
     transition: 'color 0.15s, border-color 0.15s',
@@ -42,6 +50,18 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
     { id: 'help', label: 'ヘルプ' },
   ]
 
+  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+    let nextIndex = index
+    if (e.key === 'ArrowRight') nextIndex = (index + 1) % TABS.length
+    else if (e.key === 'ArrowLeft') nextIndex = (index - 1 + TABS.length) % TABS.length
+    else if (e.key === 'Home') nextIndex = 0
+    else if (e.key === 'End') nextIndex = TABS.length - 1
+    else return
+    e.preventDefault()
+    onTabChange(TABS[nextIndex])
+    buttonRefs.current[nextIndex]?.focus()
+  }
+
   return (
     <div
       role="tablist"
@@ -53,12 +73,17 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
         width: '100%',
       }}
     >
-      {tabs.map((t) => (
+      {tabs.map((t, i) => (
         <button
           key={t.id}
+          ref={(el) => {
+            buttonRefs.current[i] = el
+          }}
           role="tab"
           aria-selected={activeTab === t.id}
+          tabIndex={activeTab === t.id ? 0 : -1}
           onClick={() => onTabChange(t.id)}
+          onKeyDown={(e) => handleKeyDown(e, i)}
           style={tabStyle(t.id)}
           onMouseEnter={(e) => {
             if (activeTab !== t.id) {

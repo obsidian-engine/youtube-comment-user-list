@@ -307,6 +307,7 @@ export function UserTable({
               border: `1px solid ${isSorted ? 'var(--c-ink)' : 'var(--c-line-strong)'}`,
               cursor: isSorted ? 'pointer' : 'not-allowed',
               transition: 'background 0.2s, color 0.2s, border-color 0.2s',
+              whiteSpace: 'nowrap',
             }}
           >
             ↻ 参加早い人が上

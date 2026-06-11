@@ -86,11 +86,11 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
                   }}
                   onClick={() => toggleExpand(word)}
                   onMouseEnter={(e) => {
-                    ;(e.currentTarget as HTMLTableRowElement).style.background =
+                    (e.currentTarget as HTMLTableRowElement).style.background =
                       'rgba(0,95,120,0.06)'
                   }}
                   onMouseLeave={(e) => {
-                    ;(e.currentTarget as HTMLTableRowElement).style.background = ''
+                    (e.currentTarget as HTMLTableRowElement).style.background = ''
                   }}
                 >
                   <td style={{ padding: '12px 16px', color: 'var(--c-ink)' }}>
