@@ -20,14 +20,14 @@ func buildCoordWithSink(sink *fakeSinkForUsecase, users *memory.UserRepo, commen
 
 type fakeYT struct{}
 
-func (f *fakeYT) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
-	return "live:abc", nil
+func (f *fakeYT) GetActiveLiveChatID(ctx context.Context, videoID string) (port.VideoMeta, error) {
+	return port.VideoMeta{LiveChatID: "live:abc", Title: "Test Video", ChannelTitle: "Test Channel"}, nil
 }
 
 type failingYT struct{}
 
-func (f *failingYT) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
-	return "", errors.New("api error: live broadcast not found")
+func (f *failingYT) GetActiveLiveChatID(ctx context.Context, videoID string) (port.VideoMeta, error) {
+	return port.VideoMeta{}, errors.New("api error: live broadcast not found")
 }
 
 func (f *failingYT) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
@@ -270,7 +270,7 @@ func TestSwitchVideo_V1_to_V2_to_V1_RestoresFromGCS(t *testing.T) {
 	_ = comments.Add(domain.Comment{ID: "c1", ChannelID: "ch1", DisplayName: "Alice", Message: "hello", PublishedAt: time.Now()})
 
 	// V1 状態を coordinator に設定して Flush → V1.json 保存
-	coord.SetVideo("v1", "chat-v1")
+	coord.SetVideo("v1", "chat-v1", "", "")
 	coord.MarkDirty()
 	if err := coord.Flush(ctx); err != nil {
 		t.Fatalf("V1 Flush failed: %v", err)
@@ -475,7 +475,7 @@ func TestSwitchVideo_SnapshotPreservedAcrossSwitch(t *testing.T) {
 
 	// V1 配信: ユーザー追加 → Flush
 	_ = users.UpsertWithJoinTime("ch1", "Alice", time.Now())
-	coord.SetVideo("v1", "chat-v1")
+	coord.SetVideo("v1", "chat-v1", "", "")
 	coord.MarkDirty()
 	if err := coord.Flush(ctx); err != nil {
 		t.Fatalf("V1 Flush failed: %v", err)

@@ -22,7 +22,7 @@ type mockCoord struct {
 
 func (m *mockCoord) Restore(_ context.Context) error                      { return nil }
 func (m *mockCoord) RestoreFor(_ context.Context, _ string) (bool, error) { return false, nil }
-func (m *mockCoord) SetVideo(videoID, liveChatID string) {
+func (m *mockCoord) SetVideo(videoID, liveChatID, _, _ string) {
 	m.setVideo = append(m.setVideo, [2]string{videoID, liveChatID})
 	m.calls = append(m.calls, "SetVideo")
 }
@@ -106,7 +106,7 @@ func TestCoordinator_MultiVideoSnapshotIsolation(t *testing.T) {
 	// V1 配信: ユーザー追加 → save
 	_ = users.UpsertWithJoinTime("ch1", "Alice", time.Now())
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v1", LiveChatID: "chat-v1"})
-	coord.SetVideo("v1", "chat-v1")
+	coord.SetVideo("v1", "chat-v1", "", "")
 	coord.MarkDirty()
 	if err := coord.Flush(ctx); err != nil {
 		t.Fatalf("V1 Flush failed: %v", err)
@@ -118,7 +118,7 @@ func TestCoordinator_MultiVideoSnapshotIsolation(t *testing.T) {
 	_ = users.UpsertWithJoinTime("ch2", "Bob", time.Now())
 	_ = users.UpsertWithJoinTime("ch3", "Carol", time.Now())
 	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusActive, VideoID: "v2", LiveChatID: "chat-v2"})
-	coord.SetVideo("v2", "chat-v2")
+	coord.SetVideo("v2", "chat-v2", "", "")
 	coord.MarkDirty()
 	if err := coord.Flush(ctx); err != nil {
 		t.Fatalf("V2 Flush failed: %v", err)

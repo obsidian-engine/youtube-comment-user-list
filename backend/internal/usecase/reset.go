@@ -45,7 +45,7 @@ func (uc *Reset) Execute(ctx context.Context) (ResetOutput, error) {
 	}
 
 	// video unset 状態にして current.json を更新
-	uc.Snap.SetVideo("", "")
+	uc.Snap.SetVideo("", "", "", "")
 	if err := uc.Snap.Flush(ctx); err != nil {
 		logging.Log(ctx, "warn", "SNAPSHOT", "reset: snapshot flush (clear current) failed: %v", err)
 	}

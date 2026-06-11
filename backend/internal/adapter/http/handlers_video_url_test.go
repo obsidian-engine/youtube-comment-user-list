@@ -18,8 +18,8 @@ import (
 
 type fakeYTForURL struct{}
 
-func (f *fakeYTForURL) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
-	return "live:chat:" + videoID, nil
+func (f *fakeYTForURL) GetActiveLiveChatID(ctx context.Context, videoID string) (port.VideoMeta, error) {
+	return port.VideoMeta{LiveChatID: "live:chat:" + videoID}, nil
 }
 
 func (f *fakeYTForURL) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {

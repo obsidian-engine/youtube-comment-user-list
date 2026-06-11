@@ -31,7 +31,7 @@ type SwitchVideo struct {
 // 同じ videoId に対する切替の場合は users / state.StartedAt を維持する（配信再開ユースケース）。
 func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (SwitchVideoOutput, error) {
 	// 1. YouTube APIでliveChatIDを取得（失敗時はここで返るので snapshot 操作はしない）
-	liveChatID, err := uc.YT.GetActiveLiveChatID(ctx, in.VideoID)
+	meta, err := uc.YT.GetActiveLiveChatID(ctx, in.VideoID)
 	if err != nil {
 		// 配信終了済 video への再切替で API error が発生した場合、同一 videoId かつ
 		// in-memory に users が残っていれば snapshot 復元データとして WAITING 状態で表示する。
@@ -135,7 +135,7 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 	newState := domain.LiveState{
 		Status:        domain.StatusActive,
 		VideoID:       in.VideoID,
-		LiveChatID:    liveChatID,
+		LiveChatID:    meta.LiveChatID,
 		StartedAt:     startedAt,
 		NextPageToken: "",
 	}
@@ -145,7 +145,7 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 	}
 
 	// 5. 新 videoId を Coordinator に設定し、current.json を即時更新
-	uc.Snap.SetVideo(in.VideoID, liveChatID)
+	uc.Snap.SetVideo(in.VideoID, meta.LiveChatID, meta.Title, meta.ChannelTitle)
 	uc.Snap.MarkDirty()
 	if err := uc.Snap.Flush(ctx); err != nil {
 		logging.Log(ctx, "warn", "SNAPSHOT", "switch_video: snapshot flush (post-switch) failed: %v", err)
