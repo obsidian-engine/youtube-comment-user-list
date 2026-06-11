@@ -14,8 +14,8 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
 
   const baseStyle: React.CSSProperties = {
     fontFamily: 'var(--f-mono)',
-    fontSize: '12px',
-    letterSpacing: '0.14em',
+    fontSize: '11px',
+    letterSpacing: '0.08em',
     background: 'transparent',
     border: 'none',
     borderBottomWidth: '3px',
@@ -29,7 +29,7 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
   const activeStyle: React.CSSProperties = {
     ...baseStyle,
     color: 'var(--c-ink)',
-    fontWeight: 700,
+    fontWeight: 600,
     borderBottomColor: 'var(--c-accent)',
   }
 

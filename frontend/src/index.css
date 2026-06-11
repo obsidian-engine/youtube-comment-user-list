@@ -108,7 +108,7 @@ body::before {
   padding: 14px 20px 0;
   font-family: var(--f-mono);
   font-size: 11px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--c-ink-dim);
 }
@@ -128,7 +128,7 @@ body::before {
 }
 .eyebrow__status {
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
   color: var(--c-ink-mute);
   display: flex;
   align-items: center;
