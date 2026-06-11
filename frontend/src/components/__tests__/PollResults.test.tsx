@@ -115,7 +115,7 @@ describe('PollResults', () => {
           isLoading={true}
         />,
       )
-      expect(container.querySelector('.animate-spin')).toBeInTheDocument()
+      expect(container.querySelector('[data-testid="poll-loading-spinner"]')).toBeInTheDocument()
     })
 
     it('isLoading=false でスピナー非表示', () => {
@@ -128,7 +128,7 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      expect(container.querySelector('.animate-spin')).toBeNull()
+      expect(container.querySelector('[data-testid="poll-loading-spinner"]')).toBeNull()
     })
   })
 

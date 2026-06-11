@@ -11,48 +11,68 @@ export function Toast({ message, type = 'success', duration = 3000, onClose }: T
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
-    // マウント時にアニメーション開始
     setIsVisible(true)
-
-    // 指定時間後に自動で閉じる
     const timer = setTimeout(() => {
       setIsVisible(false)
-      // フェードアウトアニメーション完了後にonCloseを呼ぶ
       setTimeout(onClose, 300)
     }, duration)
-
     return () => clearTimeout(timer)
   }, [duration, onClose])
 
-  const typeStyles = {
-    info: 'bg-sky-50 text-sky-800 ring-sky-300/60',
-    success: 'bg-green-50 text-green-800 ring-green-300/60', 
-    error: 'bg-rose-50 text-rose-800 ring-rose-300/60'
+  const bgByType: Record<string, string> = {
+    info: 'var(--c-accent-2)',
+    success: 'var(--c-success)',
+    error: 'var(--c-error)',
   }
 
-  const iconByType = {
+  const iconByType: Record<string, string> = {
     info: '💡',
     success: '✅',
-    error: '❌'
+    error: '❌',
   }
 
   return (
     <div
-      className={`fixed top-6 right-6 z-50 min-w-[300px] max-w-[400px] px-4 py-3 rounded-lg ring-1 shadow-lg transition-all duration-300 ${
-        isVisible ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform -translate-y-2'
-      } ${typeStyles[type]}`}
+      style={{
+        position: 'fixed',
+        top: '72px',
+        right: '24px',
+        zIndex: 100,
+        minWidth: '300px',
+        maxWidth: '400px',
+        padding: '12px 16px',
+        background: bgByType[type],
+        color: '#fff',
+        fontFamily: 'var(--f-mono)',
+        fontSize: '12px',
+        letterSpacing: '0.1em',
+        border: `1px solid ${bgByType[type]}`,
+        boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? 'translateY(0)' : 'translateY(-8px)',
+        transition: 'opacity 0.3s, transform 0.3s',
+        pointerEvents: isVisible ? 'auto' : 'none',
+      }}
       role="status"
       aria-live="polite"
     >
-      <div className="flex items-center gap-3">
-        <span className="text-lg">{iconByType[type]}</span>
-        <span className="flex-1 font-medium">{message}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span style={{ fontSize: '16px' }}>{iconByType[type]}</span>
+        <span style={{ flex: 1 }}>{message}</span>
         <button
           onClick={() => {
             setIsVisible(false)
             setTimeout(onClose, 300)
           }}
-          className="text-current hover:opacity-70 transition-opacity"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#fff',
+            cursor: 'pointer',
+            fontSize: '18px',
+            opacity: 0.8,
+            padding: '0 4px',
+          }}
           aria-label="トーストを閉じる"
         >
           ×

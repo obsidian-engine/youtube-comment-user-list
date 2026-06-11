@@ -30,7 +30,7 @@ function CopyLinkButton({ url, displayName }: { url: string; displayName: string
         setCopied(true)
         setTimeout(() => setCopied(false), 1500)
       } catch {
-        // copy failed silently
+        // コピー失敗は無視
       }
     }
   }, [copyText])
@@ -40,11 +40,15 @@ function CopyLinkButton({ url, displayName }: { url: string; displayName: string
       onClick={handleCopy}
       title="チャンネルURLをコピー"
       aria-label="チャンネルURLをコピー"
-      className={`flex-shrink-0 transition-colors ${
-        copied
-          ? 'text-green-500'
-          : 'text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-300'
-      }`}
+      style={{
+        flexShrink: 0,
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        color: copied ? 'var(--c-success)' : 'var(--c-ink-mute)',
+        transition: 'color 0.2s',
+        padding: '0 2px',
+      }}
     >
       {copied ? (
         <svg
@@ -75,6 +79,18 @@ function CopyLinkButton({ url, displayName }: { url: string; displayName: string
   )
 }
 
+const thStyle: React.CSSProperties = {
+  padding: '12px 16px',
+  fontFamily: 'var(--f-mono)',
+  fontWeight: 700,
+  fontSize: '11px',
+  letterSpacing: '0.18em',
+  textTransform: 'uppercase',
+  color: '#fff',
+  background: 'var(--c-ink)',
+  textAlign: 'center',
+}
+
 export function HistoryUserTable({ users }: HistoryUserTableProps) {
   const sorted = useMemo(() => sortUsersStable(users), [users])
 
@@ -88,51 +104,76 @@ export function HistoryUserTable({ users }: HistoryUserTableProps) {
 
   if (sorted.length === 0) {
     return (
-      <p className="py-5 text-center text-slate-500 dark:text-slate-400 text-[13px]">
+      <p
+        style={{
+          padding: '20px',
+          textAlign: 'center',
+          fontFamily: 'var(--f-mono)',
+          fontSize: '12px',
+          color: 'var(--c-ink-mute)',
+        }}
+      >
         視聴者データがありません
       </p>
     )
   }
 
   return (
-    <section className="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur">
-      <table className="w-full table-fixed text-[14px] leading-7">
-        <thead className="bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700 text-white dark:text-slate-100">
+    <section
+      style={{
+        overflow: 'hidden',
+        border: '1px solid var(--c-line-strong)',
+        background: 'var(--c-bg-2)',
+      }}
+    >
+      <table className="w-full table-fixed" style={{ fontSize: '14px', lineHeight: 1.7 }}>
+        <thead>
           <tr>
-            <th className="text-center px-4 py-3 w-[60px] font-semibold text-[13px] tracking-wide uppercase">
-              #
-            </th>
-            <th className="text-center px-4 py-3 font-semibold text-[13px] tracking-wide uppercase">
-              名前
-            </th>
-            <th className="text-center px-4 py-3 font-semibold text-[13px] tracking-wide uppercase w-[100px]">
-              発言数
-            </th>
-            <th className="text-center px-4 py-3 font-semibold text-[13px] tracking-wide uppercase w-[160px] hidden md:table-cell">
+            <th style={{ ...thStyle, width: '60px' }}>#</th>
+            <th style={thStyle}>名前</th>
+            <th style={{ ...thStyle, width: '100px' }}>発言数</th>
+            <th style={{ ...thStyle, width: '160px' }} className="hidden md:table-cell">
               初回コメント
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200/60 dark:divide-slate-600/40">
+        <tbody>
           {sorted.map((user, i) => {
             const channelUrl = user.channelId
               ? `https://www.youtube.com/channel/${user.channelId}`
               : null
             const name = user.displayName || user.channelId || 'Unknown'
+            const rowBg = i % 2 === 0 ? 'var(--c-bg)' : 'var(--c-bg-2)'
             return (
               <tr
                 key={`${user.channelId || user.displayName}-${i}`}
-                className={`transition-colors duration-150 hover:bg-sky-100 dark:hover:bg-sky-900/30 ${
-                  i % 2 === 0
-                    ? 'bg-slate-100/50 dark:bg-slate-800/20'
-                    : 'bg-slate-200/40 dark:bg-slate-700/25'
-                }`}
+                style={{
+                  borderBottom: '1px solid var(--c-line)',
+                  background: rowBg,
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLTableRowElement).style.background =
+                    'rgba(0,108,138,0.06)'
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLTableRowElement).style.background = rowBg
+                }}
               >
-                <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium text-center">
+                <td
+                  style={{
+                    padding: '10px 16px',
+                    fontFamily: 'var(--f-mono)',
+                    fontSize: '12px',
+                    color: 'var(--c-ink-mute)',
+                    textAlign: 'center',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
                   {String(i + 1).padStart(2, '0')}
                 </td>
-                <td className="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">
-                  <div className="flex items-center gap-1.5">
+                <td style={{ padding: '10px 16px', color: 'var(--c-ink)', fontWeight: 500 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Tooltip
                       content={name}
                       disabled={!isJapaneseTextTooLong(name, 30)}
@@ -145,10 +186,28 @@ export function HistoryUserTable({ users }: HistoryUserTableProps) {
                     {channelUrl && <CopyLinkButton url={channelUrl} displayName={name} />}
                   </div>
                 </td>
-                <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-300 font-medium text-center">
+                <td
+                  style={{
+                    padding: '10px 16px',
+                    fontFamily: 'var(--f-mono)',
+                    fontSize: '12px',
+                    color: 'var(--c-ink-dim)',
+                    textAlign: 'center',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
                   {user.commentCount ?? 0}
                 </td>
-                <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[13px] hidden md:table-cell text-center">
+                <td
+                  className="hidden md:table-cell"
+                  style={{
+                    padding: '10px 16px',
+                    fontFamily: 'var(--f-mono)',
+                    fontSize: '12px',
+                    color: 'var(--c-ink-dim)',
+                    textAlign: 'center',
+                  }}
+                >
                   {formatDate(user.firstCommentedAt)}
                 </td>
               </tr>

@@ -5,10 +5,10 @@ interface LogPanelProps {
   onClear: () => void
 }
 
-const levelClass: Record<LogLevel, string> = {
-  info: 'text-slate-700 dark:text-slate-300',
-  warn: 'text-amber-700 dark:text-amber-400',
-  error: 'text-rose-700 dark:text-rose-400',
+const levelColor: Record<LogLevel, string> = {
+  info: 'var(--c-ink)',
+  warn: '#b56b00',
+  error: 'var(--c-error)',
 }
 
 function formatTime(date: Date): string {
@@ -16,53 +16,122 @@ function formatTime(date: Date): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
+const thStyle: React.CSSProperties = {
+  padding: '12px 16px',
+  fontFamily: 'var(--f-mono)',
+  fontWeight: 700,
+  fontSize: '11px',
+  letterSpacing: '0.18em',
+  textTransform: 'uppercase',
+  color: '#fff',
+  background: 'var(--c-ink)',
+  textAlign: 'center',
+}
+
 export function LogPanel({ entries, onClear }: LogPanelProps) {
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] text-slate-500 dark:text-slate-400">{entries.length} 件</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span
+          style={{
+            fontFamily: 'var(--f-mono)',
+            fontSize: '11px',
+            letterSpacing: '0.14em',
+            color: 'var(--c-ink-mute)',
+          }}
+        >
+          {entries.length} 件
+        </span>
         <button
           onClick={onClear}
           disabled={entries.length === 0}
-          className="px-3 py-1.5 text-[13px] rounded-md bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          style={{
+            fontFamily: 'var(--f-mono)',
+            fontSize: '11px',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            padding: '6px 12px',
+            background: 'transparent',
+            color: entries.length === 0 ? 'var(--c-ink-mute)' : 'var(--c-ink)',
+            border: '1px solid var(--c-line-strong)',
+            cursor: entries.length === 0 ? 'not-allowed' : 'pointer',
+            opacity: entries.length === 0 ? 0.5 : 1,
+          }}
         >
           クリア
         </button>
       </div>
 
-      <section className="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur">
-        <table className="w-full table-fixed text-[14px] leading-7">
-          <thead className="bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700 text-white dark:text-slate-100">
+      <section
+        style={{
+          overflow: 'hidden',
+          border: '1px solid var(--c-line-strong)',
+          background: 'var(--c-bg-2)',
+        }}
+      >
+        <table className="w-full table-fixed" style={{ fontSize: '13px', lineHeight: '1.7' }}>
+          <thead>
             <tr>
-              <th className="text-center px-4 py-3.5 w-[100px] font-semibold text-[13px]">時刻</th>
-              <th className="text-center px-4 py-3.5 font-semibold text-[13px]">メッセージ</th>
-              <th className="text-center px-4 py-3.5 w-[80px] font-semibold text-[13px]">追加</th>
-              <th className="text-center px-4 py-3.5 w-[80px] font-semibold text-[13px]">
-                スキップ
-              </th>
+              <th style={{ ...thStyle, width: '100px' }}>時刻</th>
+              <th style={{ ...thStyle, textAlign: 'left' }}>メッセージ</th>
+              <th style={{ ...thStyle, width: '80px' }}>追加</th>
+              <th style={{ ...thStyle, width: '80px' }}>スキップ</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200/60 dark:divide-slate-600/40">
-            {entries.map((entry) => (
+          <tbody>
+            {entries.map((entry, i) => (
               <tr
                 key={entry.id}
-                className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors"
+                style={{
+                  borderBottom: '1px solid var(--c-line)',
+                  background: i % 2 === 0 ? 'var(--c-bg)' : 'var(--c-bg-2)',
+                }}
               >
-                <td className="text-center px-4 py-2.5 text-[13px] text-slate-500 dark:text-slate-400 tabular-nums">
+                <td
+                  style={{
+                    padding: '8px 16px',
+                    fontFamily: 'var(--f-mono)',
+                    fontSize: '12px',
+                    color: 'var(--c-ink-mute)',
+                    textAlign: 'center',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
                   {formatTime(entry.timestamp)}
                 </td>
-                <td className={`px-4 py-2.5 text-[13px] ${levelClass[entry.level]}`}>
+                <td
+                  style={{
+                    padding: '8px 16px',
+                    fontFamily: 'var(--f-mono)',
+                    fontSize: '12px',
+                    color: levelColor[entry.level],
+                  }}
+                >
                   {entry.message}
                 </td>
-                <td className="text-center px-4 py-2.5 text-[13px] text-slate-600 dark:text-slate-300 tabular-nums">
+                <td
+                  style={{
+                    padding: '8px 16px',
+                    fontFamily: 'var(--f-mono)',
+                    fontSize: '12px',
+                    color: 'var(--c-ink-dim)',
+                    textAlign: 'center',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
                   {entry.addedCount != null ? entry.addedCount : '-'}
                 </td>
                 <td
-                  className={`text-center px-4 py-2.5 text-[13px] tabular-nums ${
-                    entry.skippedCount && entry.skippedCount > 0
-                      ? 'text-amber-700 dark:text-amber-400 font-semibold'
-                      : 'text-slate-600 dark:text-slate-300'
-                  }`}
+                  style={{
+                    padding: '8px 16px',
+                    fontFamily: 'var(--f-mono)',
+                    fontSize: '12px',
+                    color:
+                      entry.skippedCount && entry.skippedCount > 0 ? '#b56b00' : 'var(--c-ink-dim)',
+                    fontWeight: entry.skippedCount && entry.skippedCount > 0 ? 700 : 400,
+                    textAlign: 'center',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
                 >
                   {entry.skippedCount != null ? entry.skippedCount : '-'}
                 </td>
@@ -72,7 +141,14 @@ export function LogPanel({ entries, onClear }: LogPanelProps) {
         </table>
 
         {entries.length === 0 && (
-          <p className="px-4 py-5 text-[13px] text-slate-500 dark:text-slate-400">
+          <p
+            style={{
+              padding: '20px 16px',
+              fontFamily: 'var(--f-mono)',
+              fontSize: '12px',
+              color: 'var(--c-ink-mute)',
+            }}
+          >
             ログはありません。
           </p>
         )}

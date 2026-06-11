@@ -41,19 +41,44 @@ export function CommentControls({
   return (
     <div className="space-y-4">
       {/* キーワード管理 */}
-      <section className="rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur p-5">
-        <h2 className="text-sm font-semibold mb-3 text-slate-700 dark:text-slate-200">
+      <section
+        style={{
+          background: 'var(--c-bg-2)',
+          border: '1px solid var(--c-line-strong)',
+          padding: '20px 24px',
+        }}
+      >
+        <h2
+          style={{
+            fontFamily: 'var(--f-mono)',
+            fontSize: '11px',
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+            color: 'var(--c-accent-2)',
+            marginBottom: '14px',
+          }}
+        >
           検索キーワード（OR検索）
         </h2>
 
-        <div className="flex gap-2 mb-4">
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
             placeholder="キーワードを入力"
             disabled={isLoading}
-            className="flex-1 px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]"
+            style={{
+              flex: 1,
+              padding: '9px 12px',
+              background: 'var(--c-bg)',
+              border: '1px solid var(--c-line-strong)',
+              color: 'var(--c-ink)',
+              fontFamily: 'var(--f-mono)',
+              fontSize: '13px',
+              outline: 'none',
+            }}
           />
           <LoadingButton
             onClick={handleAdd}
@@ -64,17 +89,35 @@ export function CommentControls({
           </LoadingButton>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
           {keywords.map((word) => (
             <span
               key={word}
-              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-200 dark:bg-slate-700 text-sm"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                background: 'var(--c-ink)',
+                color: '#fff',
+                fontFamily: 'var(--f-mono)',
+                fontSize: '12px',
+                letterSpacing: '0.08em',
+              }}
             >
               {word}
               <button
                 onClick={() => onRemoveKeyword(word)}
                 disabled={isLoading}
-                className="hover:text-red-500 disabled:opacity-50"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.6)',
+                  cursor: 'pointer',
+                  padding: '0 2px',
+                  fontSize: '14px',
+                  lineHeight: 1,
+                }}
                 aria-label={`${word}を削除`}
               >
                 ×
@@ -85,8 +128,16 @@ export function CommentControls({
       </section>
 
       {/* コントロールバー */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <LoadingButton
             onClick={onSearch}
             isLoading={isLoading}
@@ -111,7 +162,14 @@ export function CommentControls({
             <option value="120">120s</option>
           </select>
         </div>
-        <div className="text-[12px] text-slate-500 dark:text-slate-400">
+        <div
+          style={{
+            fontFamily: 'var(--f-mono)',
+            fontSize: '11px',
+            letterSpacing: '0.1em',
+            color: 'var(--c-ink-mute)',
+          }}
+        >
           {commentsCount}件中 {checkedCount}件済 | 最終更新: {lastUpdated}
         </div>
       </div>

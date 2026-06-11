@@ -9,7 +9,6 @@ import { StatsCard } from './components/StatsCard'
 import { Controls } from './components/Controls'
 import { UserTable } from './components/UserTable'
 import { Toast } from './components/Toast'
-import { ThemeToggle } from './components/ThemeToggle'
 import { Tabs } from './components/Tabs'
 import type { TabType } from './components/Tabs'
 import { CommentControls } from './components/CommentTab/CommentControls'
@@ -68,8 +67,6 @@ export default function App() {
     loadingStates,
   } = state
 
-  // デバッグログはテスト環境では無効化
-
   // 名前読み上げタブの自動更新
   useAutoRefresh(intervalSec, actions.onPullSilent)
 
@@ -83,21 +80,46 @@ export default function App() {
   )
 
   return (
-    <div className="min-h-screen bg-canvas-light dark:bg-canvas-dark text-slate-900 dark:text-slate-100">
-      <div className="fixed inset-0 -z-10 bg-field" />
-      <main className="mx-auto max-w-4xl px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
-          </div>
-          <ThemeToggle />
+    <div className="min-h-screen" style={{ background: 'var(--c-bg)', color: 'var(--c-ink)' }}>
+      {/* Topbar */}
+      <header className="topbar">
+        <div className="topbar__left">
+          <span className="topbar__dot" aria-hidden="true" />
+          <span className="topbar__brand">OBSIDIAN ENGINE</span>
+        </div>
+        <div className="topbar__center" aria-hidden="true">
+          配信卓の隣にあるツール箱
+        </div>
+        <div className="topbar__right">
+          <a
+            href="https://github.com/obsidian-engine/youtube-comment-user-list"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="topbar__link"
+          >
+            SOURCE
+          </a>
+        </div>
+      </header>
+
+      <main className="relative z-10 mx-auto max-w-4xl px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
+        <div className="flex items-center">
+          <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
         </div>
 
         {errorMsg && (
           <div
             role="alert"
             aria-live="assertive"
-            className="rounded-lg ring-1 ring-rose-300/60 bg-rose-50 text-rose-800 px-4 py-3"
+            className="border-l-4 px-4 py-3 text-sm"
+            style={{
+              borderLeftColor: 'var(--c-error)',
+              background: 'rgba(179,0,27,0.06)',
+              color: 'var(--c-error)',
+              borderTop: '1px solid rgba(179,0,27,0.18)',
+              borderRight: '1px solid rgba(179,0,27,0.18)',
+              borderBottom: '1px solid rgba(179,0,27,0.18)',
+            }}
           >
             {errorMsg}
           </div>
@@ -150,7 +172,15 @@ export default function App() {
               <div
                 role="alert"
                 aria-live="assertive"
-                className="rounded-lg ring-1 ring-rose-300/60 bg-rose-50 text-rose-800 px-4 py-3"
+                className="border-l-4 px-4 py-3 text-sm"
+                style={{
+                  borderLeftColor: 'var(--c-error)',
+                  background: 'rgba(179,0,27,0.06)',
+                  color: 'var(--c-error)',
+                  borderTop: '1px solid rgba(179,0,27,0.18)',
+                  borderRight: '1px solid rgba(179,0,27,0.18)',
+                  borderBottom: '1px solid rgba(179,0,27,0.18)',
+                }}
               >
                 {commentSearch.errorMsg}
               </div>
@@ -185,7 +215,15 @@ export default function App() {
               <div
                 role="alert"
                 aria-live="assertive"
-                className="rounded-lg ring-1 ring-rose-300/60 bg-rose-50 text-rose-800 px-4 py-3"
+                className="border-l-4 px-4 py-3 text-sm"
+                style={{
+                  borderLeftColor: 'var(--c-error)',
+                  background: 'rgba(179,0,27,0.06)',
+                  color: 'var(--c-error)',
+                  borderTop: '1px solid rgba(179,0,27,0.18)',
+                  borderRight: '1px solid rgba(179,0,27,0.18)',
+                  borderBottom: '1px solid rgba(179,0,27,0.18)',
+                }}
               >
                 {pollCount.errorMsg}
               </div>

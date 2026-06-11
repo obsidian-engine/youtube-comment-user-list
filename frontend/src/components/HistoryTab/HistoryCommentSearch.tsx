@@ -25,36 +25,112 @@ export function HistoryCommentSearch({ comments }: HistoryCommentSearchProps) {
   }
 
   return (
-    <section className="rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-white/80 dark:bg-white/5 backdrop-blur p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">コメント検索</h3>
+    <section
+      style={{
+        border: '1px solid var(--c-line-strong)',
+        background: 'var(--c-bg-2)',
+        padding: '20px 24px',
+      }}
+      className="space-y-3"
+    >
+      <h3
+        style={{
+          fontFamily: 'var(--f-mono)',
+          fontSize: '11px',
+          letterSpacing: '0.2em',
+          textTransform: 'uppercase',
+          color: 'var(--c-accent-2)',
+        }}
+      >
+        コメント検索
+      </h3>
       <input
         type="text"
         value={keyword}
         onChange={(e) => setKeyword(e.target.value)}
         placeholder="キーワードで絞り込み"
         aria-label="コメント検索キーワード"
-        className="w-full px-3 py-2 rounded-md bg-white/90 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-neutral-400/60 text-[14px]"
+        style={{
+          width: '100%',
+          padding: '9px 12px',
+          background: 'var(--c-bg)',
+          border: '1px solid var(--c-line-strong)',
+          color: 'var(--c-ink)',
+          fontFamily: 'var(--f-mono)',
+          fontSize: '13px',
+          outline: 'none',
+        }}
       />
-      <div className="text-[12px] text-slate-500 dark:text-slate-400">
+      <div
+        style={{
+          fontFamily: 'var(--f-mono)',
+          fontSize: '11px',
+          letterSpacing: '0.1em',
+          color: 'var(--c-ink-mute)',
+        }}
+      >
         {filtered.length} / {comments.length} 件
       </div>
       {filtered.length === 0 ? (
-        <p className="py-4 text-center text-slate-500 dark:text-slate-400 text-[13px]">
+        <p
+          style={{
+            padding: '16px 0',
+            textAlign: 'center',
+            fontFamily: 'var(--f-mono)',
+            fontSize: '12px',
+            color: 'var(--c-ink-mute)',
+          }}
+        >
           コメントがありません
         </p>
       ) : (
-        <ul className="divide-y divide-slate-200/60 dark:divide-slate-600/40 max-h-96 overflow-y-auto">
+        <ul
+          style={{
+            maxHeight: '384px',
+            overflowY: 'auto',
+          }}
+        >
           {filtered.map((c) => (
-            <li key={c.id} className="py-2.5 space-y-0.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200 truncate">
+            <li
+              key={c.id}
+              style={{
+                padding: '10px 0',
+                borderBottom: '1px solid var(--c-line)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  marginBottom: '2px',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: 'var(--c-ink)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
                   {c.displayName}
                 </span>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0">
+                <span
+                  style={{
+                    fontFamily: 'var(--f-mono)',
+                    fontSize: '11px',
+                    color: 'var(--c-ink-mute)',
+                    flexShrink: 0,
+                  }}
+                >
                   {formatDate(c.publishedAt)}
                 </span>
               </div>
-              <p className="text-[13px] text-slate-600 dark:text-slate-300">{c.message}</p>
+              <p style={{ fontSize: '13px', color: 'var(--c-ink-dim)' }}>{c.message}</p>
             </li>
           ))}
         </ul>

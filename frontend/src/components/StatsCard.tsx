@@ -11,11 +11,9 @@ interface StatsCardProps {
 
 const getMonitoringStartTime = (startTime?: string): string => {
   if (!startTime) return '未開始'
-
   try {
     const start = new Date(startTime)
     if (isNaN(start.getTime())) return '未開始'
-
     return start.toLocaleString('ja-JP', {
       year: 'numeric',
       month: '2-digit',
@@ -23,7 +21,7 @@ const getMonitoringStartTime = (startTime?: string): string => {
       hour: '2-digit',
       minute: '2-digit',
     })
-  } catch (error) {
+  } catch {
     return '未開始'
   }
 }
@@ -39,106 +37,114 @@ export function StatsCard({
   const totalUsers = users.length
   const monitoringStartTime = getMonitoringStartTime(active ? startTime : undefined)
 
+  const cardStyle: React.CSSProperties = {
+    background: 'var(--c-bg-2)',
+    border: '1px solid var(--c-line-strong)',
+    padding: '20px 24px',
+  }
+
+  const labelStyle: React.CSSProperties = {
+    fontFamily: 'var(--f-mono)',
+    fontSize: '10px',
+    letterSpacing: '0.2em',
+    textTransform: 'uppercase',
+    color: 'var(--c-ink-mute)',
+    marginBottom: '4px',
+  }
+
+  const valueStyle: React.CSSProperties = {
+    fontFamily: 'var(--f-mono)',
+    fontSize: '18px',
+    fontWeight: 700,
+    color: 'var(--c-ink)',
+    tabularNums: true,
+  } as React.CSSProperties
+
   return (
-    <div className="overflow-hidden rounded-lg shadow-subtle ring-1 ring-black/5 dark:ring-white/10 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800/50 dark:to-slate-700/50 backdrop-blur">
-      <div className="px-4 py-4 md:px-6 md:py-5">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
-          {/* 総ユーザー数 */}
-          <div className="flex items-center gap-2 md:gap-3 min-w-0">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-blue-500/10 dark:bg-blue-400/10 flex items-center justify-center">
-                <span className="text-base md:text-lg">👥</span>
-              </div>
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 truncate">
-                総ユーザー数
-              </div>
-              <div className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
-                {totalUsers}
-                <span className="text-xs md:text-sm font-normal text-slate-500 dark:text-slate-400 ml-1">
-                  人
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* 監視開始時間 */}
-          <div className="flex items-center gap-2 md:gap-3 min-w-0">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-purple-500/10 dark:bg-purple-400/10 flex items-center justify-center">
-                <span className="text-base md:text-lg">⏰</span>
-              </div>
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 truncate">
-                監視開始時間
-              </div>
-              <div className="font-bold text-slate-900 dark:text-white">
-                <span className="text-sm md:text-lg break-all">{monitoringStartTime}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 画面最終更新 */}
-          <div className="flex items-center gap-2 md:gap-3 min-w-0">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-green-500/10 dark:bg-green-400/10 flex items-center justify-center">
-                <span className="text-base md:text-lg">🔄</span>
-              </div>
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 truncate">
-                画面最終更新
-              </div>
-              <div className="font-bold text-slate-900 dark:text-white">
-                <span className="text-sm md:text-lg tabular-nums">{lastUpdated || '--:--:--'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* クラウド保存 */}
-          <div className="flex items-center gap-2 md:gap-3 min-w-0">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-sky-500/10 dark:bg-sky-400/10 flex items-center justify-center">
-                <span className="text-base md:text-lg">☁️</span>
-              </div>
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 truncate">
-                クラウド保存
-              </div>
-              <div className="font-bold text-slate-900 dark:text-white">
-                <span className="text-sm md:text-lg tabular-nums">{lastSnapshotAt || '--:--'}</span>
-              </div>
-            </div>
+    <div style={cardStyle}>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* 総ユーザー数 */}
+        <div>
+          <div style={labelStyle}>総ユーザー数</div>
+          <div style={valueStyle}>
+            {totalUsers}
+            <span
+              style={{
+                fontSize: '12px',
+                fontWeight: 400,
+                color: 'var(--c-ink-dim)',
+                marginLeft: '4px',
+              }}
+            >
+              人
+            </span>
           </div>
         </div>
 
-        {/* ステータスインジケーター */}
-        <div className="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-600/40">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-3 h-3 rounded-full ${
-                  active
-                    ? 'bg-green-400 animate-pulse shadow-lg shadow-green-400/50'
-                    : 'bg-slate-300 dark:bg-slate-600'
-                }`}
-              />
-              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                {active ? '監視中' : '停止中'}
-              </span>
-            </div>
-            {skippedCount > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                  スキップ: {skippedCount}件
-                </span>
-              </div>
-            )}
-          </div>
+        {/* 監視開始時間 */}
+        <div>
+          <div style={labelStyle}>監視開始</div>
+          <div style={{ ...valueStyle, fontSize: '13px' }}>{monitoringStartTime}</div>
         </div>
+
+        {/* 画面最終更新 */}
+        <div>
+          <div style={labelStyle}>最終更新</div>
+          <div style={valueStyle}>{lastUpdated || '--:--:--'}</div>
+        </div>
+
+        {/* クラウド保存 */}
+        <div>
+          <div style={labelStyle}>クラウド保存</div>
+          <div style={valueStyle}>{lastSnapshotAt || '--:--'}</div>
+        </div>
+      </div>
+
+      {/* ステータスインジケーター */}
+      <div
+        style={{
+          marginTop: '16px',
+          paddingTop: '16px',
+          borderTop: '1px solid var(--c-line)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: active ? 'var(--c-success)' : 'var(--c-ink-mute)',
+              animation: active ? 'pulse 1.6s ease-in-out infinite' : 'none',
+            }}
+          />
+          <span
+            style={{
+              fontFamily: 'var(--f-mono)',
+              fontSize: '11px',
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              color: active ? 'var(--c-success)' : 'var(--c-ink-mute)',
+            }}
+          >
+            {active ? '監視中' : '停止中'}
+          </span>
+        </div>
+        {skippedCount > 0 && (
+          <span
+            style={{
+              fontFamily: 'var(--f-mono)',
+              fontSize: '11px',
+              letterSpacing: '0.14em',
+              color: 'var(--c-ink-dim)',
+            }}
+          >
+            スキップ: {skippedCount}件
+          </span>
+        )}
       </div>
     </div>
   )
