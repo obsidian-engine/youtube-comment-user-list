@@ -46,7 +46,7 @@ const outlineStyle: React.CSSProperties = {
   fontSize: '12px',
   letterSpacing: '0.16em',
   textTransform: 'uppercase',
-  border: '1px solid var(--c-line-strong)',
+  border: '2px solid var(--c-ink)',
   cursor: 'pointer',
   transition: 'background 0.2s, border-color 0.2s, color 0.2s',
 }

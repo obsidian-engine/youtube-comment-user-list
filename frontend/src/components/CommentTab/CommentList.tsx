@@ -22,13 +22,7 @@ const thStyle: React.CSSProperties = {
 
 export function CommentList({ comments, isChecked, onToggle, isLoading }: CommentListProps) {
   return (
-    <section
-      style={{
-        overflow: 'hidden',
-        border: '1px solid var(--c-line-strong)',
-        background: 'var(--c-bg-2)',
-      }}
-    >
+    <section className="card-editorial">
       <table className="w-full table-fixed" style={{ fontSize: '14px', lineHeight: 1.7 }}>
         <thead>
           <tr>

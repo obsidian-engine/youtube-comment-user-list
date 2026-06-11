@@ -197,14 +197,15 @@ export function HistoryList({ snapshots, loading, error, onSelect }: HistoryList
           該当する履歴がありません
         </p>
       ) : (
-        <section
-          style={{
-            overflow: 'hidden',
-            border: '1px solid var(--c-line-strong)',
-            background: 'var(--c-bg-2)',
-          }}
-        >
-          <table className="w-full table-fixed" style={{ fontSize: '14px', lineHeight: 1.7 }}>
+        <section className="card-editorial">
+          <div className="eyebrow">
+            ARCHIVE
+            <div className="eyebrow__rule" />
+          </div>
+          <table
+            className="w-full table-fixed"
+            style={{ fontSize: '14px', lineHeight: 1.7, marginTop: '8px' }}
+          >
             <thead>
               <tr>
                 <th style={{ ...thStyle, textAlign: 'left' }}>動画ID</th>
@@ -227,7 +228,7 @@ export function HistoryList({ snapshots, loading, error, onSelect }: HistoryList
                     }}
                     onMouseEnter={(e) => {
                       (e.currentTarget as HTMLTableRowElement).style.background =
-                        'rgba(0,108,138,0.06)'
+                        'rgba(0,95,120,0.06)'
                     }}
                     onMouseLeave={(e) => {
                       (e.currentTarget as HTMLTableRowElement).style.background = rowBg
@@ -301,7 +302,7 @@ export function HistoryList({ snapshots, loading, error, onSelect }: HistoryList
                         }}
                         onMouseEnter={(e) => {
                           (e.currentTarget as HTMLButtonElement).style.background =
-                            'rgba(0,108,138,0.08)'
+                            'rgba(0,95,120,0.08)'
                         }}
                         onMouseLeave={(e) => {
                           (e.currentTarget as HTMLButtonElement).style.background = 'transparent'

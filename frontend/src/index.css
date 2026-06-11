@@ -3,18 +3,19 @@
 @tailwind utilities;
 
 /* ================================================================
-   Design tokens — Daylight Broadcast Studio (light editorial)
+   Design tokens — Bold Editorial / Broadcast Newsprint
    ================================================================ */
 :root {
-  --c-bg: #f7f5ef;
-  --c-bg-2: #ffffff;
+  --c-bg: #f3f0e6;          /* warm beige paper */
+  --c-bg-2: #fdfcf8;        /* warm card white */
+  --c-bg-3: #ece7d8;        /* sub-panel, eyebrow strip */
   --c-ink: #0a0a0f;
-  --c-ink-dim: #565664;
-  --c-ink-mute: #9a9aa6;
-  --c-line: rgba(10, 10, 15, 0.08);
-  --c-line-strong: rgba(10, 10, 15, 0.18);
-  --c-accent: #e6004c;
-  --c-accent-2: #006c8a;
+  --c-ink-dim: #4a4a56;
+  --c-ink-mute: #6a6a78;
+  --c-line: rgba(10, 10, 15, 0.14);
+  --c-line-strong: rgba(10, 10, 15, 0.28);
+  --c-accent: #d6003f;       /* deep magenta newsprint ink */
+  --c-accent-2: #005f78;
   --c-success: #2d7a3f;
   --c-error: #b3001b;
 
@@ -49,7 +50,20 @@ body {
   color: #fff;
 }
 
-/* Atmosphere — subtle grid */
+/* Keyboard focus ring (a11y) */
+:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Placeholder contrast (WCAG AA) */
+::placeholder {
+  color: #6a6a78;
+  opacity: 1;
+}
+
+/* Atmosphere — subtle grid (stronger, tighter center focus) */
 body::before {
   content: "";
   position: fixed;
@@ -57,11 +71,11 @@ body::before {
   pointer-events: none;
   z-index: 0;
   background-image:
-    linear-gradient(to right, rgba(10, 10, 15, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(10, 10, 15, 0.04) 1px, transparent 1px);
+    linear-gradient(to right, rgba(10, 10, 15, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(10, 10, 15, 0.06) 1px, transparent 1px);
   background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 80%);
-  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 80%);
+  mask-image: radial-gradient(ellipse at 50% 25%, #000 18%, transparent 65%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 25%, #000 18%, transparent 65%);
 }
 
 /* ================================================================
@@ -76,7 +90,7 @@ body::before {
   align-items: center;
   gap: 24px;
   padding: max(10px, env(safe-area-inset-top)) max(var(--gutter), env(safe-area-inset-right)) 10px max(var(--gutter), env(safe-area-inset-left));
-  background: rgba(247, 245, 239, 0.78);
+  background: rgba(243, 240, 230, 0.82);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--c-line);
@@ -147,17 +161,99 @@ body::before {
 }
 
 /* ================================================================
+   Eyebrow rule line (section header)
+   ================================================================ */
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px 0;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--c-ink-dim);
+}
+.eyebrow::before {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 3px;
+  background: var(--c-accent);
+  flex-shrink: 0;
+}
+.eyebrow__rule {
+  flex: 1;
+  height: 1px;
+  background: var(--c-ink);
+  opacity: 0.6;
+}
+.eyebrow__status {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--c-ink-mute);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.eyebrow__status--live { color: var(--c-accent); }
+.eyebrow__status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.eyebrow__status--live .eyebrow__status-dot {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* ================================================================
+   Editorial card (left magenta stripe)
+   ================================================================ */
+.card-editorial {
+  background: var(--c-bg-2);
+  border: 1px solid var(--c-line);
+  border-left: 4px solid var(--c-accent);
+  border-radius: 4px;
+  box-shadow: 0 1px 0 var(--c-line-strong);
+  overflow: hidden;
+}
+
+/* ================================================================
+   Form — bottom-border-only input
+   ================================================================ */
+.input-rule {
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--c-line-strong);
+  outline: none;
+  color: var(--c-ink);
+  font-family: var(--f-mono);
+  font-size: 13px;
+  padding: 9px 4px;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+.input-rule:focus {
+  border-bottom-color: var(--c-accent);
+}
+.input-rule::placeholder {
+  color: var(--c-ink-mute);
+  opacity: 1;
+}
+.input-rule:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ================================================================
    Utility
    ================================================================ */
 .truncate-1 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-:focus-visible {
-  outline: 2px solid var(--c-accent-2);
-  outline-offset: 3px;
 }
 
 @keyframes spin {

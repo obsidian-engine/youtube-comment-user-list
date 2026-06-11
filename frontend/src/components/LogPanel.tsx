@@ -31,44 +31,52 @@ const thStyle: React.CSSProperties = {
 export function LogPanel({ entries, onClear }: LogPanelProps) {
   return (
     <div className="space-y-3">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span
+      <section className="card-editorial">
+        <div
           style={{
-            fontFamily: 'var(--f-mono)',
-            fontSize: '11px',
-            letterSpacing: '0.14em',
-            color: 'var(--c-ink-mute)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 4px 0 0',
           }}
         >
-          {entries.length} 件
-        </span>
-        <button
-          onClick={onClear}
-          disabled={entries.length === 0}
-          style={{
-            fontFamily: 'var(--f-mono)',
-            fontSize: '11px',
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
-            padding: '6px 12px',
-            background: 'transparent',
-            color: entries.length === 0 ? 'var(--c-ink-mute)' : 'var(--c-ink)',
-            border: '1px solid var(--c-line-strong)',
-            cursor: entries.length === 0 ? 'not-allowed' : 'pointer',
-            opacity: entries.length === 0 ? 0.5 : 1,
-          }}
-        >
-          クリア
-        </button>
-      </div>
+          <div className="eyebrow" style={{ flex: 1 }}>
+            CONSOLE
+            <div className="eyebrow__rule" />
+          </div>
+          <div style={{ padding: '0 16px' }}>
+            <span
+              style={{
+                fontFamily: 'var(--f-mono)',
+                fontSize: '11px',
+                letterSpacing: '0.14em',
+                color: 'var(--c-ink-mute)',
+                marginRight: '12px',
+              }}
+            >
+              {entries.length} 件
+            </span>
+            <button
+              onClick={onClear}
+              disabled={entries.length === 0}
+              style={{
+                fontFamily: 'var(--f-mono)',
+                fontSize: '11px',
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                padding: '6px 12px',
+                background: 'transparent',
+                color: entries.length === 0 ? 'var(--c-ink-mute)' : 'var(--c-ink)',
+                border: '1px solid var(--c-line-strong)',
+                cursor: entries.length === 0 ? 'not-allowed' : 'pointer',
+                opacity: entries.length === 0 ? 0.5 : 1,
+              }}
+            >
+              クリア
+            </button>
+          </div>
+        </div>
 
-      <section
-        style={{
-          overflow: 'hidden',
-          border: '1px solid var(--c-line-strong)',
-          background: 'var(--c-bg-2)',
-        }}
-      >
         <table className="w-full table-fixed" style={{ fontSize: '13px', lineHeight: '1.7' }}>
           <thead>
             <tr>

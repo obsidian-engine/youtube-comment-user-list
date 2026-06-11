@@ -272,23 +272,24 @@ export function UserTable({
   }, [users, sortState])
 
   return (
-    <section
-      style={{
-        overflow: 'hidden',
-        border: '1px solid var(--c-line-strong)',
-        background: 'var(--c-bg-2)',
-      }}
-    >
+    <section className="card-editorial">
+      {/* Eyebrow */}
+      <div className="eyebrow">
+        ROSTER
+        <div className="eyebrow__rule" />
+      </div>
+
       {/* コントロールヘッダー */}
       <div
         style={{
           padding: '10px 16px',
           borderBottom: '1px solid var(--c-line)',
-          background: 'var(--c-bg)',
+          background: 'var(--c-bg-3)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '12px',
+          marginTop: '12px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -424,8 +425,7 @@ export function UserTable({
                   transition: 'background 0.15s',
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLTableRowElement).style.background =
-                    'rgba(0,108,138,0.06)'
+                  (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(0,95,120,0.06)'
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLTableRowElement).style.background = rowBg

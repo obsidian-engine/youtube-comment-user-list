@@ -6,29 +6,30 @@ interface TabsProps {
 }
 
 export function Tabs({ activeTab, onTabChange }: TabsProps) {
-  const activeStyle: React.CSSProperties = {
-    background: 'var(--c-ink)',
-    color: '#fff',
+  const baseStyle: React.CSSProperties = {
     fontFamily: 'var(--f-mono)',
     fontSize: '12px',
     letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-    border: '1px solid var(--c-ink)',
-    padding: '8px 16px',
-    cursor: 'pointer',
-    transition: 'background 0.2s, color 0.2s, border-color 0.2s',
-  }
-  const inactiveStyle: React.CSSProperties = {
     background: 'transparent',
-    color: 'var(--c-ink-dim)',
-    fontFamily: 'var(--f-mono)',
-    fontSize: '12px',
-    letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-    border: '1px solid var(--c-line-strong)',
-    padding: '8px 16px',
+    border: 'none',
+    borderBottom: '3px solid transparent',
+    padding: '10px 16px 8px',
     cursor: 'pointer',
-    transition: 'background 0.2s, color 0.2s, border-color 0.2s',
+    transition: 'color 0.15s, border-color 0.15s',
+    outline: 'none',
+  }
+
+  const activeStyle: React.CSSProperties = {
+    ...baseStyle,
+    color: 'var(--c-ink)',
+    fontWeight: 700,
+    borderBottomColor: 'var(--c-accent)',
+  }
+
+  const inactiveStyle: React.CSSProperties = {
+    ...baseStyle,
+    color: 'var(--c-ink-dim)',
+    fontWeight: 500,
   }
 
   const tabStyle = (tab: TabType) => (activeTab === tab ? activeStyle : inactiveStyle)
@@ -43,9 +44,34 @@ export function Tabs({ activeTab, onTabChange }: TabsProps) {
   ]
 
   return (
-    <div className="flex flex-wrap gap-1">
+    <div
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '0',
+        borderBottom: '1px solid var(--c-line-strong)',
+        width: '100%',
+      }}
+    >
       {tabs.map((t) => (
-        <button key={t.id} onClick={() => onTabChange(t.id)} style={tabStyle(t.id)}>
+        <button
+          key={t.id}
+          onClick={() => onTabChange(t.id)}
+          style={tabStyle(t.id)}
+          onMouseEnter={(e) => {
+            if (activeTab !== t.id) {
+              (e.currentTarget as HTMLButtonElement).style.borderBottomColor =
+                'rgba(10, 10, 15, 0.25)'
+              ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--c-ink)'
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (activeTab !== t.id) {
+              (e.currentTarget as HTMLButtonElement).style.borderBottomColor = 'transparent'
+              ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--c-ink-dim)'
+            }
+          }}
+        >
           {t.label}
         </button>
       ))}

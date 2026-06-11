@@ -59,14 +59,13 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
   }
 
   return (
-    <section
-      style={{
-        overflow: 'hidden',
-        border: '1px solid var(--c-line-strong)',
-        background: 'var(--c-bg-2)',
-      }}
-    >
-      <table className="w-full" style={{ fontSize: '14px' }}>
+    <section className="card-editorial">
+      <div className="eyebrow">
+        TALLY · RESULTS
+        <div className="eyebrow__rule" />
+      </div>
+
+      <table className="w-full" style={{ fontSize: '14px', marginTop: '8px' }}>
         <thead>
           <tr>
             <th style={{ ...thStyle, textAlign: 'left' }}>キーワード</th>
@@ -87,11 +86,11 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
                   }}
                   onClick={() => toggleExpand(word)}
                   onMouseEnter={(e) => {
-                    ;(e.currentTarget as HTMLTableRowElement).style.background =
-                      'rgba(0,108,138,0.06)'
+                    (e.currentTarget as HTMLTableRowElement).style.background =
+                      'rgba(0,95,120,0.06)'
                   }}
                   onMouseLeave={(e) => {
-                    ;(e.currentTarget as HTMLTableRowElement).style.background = ''
+                    (e.currentTarget as HTMLTableRowElement).style.background = ''
                   }}
                 >
                   <td style={{ padding: '12px 16px', color: 'var(--c-ink)' }}>

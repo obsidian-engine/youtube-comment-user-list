@@ -51,6 +51,13 @@ export default function App() {
   // リセット: 表示中の全コメントを非表示
   const handleReset = () => {
     const visibleIds = visibleComments.map((c) => c.id)
+    if (visibleIds.length === 0) return
+    if (
+      !window.confirm(
+        `表示中の ${visibleIds.length} 件のコメントを全て非表示にします。よろしいですか?`,
+      )
+    )
+      return
     hiddenState.hideAll(visibleIds)
   }
 
@@ -80,14 +87,14 @@ export default function App() {
   )
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--c-bg)', color: 'var(--c-ink)' }}>
+    <div className="min-h-dvh" style={{ background: 'var(--c-bg)', color: 'var(--c-ink)' }}>
       {/* Topbar */}
       <header className="topbar">
         <div className="topbar__left">
           <span className="topbar__dot" aria-hidden="true" />
           <span className="topbar__brand">OBSIDIAN ENGINE</span>
         </div>
-        <div className="topbar__center" aria-hidden="true">
+        <div className="topbar__center text-balance" aria-hidden="true">
           配信卓の隣にあるツール箱
         </div>
         <div className="topbar__right">

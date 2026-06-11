@@ -37,113 +37,117 @@ export function StatsCard({
   const totalUsers = users.length
   const monitoringStartTime = getMonitoringStartTime(active ? startTime : undefined)
 
-  const cardStyle: React.CSSProperties = {
-    background: 'var(--c-bg-2)',
-    border: '1px solid var(--c-line-strong)',
-    padding: '20px 24px',
-  }
-
   const labelStyle: React.CSSProperties = {
     fontFamily: 'var(--f-mono)',
     fontSize: '10px',
     letterSpacing: '0.2em',
     textTransform: 'uppercase',
     color: 'var(--c-ink-mute)',
-    marginBottom: '4px',
+    marginBottom: '6px',
   }
 
   const valueStyle: React.CSSProperties = {
-    fontFamily: 'var(--f-mono)',
-    fontSize: '18px',
-    fontWeight: 700,
+    fontFamily: 'var(--f-display)',
+    fontSize: '36px',
+    fontWeight: 400,
     color: 'var(--c-ink)',
-    tabularNums: true,
+    fontVariantNumeric: 'tabular-nums',
+    lineHeight: 1,
   } as React.CSSProperties
 
+  const valueSmStyle: React.CSSProperties = {
+    fontFamily: 'var(--f-display)',
+    fontSize: '28px',
+    fontWeight: 400,
+    color: 'var(--c-ink)',
+    fontVariantNumeric: 'tabular-nums',
+    lineHeight: 1,
+  } as React.CSSProperties
+
+  const statusClass = active ? 'eyebrow__status eyebrow__status--live' : 'eyebrow__status'
+
   return (
-    <div style={cardStyle}>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* 総ユーザー数 */}
-        <div>
-          <div style={labelStyle}>総ユーザー数</div>
-          <div style={valueStyle}>
-            {totalUsers}
-            <span
-              style={{
-                fontSize: '12px',
-                fontWeight: 400,
-                color: 'var(--c-ink-dim)',
-                marginLeft: '4px',
-              }}
-            >
-              人
-            </span>
-          </div>
-        </div>
-
-        {/* 監視開始時間 */}
-        <div>
-          <div style={labelStyle}>監視開始</div>
-          <div style={{ ...valueStyle, fontSize: '13px' }}>{monitoringStartTime}</div>
-        </div>
-
-        {/* 画面最終更新 */}
-        <div>
-          <div style={labelStyle}>最終更新</div>
-          <div style={valueStyle}>{lastUpdated || '--:--:--'}</div>
-        </div>
-
-        {/* クラウド保存 */}
-        <div>
-          <div style={labelStyle}>クラウド保存</div>
-          <div style={valueStyle}>{lastSnapshotAt || '--:--'}</div>
+    <div className="card-editorial">
+      {/* Eyebrow with status */}
+      <div className="eyebrow">
+        STATS
+        <div className="eyebrow__rule" />
+        <div className={statusClass}>
+          <div className="eyebrow__status-dot" />
+          {active ? '監視中' : '停止中'}
         </div>
       </div>
 
-      {/* ステータスインジケーター */}
-      <div
-        style={{
-          marginTop: '16px',
-          paddingTop: '16px',
-          borderTop: '1px solid var(--c-line)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ padding: '16px 20px 20px' }}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {/* 総ユーザー数 */}
+          <div>
+            <div style={labelStyle}>総ユーザー数</div>
+            <div style={valueStyle}>
+              {totalUsers}
+              <span
+                style={{
+                  fontSize: '13px',
+                  fontFamily: 'var(--f-mono)',
+                  fontWeight: 400,
+                  color: 'var(--c-ink-dim)',
+                  marginLeft: '4px',
+                }}
+              >
+                人
+              </span>
+            </div>
+          </div>
+
+          {/* 監視開始時間 */}
+          <div>
+            <div style={labelStyle}>監視開始</div>
+            <div
+              style={{
+                fontFamily: 'var(--f-mono)',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: 'var(--c-ink)',
+                lineHeight: 1.4,
+                marginTop: '4px',
+              }}
+            >
+              {monitoringStartTime}
+            </div>
+          </div>
+
+          {/* 画面最終更新 */}
+          <div>
+            <div style={labelStyle}>最終更新</div>
+            <div style={valueSmStyle}>{lastUpdated || '--:--:--'}</div>
+          </div>
+
+          {/* クラウド保存 */}
+          <div>
+            <div style={labelStyle}>クラウド保存</div>
+            <div style={valueSmStyle}>{lastSnapshotAt || '--:--'}</div>
+          </div>
+        </div>
+
+        {skippedCount > 0 && (
           <div
             style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: active ? 'var(--c-success)' : 'var(--c-ink-mute)',
-              animation: active ? 'pulse 1.6s ease-in-out infinite' : 'none',
-            }}
-          />
-          <span
-            style={{
-              fontFamily: 'var(--f-mono)',
-              fontSize: '11px',
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-              color: active ? 'var(--c-success)' : 'var(--c-ink-mute)',
+              marginTop: '12px',
+              paddingTop: '12px',
+              borderTop: '1px solid var(--c-line)',
             }}
           >
-            {active ? '監視中' : '停止中'}
-          </span>
-        </div>
-        {skippedCount > 0 && (
-          <span
-            style={{
-              fontFamily: 'var(--f-mono)',
-              fontSize: '11px',
-              letterSpacing: '0.14em',
-              color: 'var(--c-ink-dim)',
-            }}
-          >
-            スキップ: {skippedCount}件
-          </span>
+            <span
+              style={{
+                fontFamily: 'var(--f-mono)',
+                fontSize: '11px',
+                letterSpacing: '0.14em',
+                color: 'var(--c-ink-dim)',
+              }}
+            >
+              スキップ: {skippedCount}件
+            </span>
+          </div>
         )}
       </div>
     </div>

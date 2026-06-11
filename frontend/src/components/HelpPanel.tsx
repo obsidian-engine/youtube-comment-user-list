@@ -10,13 +10,7 @@ interface SectionProps {
 function Section({ id, title, defaultOpen = false, children }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <section
-      style={{
-        border: '1px solid var(--c-line-strong)',
-        background: 'var(--c-bg-2)',
-        overflow: 'hidden',
-      }}
-    >
+    <section className="card-editorial">
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -74,7 +68,7 @@ function Section({ id, title, defaultOpen = false, children }: SectionProps) {
             lineHeight: 1.75,
             color: 'var(--c-ink-dim)',
           }}
-          className="space-y-3"
+          className="space-y-3 text-pretty"
         >
           {children}
         </div>
@@ -132,6 +126,10 @@ export function HelpPanel() {
   return (
     <div className="space-y-3">
       <header className="px-1">
+        <div className="eyebrow" style={{ padding: '0 0 12px 0' }}>
+          MANUAL
+          <div className="eyebrow__rule" />
+        </div>
         <h2
           style={{
             fontFamily: 'var(--f-display)',

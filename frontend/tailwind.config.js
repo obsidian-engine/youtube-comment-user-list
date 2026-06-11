@@ -4,13 +4,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        'c-bg': '#f7f5ef',
-        'c-bg-2': '#ffffff',
+        'c-bg': '#f3f0e6',
+        'c-bg-2': '#fdfcf8',
+        'c-bg-3': '#ece7d8',
         'c-ink': '#0a0a0f',
-        'c-ink-dim': '#565664',
-        'c-ink-mute': '#9a9aa6',
-        'c-accent': '#e6004c',
-        'c-accent-2': '#006c8a',
+        'c-ink-dim': '#4a4a56',
+        'c-ink-mute': '#6a6a78',
+        'c-accent': '#d6003f',
+        'c-accent-2': '#005f78',
         'c-success': '#2d7a3f',
         'c-error': '#b3001b',
       },

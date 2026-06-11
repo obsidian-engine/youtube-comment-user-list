@@ -19,10 +19,10 @@ export function Toast({ message, type = 'success', duration = 3000, onClose }: T
     return () => clearTimeout(timer)
   }, [duration, onClose])
 
-  const bgByType: Record<string, string> = {
+  const stripeByType: Record<string, string> = {
     info: 'var(--c-accent-2)',
     success: 'var(--c-success)',
-    error: 'var(--c-error)',
+    error: 'var(--c-accent)',
   }
 
   const iconByType: Record<string, string> = {
@@ -40,14 +40,15 @@ export function Toast({ message, type = 'success', duration = 3000, onClose }: T
         zIndex: 100,
         minWidth: '300px',
         maxWidth: '400px',
-        padding: '12px 16px',
-        background: bgByType[type],
-        color: '#fff',
+        background: 'var(--c-bg-2)',
+        color: 'var(--c-ink)',
         fontFamily: 'var(--f-mono)',
         fontSize: '12px',
         letterSpacing: '0.1em',
-        border: `1px solid ${bgByType[type]}`,
-        boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+        border: '1px solid var(--c-line-strong)',
+        borderLeft: `4px solid ${stripeByType[type]}`,
+        borderRadius: '4px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
         opacity: isVisible ? 1 : 0,
         transform: isVisible ? 'translateY(0)' : 'translateY(-8px)',
         transition: 'opacity 0.3s, transform 0.3s',
@@ -56,7 +57,7 @@ export function Toast({ message, type = 'success', duration = 3000, onClose }: T
       role="status"
       aria-live="polite"
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px' }}>
         <span style={{ fontSize: '16px' }}>{iconByType[type]}</span>
         <span style={{ flex: 1 }}>{message}</span>
         <button
@@ -67,7 +68,7 @@ export function Toast({ message, type = 'success', duration = 3000, onClose }: T
           style={{
             background: 'none',
             border: 'none',
-            color: '#fff',
+            color: 'var(--c-ink-mute)',
             cursor: 'pointer',
             fontSize: '18px',
             opacity: 0.8,

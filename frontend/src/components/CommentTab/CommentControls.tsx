@@ -41,89 +41,82 @@ export function CommentControls({
   return (
     <div className="space-y-4">
       {/* キーワード管理 */}
-      <section
-        style={{
-          background: 'var(--c-bg-2)',
-          border: '1px solid var(--c-line-strong)',
-          padding: '20px 24px',
-        }}
-      >
-        <h2
-          style={{
-            fontFamily: 'var(--f-mono)',
-            fontSize: '11px',
-            letterSpacing: '0.2em',
-            textTransform: 'uppercase',
-            color: 'var(--c-accent-2)',
-            marginBottom: '14px',
-          }}
-        >
-          検索キーワード（OR検索）
-        </h2>
-
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-            placeholder="キーワードを入力"
-            disabled={isLoading}
-            style={{
-              flex: 1,
-              padding: '9px 12px',
-              background: 'var(--c-bg)',
-              border: '1px solid var(--c-line-strong)',
-              color: 'var(--c-ink)',
-              fontFamily: 'var(--f-mono)',
-              fontSize: '13px',
-              outline: 'none',
-            }}
-          />
-          <LoadingButton
-            onClick={handleAdd}
-            disabled={isLoading || !input.trim()}
-            variant="primary"
-          >
-            追加
-          </LoadingButton>
+      <section className="card-editorial">
+        <div className="eyebrow">
+          FEED
+          <div className="eyebrow__rule" />
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {keywords.map((word) => (
-            <span
-              key={word}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '4px 10px',
-                background: 'var(--c-ink)',
-                color: '#fff',
-                fontFamily: 'var(--f-mono)',
-                fontSize: '12px',
-                letterSpacing: '0.08em',
-              }}
+        <div style={{ padding: '16px 20px 20px' }}>
+          <h2
+            style={{
+              fontFamily: 'var(--f-mono)',
+              fontSize: '11px',
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              color: 'var(--c-accent-2)',
+              marginBottom: '14px',
+            }}
+          >
+            検索キーワード（OR検索）
+          </h2>
+
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              placeholder="キーワードを入力"
+              disabled={isLoading}
+              className="input-rule"
+              style={{ flex: 1 }}
+            />
+            <LoadingButton
+              onClick={handleAdd}
+              disabled={isLoading || !input.trim()}
+              variant="primary"
             >
-              {word}
-              <button
-                onClick={() => onRemoveKeyword(word)}
-                disabled={isLoading}
+              追加
+            </LoadingButton>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {keywords.map((word) => (
+              <span
+                key={word}
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'rgba(255,255,255,0.6)',
-                  cursor: 'pointer',
-                  padding: '0 2px',
-                  fontSize: '14px',
-                  lineHeight: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  background: 'var(--c-ink)',
+                  color: '#fff',
+                  fontFamily: 'var(--f-mono)',
+                  fontSize: '12px',
+                  letterSpacing: '0.08em',
                 }}
-                aria-label={`${word}を削除`}
               >
-                ×
-              </button>
-            </span>
-          ))}
+                {word}
+                <button
+                  onClick={() => onRemoveKeyword(word)}
+                  disabled={isLoading}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'rgba(255,255,255,0.6)',
+                    cursor: 'pointer',
+                    padding: '0 2px',
+                    fontSize: '14px',
+                    lineHeight: 1,
+                  }}
+                  aria-label={`${word}を削除`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
         </div>
       </section>
 
