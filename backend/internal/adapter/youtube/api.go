@@ -139,53 +139,65 @@ func isTransientError(err error) bool {
 	return false
 }
 
-func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
+func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (port.VideoMeta, error) {
 	log.Printf("[YOUTUBE_API] GetActiveLiveChatID called with videoID: %s", videoID)
 
 	if a.APIKey == "" {
 		log.Printf("[YOUTUBE_API] Error: API key is empty")
-		return "", errors.New("youtube api key is required")
+		return port.VideoMeta{}, errors.New("youtube api key is required")
 	}
 
 	if videoID == "" {
 		log.Printf("[YOUTUBE_API] Error: videoID is empty")
-		return "", errors.New("video ID is required")
+		return port.VideoMeta{}, errors.New("video ID is required")
 	}
 
 	// YouTube Data API v3を使用して動画情報を取得
 	service, err := youtube.NewService(ctx, option.WithAPIKey(a.APIKey))
 	if err != nil {
 		log.Printf("[YOUTUBE_API] Failed to create YouTube service: %v", err)
-		return "", err
+		return port.VideoMeta{}, err
 	}
 
-	// 動画情報を取得してライブチャットIDを取得
-	call := service.Videos.List([]string{"liveStreamingDetails"}).Id(videoID)
+	// snippet を追加して title / channelTitle を同一 call で取得する
+	call := service.Videos.List([]string{"liveStreamingDetails", "snippet"}).Id(videoID)
 	response, err := call.Do()
 	if err != nil {
 		log.Printf("[YOUTUBE_API] Failed to get video details: %v", err)
-		return "", classifyAPIError(err)
+		return port.VideoMeta{}, classifyAPIError(err)
 	}
 
 	if len(response.Items) == 0 {
 		log.Printf("[YOUTUBE_API] Video not found: %s", videoID)
-		return "", &domain.APIError{Code: domain.ErrCodeVideoNotFound, Message: "video not found"}
+		return port.VideoMeta{}, &domain.APIError{Code: domain.ErrCodeVideoNotFound, Message: "video not found"}
 	}
 
 	video := response.Items[0]
 	if video.LiveStreamingDetails == nil {
 		log.Printf("[YOUTUBE_API] Video is not a live stream: %s", videoID)
-		return "", &domain.APIError{Code: domain.ErrCodeVideoNotFound, Message: "video is not a live stream"}
+		return port.VideoMeta{}, &domain.APIError{Code: domain.ErrCodeVideoNotFound, Message: "video is not a live stream"}
 	}
 
 	if video.LiveStreamingDetails.ActiveLiveChatId == "" {
 		log.Printf("[YOUTUBE_API] Live chat is not active for video: %s", videoID)
-		return "", &domain.APIError{Code: domain.ErrCodeLiveChatEnded, Message: "live chat is not active"}
+		return port.VideoMeta{}, &domain.APIError{Code: domain.ErrCodeLiveChatEnded, Message: "live chat is not active"}
 	}
 
 	liveChatID := video.LiveStreamingDetails.ActiveLiveChatId
-	log.Printf("[YOUTUBE_API] Found active liveChatID: %s", liveChatID)
-	return liveChatID, nil
+
+	// snippet から title / channelTitle を抽出 (nil ガード: 空文字で続行)
+	var title, channelTitle string
+	if video.Snippet != nil {
+		title = video.Snippet.Title
+		channelTitle = video.Snippet.ChannelTitle
+	}
+
+	log.Printf("[YOUTUBE_API] Found active liveChatID: %s title: %q channel: %q", liveChatID, title, channelTitle)
+	return port.VideoMeta{
+		LiveChatID:   liveChatID,
+		Title:        title,
+		ChannelTitle: channelTitle,
+	}, nil
 }
 
 func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) (items []port.ChatMessage, nextPageToken string, pollingIntervalMillis int64, skippedCount int, isEnded bool, err error) {

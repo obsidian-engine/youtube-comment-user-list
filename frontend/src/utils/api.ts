@@ -184,12 +184,16 @@ export interface HistorySummary {
   savedAt: string
   userCount: number
   commentCount: number
+  videoTitle?: string
+  channelTitle?: string
 }
 
 export interface HistorySnapshot {
   videoId: string
   liveChatId?: string
   savedAt: string
+  videoTitle?: string
+  channelTitle?: string
   users: User[]
   comments: Comment[]
   processedMsgs?: string[]

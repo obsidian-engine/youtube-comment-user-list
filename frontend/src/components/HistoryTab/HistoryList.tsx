@@ -207,7 +207,8 @@ export function HistoryList({ snapshots, loading, error, onSelect }: HistoryList
           >
             <thead>
               <tr>
-                <th style={{ ...thStyle, textAlign: 'left' }}>動画ID</th>
+                <th style={{ ...thStyle, textAlign: 'left' }}>動画タイトル</th>
+                <th style={{ ...thStyle, textAlign: 'left', width: '120px' }}>動画ID</th>
                 <th style={{ ...thStyle, width: '160px' }}>保存日時</th>
                 <th style={{ ...thStyle, width: '100px' }}>視聴者数</th>
                 <th style={{ ...thStyle, width: '100px' }}>コメント数</th>
@@ -236,9 +237,51 @@ export function HistoryList({ snapshots, loading, error, onSelect }: HistoryList
                     <td
                       style={{
                         padding: '10px 16px',
-                        fontFamily: 'var(--f-mono)',
-                        fontSize: '12px',
+                        fontSize: '13px',
                         color: 'var(--c-ink)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxWidth: '280px',
+                      }}
+                      title={snap.videoTitle ?? snap.videoId}
+                    >
+                      {snap.videoTitle ? (
+                        <span>
+                          <span style={{ display: 'block', fontWeight: 500 }}>
+                            {snap.videoTitle}
+                          </span>
+                          {snap.channelTitle && (
+                            <span
+                              style={{
+                                display: 'block',
+                                fontSize: '11px',
+                                color: 'var(--c-ink-dim)',
+                                marginTop: '2px',
+                              }}
+                            >
+                              {snap.channelTitle}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontFamily: 'var(--f-mono)',
+                            fontSize: '11px',
+                            color: 'var(--c-ink-mute)',
+                          }}
+                        >
+                          {snap.videoId}
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      style={{
+                        padding: '10px 16px',
+                        fontFamily: 'var(--f-mono)',
+                        fontSize: '11px',
+                        color: 'var(--c-ink-mute)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',

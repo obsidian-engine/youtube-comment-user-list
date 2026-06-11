@@ -47,14 +47,55 @@ export function HistoryDetail({ snapshot, onBack }: HistoryDetailProps) {
         >
           閲覧モード (read-only)
         </span>
-        <span
-          style={{
-            fontFamily: 'var(--f-mono)',
-            fontSize: '12px',
-            color: 'var(--c-ink-dim)',
-          }}
-        >
-          {snapshot.videoId}
+        <span>
+          {snapshot.videoTitle ? (
+            <span>
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  color: 'var(--c-ink)',
+                  lineHeight: 1.4,
+                }}
+              >
+                {snapshot.videoTitle}
+              </span>
+              {snapshot.channelTitle && (
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    color: 'var(--c-ink-dim)',
+                    marginTop: '2px',
+                  }}
+                >
+                  {snapshot.channelTitle}
+                </span>
+              )}
+              <span
+                style={{
+                  display: 'block',
+                  fontFamily: 'var(--f-mono)',
+                  fontSize: '11px',
+                  color: 'var(--c-ink-mute)',
+                  marginTop: '2px',
+                }}
+              >
+                {snapshot.videoId}
+              </span>
+            </span>
+          ) : (
+            <span
+              style={{
+                fontFamily: 'var(--f-mono)',
+                fontSize: '12px',
+                color: 'var(--c-ink-dim)',
+              }}
+            >
+              {snapshot.videoId}
+            </span>
+          )}
         </span>
         {snapshot.savedAt && (
           <span

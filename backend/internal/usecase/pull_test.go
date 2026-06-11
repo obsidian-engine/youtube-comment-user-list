@@ -25,8 +25,8 @@ type fakeYTWithToken struct {
 	pollingIntervalMillis int64
 }
 
-func (f *fakeYTWithToken) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
-	return "", nil
+func (f *fakeYTWithToken) GetActiveLiveChatID(ctx context.Context, videoID string) (port.VideoMeta, error) {
+	return port.VideoMeta{}, nil
 }
 func (f *fakeYTWithToken) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error) {
 	return nil, nil
@@ -43,8 +43,8 @@ func (f *fakeYTWithToken) ListLiveChatMessages(ctx context.Context, liveChatID s
 // ページトークンを保存・読み出しする簡易フェイク（必要なら）
 // removed unused tokenStateRepo to satisfy linter
 
-func (f *fakeYTForPull) GetActiveLiveChatID(ctx context.Context, videoID string) (string, error) {
-	return "live:abc", nil
+func (f *fakeYTForPull) GetActiveLiveChatID(ctx context.Context, videoID string) (port.VideoMeta, error) {
+	return port.VideoMeta{LiveChatID: "live:abc"}, nil
 }
 func (f *fakeYTForPull) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
 	return f.items, "", 0, 0, f.ended, nil

@@ -14,10 +14,17 @@ type ChatMessage struct {
 	PublishedAt time.Time
 }
 
+// VideoMeta は videos.list から取得した動画メタデータです。
+type VideoMeta struct {
+	LiveChatID   string
+	Title        string
+	ChannelTitle string
+}
+
 // YouTubePort は YouTube API 呼び出しを抽象化します。
 type YouTubePort interface {
-	// 指定 videoID の activeLiveChatId を取得します。
-	GetActiveLiveChatID(ctx context.Context, videoID string) (string, error)
+	// 指定 videoID の activeLiveChatId と動画メタデータを取得します。
+	GetActiveLiveChatID(ctx context.Context, videoID string) (VideoMeta, error)
 	// liveChatId のメッセージを取得します。ページング対応のため、pageToken を受け取り、nextPageToken を返します。
 	// 配信終了検知は isEnded で返します。
 	ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) (items []ChatMessage, nextPageToken string, pollingIntervalMillis int64, skippedCount int, isEnded bool, err error)

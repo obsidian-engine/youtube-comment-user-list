@@ -24,7 +24,7 @@ func TestFlush_ignoresThrottle(t *testing.T) {
 	ur, cr := newTestRepos()
 
 	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
-	c.SetVideo("vid1", "chat1")
+	c.SetVideo("vid1", "chat1", "", "")
 	c.MarkDirty()
 
 	if err := c.Flush(context.Background()); err != nil {
@@ -62,7 +62,7 @@ func TestMarkDirty_throttleCollapse(t *testing.T) {
 
 	// throttle 50ms で短く設定、ticker は 1s だが Start 後に直接 flush で確認
 	c := snapshot.NewCoordinator(sink, ur, cr, nil, 50*time.Millisecond)
-	c.SetVideo("vid1", "chat1")
+	c.SetVideo("vid1", "chat1", "", "")
 
 	// 連続 MarkDirty → Flush で 1 save
 	c.MarkDirty()
@@ -221,7 +221,7 @@ func TestSave_includesState(t *testing.T) {
 	_ = sr.Set(context.Background(), liveState)
 
 	c := snapshot.NewCoordinator(sink, ur, cr, sr, 30*time.Second)
-	c.SetVideo("vid-save", "chat-save")
+	c.SetVideo("vid-save", "chat-save", "", "")
 	c.MarkDirty()
 
 	if err := c.Flush(context.Background()); err != nil {
@@ -272,7 +272,7 @@ func TestBackground_savesAfterThrottle(t *testing.T) {
 	// ticker が 1s なので throttle < 1s でも ticker が trigger するまで待つ必要がある
 	// ここでは throttle=0 (即トリガー) にして ticker 1 tick 待つ
 	c := snapshot.NewCoordinator(sink, ur, cr, nil, 0)
-	c.SetVideo("vid-bg", "chat-bg")
+	c.SetVideo("vid-bg", "chat-bg", "", "")
 
 	ctx := context.Background()
 	c.Start(ctx)
@@ -323,7 +323,7 @@ func TestFlush_saveError_dirtyPreserved(t *testing.T) {
 	ur, cr := newTestRepos()
 
 	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
-	c.SetVideo("vid1", "chat1")
+	c.SetVideo("vid1", "chat1", "", "")
 	c.MarkDirty()
 
 	sink.setForceError(fmt.Errorf("gcs unavailable"))
@@ -349,7 +349,7 @@ func TestFlush_resetClearsCurrent(t *testing.T) {
 	ur, cr := newTestRepos()
 
 	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
-	c.SetVideo("vid1", "chat1")
+	c.SetVideo("vid1", "chat1", "", "")
 	c.MarkDirty()
 	_ = c.Flush(context.Background())
 
@@ -360,7 +360,7 @@ func TestFlush_resetClearsCurrent(t *testing.T) {
 	}
 
 	// Reset: videoID を空にして Flush
-	c.SetVideo("", "")
+	c.SetVideo("", "", "", "")
 	if err := c.Flush(context.Background()); err != nil {
 		t.Fatalf("Flush with empty videoID returned error: %v", err)
 	}
@@ -381,7 +381,7 @@ func TestFlush_parallelSave_noRace(t *testing.T) {
 	ur, cr := newTestRepos()
 
 	c := snapshot.NewCoordinator(sink, ur, cr, nil, 0)
-	c.SetVideo("vid1", "chat1")
+	c.SetVideo("vid1", "chat1", "", "")
 
 	const n = 10
 	var wg sync.WaitGroup
@@ -411,7 +411,7 @@ func TestNopCoordinator(t *testing.T) {
 	if err := nop.Restore(context.Background()); err != nil {
 		t.Errorf("NopCoordinator.Restore error: %v", err)
 	}
-	nop.SetVideo("v", "c")
+	nop.SetVideo("v", "c", "", "")
 	nop.MarkDirty()
 	if err := nop.Flush(context.Background()); err != nil {
 		t.Errorf("NopCoordinator.Flush error: %v", err)
@@ -463,7 +463,7 @@ func TestLastSavedAt_AfterSave(t *testing.T) {
 	ur, cr := newTestRepos()
 
 	c := snapshot.NewCoordinator(sink, ur, cr, nil, 30*time.Second)
-	c.SetVideo("vid1", "chat1")
+	c.SetVideo("vid1", "chat1", "", "")
 	c.MarkDirty()
 
 	before := time.Now()

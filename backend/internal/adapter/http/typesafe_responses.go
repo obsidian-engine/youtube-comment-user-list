@@ -97,6 +97,8 @@ type HistorySummaryResponse struct {
 	SavedAt      string `json:"savedAt"` // ISO8601
 	UserCount    int    `json:"userCount"`
 	CommentCount int    `json:"commentCount"`
+	VideoTitle   string `json:"videoTitle,omitempty"`
+	ChannelTitle string `json:"channelTitle,omitempty"`
 }
 
 // HistoryListResponse は /history/snapshots のレスポンスです。
@@ -112,18 +114,22 @@ func newHistorySummaryResponse(s port.SnapshotSummary) HistorySummaryResponse {
 		SavedAt:      s.SavedAt.UTC().Format(time.RFC3339),
 		UserCount:    s.UserCount,
 		CommentCount: s.CommentCount,
+		VideoTitle:   s.VideoTitle,
+		ChannelTitle: s.ChannelTitle,
 	}
 }
 
 // HistorySnapshotResponse は /history/snapshots/{videoID} のレスポンスです。
 // port.Snapshot の JSON shape に合わせています。
 type HistorySnapshotResponse struct {
-	VideoID  string            `json:"videoId"`
-	SavedAt  string            `json:"savedAt"` // ISO8601
-	Users    []domain.User     `json:"users"`
-	Comments []domain.Comment  `json:"comments"`
-	State    *domain.LiveState `json:"state,omitempty"`
-	Logs     []LogDetail       `json:"logs,omitempty"`
+	VideoID      string            `json:"videoId"`
+	SavedAt      string            `json:"savedAt"` // ISO8601
+	VideoTitle   string            `json:"videoTitle,omitempty"`
+	ChannelTitle string            `json:"channelTitle,omitempty"`
+	Users        []domain.User     `json:"users"`
+	Comments     []domain.Comment  `json:"comments"`
+	State        *domain.LiveState `json:"state,omitempty"`
+	Logs         []LogDetail       `json:"logs,omitempty"`
 }
 
 // newHistorySnapshotResponse は port.Snapshot から HistorySnapshotResponse を生成します。
@@ -137,10 +143,12 @@ func newHistorySnapshotResponse(snap *port.Snapshot) HistorySnapshotResponse {
 		comments = []domain.Comment{}
 	}
 	return HistorySnapshotResponse{
-		VideoID:  snap.VideoID,
-		SavedAt:  snap.SavedAt.UTC().Format(time.RFC3339),
-		Users:    users,
-		Comments: comments,
-		State:    snap.State,
+		VideoID:      snap.VideoID,
+		SavedAt:      snap.SavedAt.UTC().Format(time.RFC3339),
+		VideoTitle:   snap.VideoTitle,
+		ChannelTitle: snap.ChannelTitle,
+		Users:        users,
+		Comments:     comments,
+		State:        snap.State,
 	}
 }
