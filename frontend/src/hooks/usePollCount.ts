@@ -80,6 +80,8 @@ export function usePollCount() {
     }
   })
   const controllerRef = useRef<AbortController | null>(null)
+  const stateRef = useRef(state)
+  stateRef.current = state
 
   useEffect(() => {
     saveStoredKeywords(state.keywords)
@@ -135,8 +137,7 @@ export function usePollCount() {
     }))
   }, [])
 
-  const recount = useCallback(async () => {
-    const keywords = state.keywords
+  const performRecount = useCallback(async (keywords: string[], matchMode: MatchMode) => {
     if (keywords.length === 0) {
       setState((prev) => ({ ...prev, errorMsg: ERROR_MESSAGES.NO_KEYWORDS }))
       return
@@ -150,7 +151,7 @@ export function usePollCount() {
 
     try {
       const comments: Comment[] = (await searchComments(keywords, controller.signal)) ?? []
-      const { counts, voters } = countVotes(comments, keywords, state.matchMode)
+      const { counts, voters } = countVotes(comments, keywords, matchMode)
       const timeStr = new Date().toLocaleTimeString('ja-JP', {
         hour: '2-digit',
         minute: '2-digit',
@@ -172,11 +173,25 @@ export function usePollCount() {
         return
       }
     }
-  }, [state.keywords, state.matchMode])
-
-  const setMatchMode = useCallback((mode: MatchMode) => {
-    setState((prev) => ({ ...prev, matchMode: mode }))
   }, [])
+
+  const recount = useCallback(async () => {
+    await performRecount(state.keywords, state.matchMode)
+  }, [state.keywords, state.matchMode, performRecount])
+
+  const setMatchMode = useCallback(
+    (mode: MatchMode) => {
+      const { keywords, matchMode: currentMode } = stateRef.current
+      if (currentMode === mode) return
+
+      setState((prev) => ({ ...prev, matchMode: mode }))
+
+      if (keywords.length > 0) {
+        void performRecount(keywords, mode)
+      }
+    },
+    [performRecount],
+  )
 
   return {
     ...state,
