@@ -6,9 +6,11 @@ import { PollResults } from '../PollTab/PollResults'
 
 interface HistoryVotesProps {
   comments: Comment[]
+  videoId?: string
+  savedAt?: string
 }
 
-export function HistoryVotes({ comments }: HistoryVotesProps) {
+export function HistoryVotes({ comments, videoId, savedAt }: HistoryVotesProps) {
   const {
     keywordsInput,
     setKeywordsInput,
@@ -43,6 +45,8 @@ export function HistoryVotes({ comments }: HistoryVotesProps) {
         voters={voters}
         totalVotes={totalVotes}
         isLoading={false}
+        videoId={videoId}
+        savedAt={savedAt}
       />
     </div>
   )

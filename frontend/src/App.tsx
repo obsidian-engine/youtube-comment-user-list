@@ -184,6 +184,8 @@ export default function App() {
               voters={pollCount.voters}
               totalVotes={pollCount.totalVotes}
               isLoading={pollCount.isLoading}
+              videoId={videoId}
+              savedAt={lastSnapshotAt}
             />
           </>
         )}

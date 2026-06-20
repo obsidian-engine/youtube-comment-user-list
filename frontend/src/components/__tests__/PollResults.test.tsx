@@ -258,7 +258,7 @@ describe('PollResults', () => {
       await act(async () => {
         await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       })
-      expect(writeTextSpy).toHaveBeenCalledWith('hoge\ttaro\t')
+      expect(writeTextSpy).toHaveBeenCalledWith('\t\thoge\ttaro\t')
       expect(screen.getByRole('button', { name: 'コピー済' })).toBeInTheDocument()
     })
 
@@ -281,7 +281,7 @@ describe('PollResults', () => {
       await act(async () => {
         await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       })
-      expect(writeTextSpy).toHaveBeenCalledWith('hoge\ttaro\t@tarochannel')
+      expect(writeTextSpy).toHaveBeenCalledWith('\t\thoge\ttaro\t@tarochannel')
     })
 
     it('handle あり/なし混在でも列位置が揃う', async () => {
@@ -306,7 +306,33 @@ describe('PollResults', () => {
       await act(async () => {
         await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       })
-      expect(writeTextSpy).toHaveBeenCalledWith('hoge\ttaro\t@tarochannel\nhoge\thanako\t')
+      expect(writeTextSpy).toHaveBeenCalledWith('\t\thoge\ttaro\t@tarochannel\n\t\thoge\thanako\t')
+    })
+
+    it('videoId / savedAt があれば先頭2列に含める', async () => {
+      const user = userEvent.setup()
+      render(
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 1 }}
+          voters={{
+            hoge: [{ channelId: 'UC1', displayName: 'taro', handle: '@tarochannel' }],
+          }}
+          totalVotes={1}
+          isLoading={false}
+          videoId="VIDEO123"
+          savedAt="2026-06-20T10:00:00Z"
+        />,
+      )
+      await act(async () => {
+        await user.click(screen.getByText('hoge'))
+      })
+      await act(async () => {
+        await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
+      })
+      expect(writeTextSpy).toHaveBeenCalledWith(
+        '2026-06-20T10:00:00Z\tVIDEO123\thoge\ttaro\t@tarochannel',
+      )
     })
   })
 })
