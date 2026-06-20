@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { LoadingButton } from '../LoadingButton'
+import { MatchModeToggle } from '../MatchModeToggle'
 import type { MatchMode } from '../../utils/countVotes'
 
 interface PollControlsProps {
@@ -56,37 +57,11 @@ export function PollControls({
             投票キーワード
           </h2>
 
-          <div
-            style={{
-              display: 'flex',
-              gap: '4px',
-              marginBottom: '12px',
-            }}
-            role="group"
-            aria-label="マッチモード"
-          >
-            {(['exact', 'partial'] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => onMatchModeChange(mode)}
-                disabled={isLoading}
-                aria-pressed={matchMode === mode}
-                style={{
-                  fontFamily: 'var(--f-mono)',
-                  fontSize: '11px',
-                  letterSpacing: '0.12em',
-                  padding: '4px 12px',
-                  border: '1px solid var(--c-line-strong)',
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
-                  background: matchMode === mode ? 'var(--c-ink)' : 'transparent',
-                  color: matchMode === mode ? '#fff' : 'var(--c-ink-dim)',
-                  transition: 'background 0.15s, color 0.15s',
-                }}
-              >
-                {mode === 'exact' ? '完全一致' : '部分一致'}
-              </button>
-            ))}
-          </div>
+          <MatchModeToggle
+            matchMode={matchMode}
+            onMatchModeChange={onMatchModeChange}
+            disabled={isLoading}
+          />
 
           <p
             style={{

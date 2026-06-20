@@ -28,6 +28,10 @@ const comments: Comment[] = [
 ]
 
 describe('HistoryVotes', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
   test('キーワード 0 個のとき PollResults は null レンダー (集計テーブル非表示)', () => {
     render(<HistoryVotes comments={comments} />)
     // PollResults は keywords.length === 0 で null を返す
@@ -96,5 +100,53 @@ describe('HistoryVotes', () => {
       return parent !== null
     })
     expect(tbodyRows.length).toBe(1)
+  })
+
+  test('部分一致モードでキーワードを含むコメントを集計する', () => {
+    const partialComments: Comment[] = [
+      makeComment('1', 'ch1', '賛成'),
+      makeComment('2', 'ch2', '賛成です'),
+    ]
+    render(<HistoryVotes comments={partialComments} />)
+
+    fireEvent.click(screen.getByRole('button', { name: '部分一致' }))
+    fireEvent.change(screen.getByPlaceholderText('キーワード（改行またはカンマ区切り）'), {
+      target: { value: '賛成' },
+    })
+
+    const rows = screen.getAllByRole('row')
+    const dataRow = rows.find(
+      (r) => r.textContent?.includes('賛成') && !r.textContent?.includes('キーワード'),
+    )
+    expect(dataRow?.textContent).toContain('2')
+  })
+
+  test('完全一致モードでは部分マッチのみのコメントをカウントしない', () => {
+    const partialComments: Comment[] = [makeComment('1', 'ch1', '賛成です')]
+    render(<HistoryVotes comments={partialComments} />)
+
+    fireEvent.change(screen.getByPlaceholderText('キーワード（改行またはカンマ区切り）'), {
+      target: { value: '賛成' },
+    })
+
+    const rows = screen.getAllByRole('row')
+    const dataRow = rows.find(
+      (r) => r.textContent?.includes('賛成') && !r.textContent?.includes('キーワード'),
+    )
+    expect(dataRow?.textContent).toContain('0')
+
+    fireEvent.click(screen.getByRole('button', { name: '部分一致' }))
+    expect(dataRow?.textContent).toContain('1')
+  })
+
+  test('matchMode を localStorage から復元する', () => {
+    const store: Record<string, string> = { pollMatchMode: 'partial' }
+    vi.spyOn(window.localStorage, 'getItem').mockImplementation((k) => store[k] ?? null)
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation((k, v) => {
+      store[k] = String(v)
+    })
+
+    render(<HistoryVotes comments={comments} />)
+    expect(screen.getByRole('button', { name: '部分一致' })).toHaveAttribute('aria-pressed', 'true')
   })
 })

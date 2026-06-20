@@ -2,20 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { searchComments, type Comment } from '../utils/api'
 import { mapHttpError } from '../utils/mapHttpError'
 import { countVotes, type MatchMode, type VoteCounts, type VoteVoters } from '../utils/countVotes'
+import { loadStoredMatchMode, saveStoredMatchMode } from '../utils/pollMatchMode'
 
 export const POLL_INTERVAL_SEC = 15
 const STORAGE_KEY = 'pollKeywords'
-const MATCH_MODE_STORAGE_KEY = 'pollMatchMode'
-
-function loadStoredMatchMode(): MatchMode {
-  try {
-    const raw = localStorage.getItem(MATCH_MODE_STORAGE_KEY)
-    if (raw === 'exact' || raw === 'partial') return raw
-  } catch {
-    // ignore
-  }
-  return 'exact'
-}
 
 function loadStoredKeywords(): string[] {
   try {
@@ -88,11 +78,7 @@ export function usePollCount() {
   }, [state.keywords])
 
   useEffect(() => {
-    try {
-      localStorage.setItem(MATCH_MODE_STORAGE_KEY, state.matchMode)
-    } catch {
-      // ignore
-    }
+    saveStoredMatchMode(state.matchMode)
   }, [state.matchMode])
 
   const addKeyword = useCallback((word: string) => {

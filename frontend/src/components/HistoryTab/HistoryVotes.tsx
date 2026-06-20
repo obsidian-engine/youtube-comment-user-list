@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Comment } from '../../utils/api'
-import { countVotes } from '../../utils/countVotes'
+import { countVotes, type MatchMode } from '../../utils/countVotes'
+import { loadStoredMatchMode, saveStoredMatchMode } from '../../utils/pollMatchMode'
+import { MatchModeToggle } from '../MatchModeToggle'
 import { PollResults } from '../PollTab/PollResults'
 
 interface HistoryVotesProps {
@@ -20,18 +22,29 @@ function parseKeywords(input: string): string[] {
 
 export function HistoryVotes({ comments }: HistoryVotesProps) {
   const [keywordsInput, setKeywordsInput] = useState('')
+  const [matchMode, setMatchMode] = useState<MatchMode>(() => loadStoredMatchMode())
 
   const parsedKeywords = useMemo(() => parseKeywords(keywordsInput), [keywordsInput])
 
+  useEffect(() => {
+    saveStoredMatchMode(matchMode)
+  }, [matchMode])
+
   const { counts, voters } = useMemo(
-    () => countVotes(comments, parsedKeywords),
-    [comments, parsedKeywords],
+    () => countVotes(comments, parsedKeywords, matchMode),
+    [comments, parsedKeywords, matchMode],
   )
 
   const totalVotes = useMemo(() => Object.values(counts).reduce((a, b) => a + b, 0), [counts])
 
   return (
     <div className="space-y-3">
+      <MatchModeToggle matchMode={matchMode} onMatchModeChange={setMatchMode} />
+      <p className="text-[12px] text-slate-500">
+        {matchMode === 'exact'
+          ? 'コメントがキーワードと完全一致した場合に 1 票としてカウントします。'
+          : 'コメントにキーワードが含まれる場合に 1 票としてカウントします。'}
+      </p>
       <div className="flex gap-3 items-start">
         <textarea
           value={keywordsInput}
