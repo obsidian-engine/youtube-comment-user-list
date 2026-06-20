@@ -12,7 +12,7 @@ interface PollResultsProps {
 function voterListToTsv(
   voters: Array<{ displayName: string; channelId: string; handle?: string }>,
 ): string {
-  return voters.map((v) => `${v.displayName}\t${v.handle || v.channelId}`).join('\n')
+  return voters.map((v) => (v.handle ? `${v.displayName}\t${v.handle}` : v.displayName)).join('\n')
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -88,11 +88,12 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
                   }}
                   onClick={() => toggleExpand(word)}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLTableRowElement).style.background =
-                      'rgba(0,95,120,0.06)'
+                    const row = e.currentTarget as HTMLTableRowElement
+                    row.style.background = 'rgba(0,95,120,0.06)'
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLTableRowElement).style.background = ''
+                    const row = e.currentTarget as HTMLTableRowElement
+                    row.style.background = ''
                   }}
                 >
                   <td style={{ padding: '12px 16px', color: 'var(--c-ink)' }}>
@@ -189,15 +190,17 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
                                 }}
                               >
                                 <span>{v.displayName}</span>
-                                <span
-                                  style={{
-                                    fontFamily: 'var(--f-mono)',
-                                    fontSize: '11px',
-                                    color: 'var(--c-ink-mute)',
-                                  }}
-                                >
-                                  {v.handle || v.channelId}
-                                </span>
+                                {v.handle && (
+                                  <span
+                                    style={{
+                                      fontFamily: 'var(--f-mono)',
+                                      fontSize: '11px',
+                                      color: 'var(--c-ink-mute)',
+                                    }}
+                                  >
+                                    {v.handle}
+                                  </span>
+                                )}
                               </li>
                             ))}
                           </ul>

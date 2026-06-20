@@ -170,7 +170,28 @@ describe('PollResults', () => {
       })
       expect(screen.getByText('taro')).toBeInTheDocument()
       expect(screen.getByText('hanako')).toBeInTheDocument()
-      expect(screen.getByText('UC1')).toBeInTheDocument()
+      expect(screen.queryByText('UC1')).toBeNull()
+      expect(screen.queryByText('UC2')).toBeNull()
+    })
+
+    it('handle がある場合のみ表示する', async () => {
+      const user = userEvent.setup()
+      render(
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 1 }}
+          voters={{
+            hoge: [{ channelId: 'UC1', displayName: 'taro', handle: '@tarochannel' }],
+          }}
+          totalVotes={1}
+          isLoading={false}
+        />,
+      )
+      await act(async () => {
+        await user.click(screen.getByText('hoge'))
+      })
+      expect(screen.getByText('@tarochannel')).toBeInTheDocument()
+      expect(screen.queryByText('UC1')).toBeNull()
     })
 
     it('再クリックで折りたたまれる', async () => {
@@ -218,7 +239,7 @@ describe('PollResults', () => {
       writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
     })
 
-    it('コピー成功後にラベルが「コピー済」に変化', async () => {
+    it('handle なしの場合は displayName のみコピー', async () => {
       const user = userEvent.setup()
       render(
         <PollResults
@@ -237,8 +258,55 @@ describe('PollResults', () => {
       await act(async () => {
         await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       })
-      expect(writeTextSpy).toHaveBeenCalledWith('taro\tUC1')
+      expect(writeTextSpy).toHaveBeenCalledWith('taro')
       expect(screen.getByRole('button', { name: 'コピー済' })).toBeInTheDocument()
+    })
+
+    it('handle ありの場合は displayName と handle を TSV でコピー', async () => {
+      const user = userEvent.setup()
+      render(
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 1 }}
+          voters={{
+            hoge: [{ channelId: 'UC1', displayName: 'taro', handle: '@tarochannel' }],
+          }}
+          totalVotes={1}
+          isLoading={false}
+        />,
+      )
+      await act(async () => {
+        await user.click(screen.getByText('hoge'))
+      })
+      await act(async () => {
+        await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
+      })
+      expect(writeTextSpy).toHaveBeenCalledWith('taro\t@tarochannel')
+    })
+
+    it('handle あり/なし混在時は行ごとに列数が変わる', async () => {
+      const user = userEvent.setup()
+      render(
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 2 }}
+          voters={{
+            hoge: [
+              { channelId: 'UC1', displayName: 'taro', handle: '@tarochannel' },
+              { channelId: 'UC2', displayName: 'hanako' },
+            ],
+          }}
+          totalVotes={2}
+          isLoading={false}
+        />,
+      )
+      await act(async () => {
+        await user.click(screen.getByText('hoge'))
+      })
+      await act(async () => {
+        await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
+      })
+      expect(writeTextSpy).toHaveBeenCalledWith('taro\t@tarochannel\nhanako')
     })
   })
 })
