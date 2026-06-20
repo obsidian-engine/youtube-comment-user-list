@@ -463,3 +463,62 @@ describe('usePollCount - clearResults', () => {
     expect(typeof result.current.clearResults).toBe('function')
   })
 })
+
+describe('usePollCount - matchMode', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
+
+  it('setMatchMode で matchMode が更新される', () => {
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.setMatchMode('partial'))
+    expect(result.current.matchMode).toBe('partial')
+  })
+
+  it('同一モードを再選択しても recount は呼ばれない', async () => {
+    mockedSearch.mockResolvedValue([])
+
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.addKeyword('hoge'))
+    await act(async () => {
+      await result.current.recount()
+    })
+    mockedSearch.mockClear()
+
+    act(() => result.current.setMatchMode('exact'))
+    expect(mockedSearch).not.toHaveBeenCalled()
+  })
+
+  it('キーワード未設定時は matchMode のみ更新し API は呼ばない', () => {
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.setMatchMode('partial'))
+    expect(result.current.matchMode).toBe('partial')
+    expect(mockedSearch).not.toHaveBeenCalled()
+  })
+
+  it('matchMode 切替時に自動 recount し、新モードで集計する', async () => {
+    mockedSearch.mockResolvedValue([c('u1', '賛成です', '2024-01-01T00:00:01Z')])
+
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.addKeyword('賛成'))
+    await act(async () => {
+      await result.current.recount()
+    })
+    expect(result.current.counts).toEqual({ 賛成: 0 })
+
+    await act(async () => {
+      result.current.setMatchMode('partial')
+    })
+
+    expect(mockedSearch).toHaveBeenCalledTimes(2)
+    expect(result.current.matchMode).toBe('partial')
+    expect(result.current.counts).toEqual({ 賛成: 1 })
+  })
+
+  it('matchMode を localStorage に保存する', () => {
+    const { result } = renderHook(() => usePollCount())
+    act(() => result.current.setMatchMode('partial'))
+    expect(localStorage.getItem('pollMatchMode')).toBe('partial')
+  })
+})

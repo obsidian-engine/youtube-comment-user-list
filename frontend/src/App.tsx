@@ -169,6 +169,8 @@ export default function App() {
             {pollCount.errorMsg && <ErrorBanner message={pollCount.errorMsg} />}
             <PollControls
               keywords={pollCount.keywords}
+              matchMode={pollCount.matchMode}
+              onMatchModeChange={pollCount.setMatchMode}
               onAddKeyword={pollCount.addKeyword}
               onRemoveKeyword={pollCount.removeKeyword}
               onClear={pollCount.clearKeywords}
@@ -182,6 +184,8 @@ export default function App() {
               voters={pollCount.voters}
               totalVotes={pollCount.totalVotes}
               isLoading={pollCount.isLoading}
+              videoId={videoId}
+              savedAt={lastSnapshotAt}
             />
           </>
         )}

@@ -144,7 +144,11 @@ export function HistoryDetail({ snapshot, onBack }: HistoryDetailProps) {
         >
           投票集計
         </h3>
-        <HistoryVotes comments={snapshot.comments} />
+        <HistoryVotes
+          comments={snapshot.comments}
+          videoId={snapshot.videoId}
+          savedAt={snapshot.savedAt}
+        />
       </section>
     </div>
   )

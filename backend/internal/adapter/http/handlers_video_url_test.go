@@ -28,6 +28,9 @@ func (f *fakeYTForURL) ListLiveChatMessages(ctx context.Context, liveChatID stri
 func (f *fakeYTForURL) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error) {
 	return nil, nil
 }
+func (f *fakeYTForURL) GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error) {
+	return nil, nil
+}
 
 type fakeClockForURL struct{}
 

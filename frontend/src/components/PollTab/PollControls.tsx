@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import { LoadingButton } from '../LoadingButton'
+import { MatchModeDescription } from '../MatchModeDescription'
+import { MatchModeToggle } from '../MatchModeToggle'
+import type { MatchMode } from '../../utils/countVotes'
 
 interface PollControlsProps {
   keywords: string[]
+  matchMode: MatchMode
+  onMatchModeChange: (mode: MatchMode) => void
   onAddKeyword: (word: string) => void
   onRemoveKeyword: (word: string) => void
   onClear: () => void
@@ -13,6 +18,8 @@ interface PollControlsProps {
 
 export function PollControls({
   keywords,
+  matchMode,
+  onMatchModeChange,
   onAddKeyword,
   onRemoveKeyword,
   onClear,
@@ -48,21 +55,16 @@ export function PollControls({
               marginBottom: '8px',
             }}
           >
-            投票キーワード（完全一致でカウント）
+            投票キーワード
           </h2>
 
-          <p
-            style={{
-              fontFamily: 'var(--f-mono)',
-              fontSize: '11px',
-              color: 'var(--c-ink-mute)',
-              marginBottom: '14px',
-              lineHeight: 1.6,
-            }}
-          >
-            キーワードを 1 つずつ追加してください。コメントが完全一致した場合のみ 1
-            票としてカウントされます。
-          </p>
+          <MatchModeToggle
+            matchMode={matchMode}
+            onMatchModeChange={onMatchModeChange}
+            disabled={isLoading}
+          />
+
+          <MatchModeDescription matchMode={matchMode} variant="poll" />
 
           <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
             <input

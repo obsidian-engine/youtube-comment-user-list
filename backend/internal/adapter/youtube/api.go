@@ -16,14 +16,16 @@ import (
 )
 
 type API struct {
-	APIKey           string
-	channelNameCache map[string]string // channelID -> チャンネル名キャッシュ
+	APIKey             string
+	channelNameCache   map[string]string // channelID -> チャンネル名キャッシュ
+	channelHandleCache map[string]string // channelID -> ハンドル(@username)キャッシュ
 }
 
 func New(apiKey string) *API {
 	return &API{
-		APIKey:           apiKey,
-		channelNameCache: make(map[string]string),
+		APIKey:             apiKey,
+		channelNameCache:   make(map[string]string),
+		channelHandleCache: make(map[string]string),
 	}
 }
 
@@ -340,9 +342,72 @@ func (a *API) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (
 			name := item.Snippet.Title
 			a.channelNameCache[item.Id] = name
 			result[item.Id] = name
+
+			// ハンドル(CustomUrl)も同時にキャッシュ
+			a.channelHandleCache[item.Id] = item.Snippet.CustomUrl
 		}
 	}
 
 	logging.Log(ctx, "info", "YOUTUBE_API", "Resolved %d/%d channel display names (cache size: %d)", len(result), len(channelIDs), len(a.channelNameCache))
+	return result, nil
+}
+
+// GetChannelHandles は channelIDs に対応するハンドル(@username)マップを返す。
+// GetChannelDisplayNames で既に解決済みの @ チャンネルはキャッシュから返す。
+// 未キャッシュのチャンネルは Channels API を1回呼び出し、以降はキャッシュする。
+// ハンドルが存在しない/空のチャンネルはマップに含まれない。
+func (a *API) GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error) {
+	result := make(map[string]string)
+	if len(channelIDs) == 0 {
+		return result, nil
+	}
+
+	// キャッシュ済みを返し、未キャッシュを収集
+	var uncached []string
+	for _, id := range channelIDs {
+		if handle, ok := a.channelHandleCache[id]; ok {
+			if handle != "" {
+				result[id] = handle
+			}
+		} else {
+			uncached = append(uncached, id)
+		}
+	}
+
+	if len(uncached) == 0 || a.APIKey == "" {
+		return result, nil
+	}
+
+	// YouTube Channels API: 1リクエストあたり最大50件
+	const batchSize = 50
+	for i := 0; i < len(uncached); i += batchSize {
+		end := min(i+batchSize, len(uncached))
+		batch := uncached[i:end]
+
+		service, err := youtube.NewService(ctx, option.WithAPIKey(a.APIKey))
+		if err != nil {
+			logging.Log(ctx, "warn", "YOUTUBE_API", "Failed to create service for channel handles: %v", err)
+			continue
+		}
+
+		call := service.Channels.List([]string{"snippet"}).Id(strings.Join(batch, ","))
+		response, err := call.Do()
+		if err != nil {
+			logging.Log(ctx, "warn", "YOUTUBE_API", "Failed to get channel handles: %v", err)
+			continue
+		}
+
+		for _, item := range response.Items {
+			handle := item.Snippet.CustomUrl
+			// 名前もキャッシュ（GetChannelDisplayNames との重複呼び出しを避けるため）
+			a.channelNameCache[item.Id] = item.Snippet.Title
+			a.channelHandleCache[item.Id] = handle
+			if handle != "" {
+				result[item.Id] = handle
+			}
+		}
+	}
+
+	logging.Log(ctx, "info", "YOUTUBE_API", "Resolved %d/%d channel handles (cache size: %d)", len(result), len(channelIDs), len(a.channelHandleCache))
 	return result, nil
 }

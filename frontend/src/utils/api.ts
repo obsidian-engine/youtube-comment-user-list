@@ -131,6 +131,7 @@ export type Comment = {
   id: string
   channelId: string
   displayName: string
+  handle?: string
   message: string
   publishedAt: string
 }

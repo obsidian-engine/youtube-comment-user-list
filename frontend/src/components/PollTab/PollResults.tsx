@@ -7,10 +7,23 @@ interface PollResultsProps {
   voters: VoteVoters
   totalVotes: number
   isLoading: boolean
+  /** コピー TSV に含める配信の videoId（ライブ/履歴の識別用、無ければ空欄） */
+  videoId?: string
+  /** コピー TSV に含める配信日（保存日時。無ければ空欄） */
+  savedAt?: string
 }
 
-function voterListToTsv(voters: Array<{ displayName: string; channelId: string }>): string {
-  return voters.map((v) => `${v.displayName}\t${v.channelId}`).join('\n')
+function voterListToTsv(
+  savedAt: string,
+  videoId: string,
+  keyword: string,
+  voters: Array<{ displayName: string; channelId: string; handle?: string }>,
+): string {
+  // 配信日 / videoId / keyword を先頭に付けた縦持ち TSV。空 handle でも末尾タブを
+  // 残し、スプレッドシートに貼ったとき列がズレないようにする。
+  return voters
+    .map((v) => `${savedAt}\t${videoId}\t${keyword}\t${v.displayName}\t${v.handle ?? ''}`)
+    .join('\n')
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -33,7 +46,15 @@ const thStyle: React.CSSProperties = {
   background: 'var(--c-ink)',
 }
 
-export function PollResults({ keywords, counts, voters, totalVotes, isLoading }: PollResultsProps) {
+export function PollResults({
+  keywords,
+  counts,
+  voters,
+  totalVotes,
+  isLoading,
+  videoId = '',
+  savedAt = '',
+}: PollResultsProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [copiedKeyword, setCopiedKeyword] = useState<string | null>(null)
 
@@ -51,7 +72,7 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
   const handleCopy = async (word: string) => {
     const list = voters[word] ?? []
     if (list.length === 0) return
-    const ok = await copyToClipboard(voterListToTsv(list))
+    const ok = await copyToClipboard(voterListToTsv(savedAt, videoId, word, list))
     if (ok) {
       setCopiedKeyword(word)
       setTimeout(() => setCopiedKeyword((cur) => (cur === word ? null : cur)), 1500)
@@ -86,11 +107,12 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
                   }}
                   onClick={() => toggleExpand(word)}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLTableRowElement).style.background =
-                      'rgba(0,95,120,0.06)'
+                    const row = e.currentTarget as HTMLTableRowElement
+                    row.style.background = 'rgba(0,95,120,0.06)'
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLTableRowElement).style.background = ''
+                    const row = e.currentTarget as HTMLTableRowElement
+                    row.style.background = ''
                   }}
                 >
                   <td style={{ padding: '12px 16px', color: 'var(--c-ink)' }}>
@@ -171,7 +193,7 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
                                 cursor: 'pointer',
                               }}
                             >
-                              {copiedKeyword === word ? 'コピー済' : '名前+channelId をコピー'}
+                              {copiedKeyword === word ? 'コピー済' : '名前+ハンドルをコピー'}
                             </button>
                           </div>
                           <ul className="space-y-1">
@@ -187,15 +209,17 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
                                 }}
                               >
                                 <span>{v.displayName}</span>
-                                <span
-                                  style={{
-                                    fontFamily: 'var(--f-mono)',
-                                    fontSize: '11px',
-                                    color: 'var(--c-ink-mute)',
-                                  }}
-                                >
-                                  {v.channelId}
-                                </span>
+                                {v.handle && (
+                                  <span
+                                    style={{
+                                      fontFamily: 'var(--f-mono)',
+                                      fontSize: '11px',
+                                      color: 'var(--c-ink-mute)',
+                                    }}
+                                  >
+                                    {v.handle}
+                                  </span>
+                                )}
                               </li>
                             ))}
                           </ul>

@@ -1,15 +1,10 @@
 import type { Comment } from './api'
 
 export type VoteCounts = Record<string, number>
-export type Voter = { channelId: string; displayName: string }
+export type Voter = { channelId: string; displayName: string; handle?: string }
 export type VoteVoters = Record<string, Voter[]>
+export type MatchMode = 'exact' | 'partial'
 
-// 1コメンター1票。channelId ごとに publishedAt 昇順で走査し、
-// 最初に keywords のいずれかと完全一致するコメントを発見したらそのワードに投票確定。
-// 同一 channelId の以降のコメントは集計対象外。
-// マッチ判定: trim 後のメッセージ全体が keyword と完全一致（部分一致不可、前後空白のみ無視、
-// 大文字小文字は厳密に区別する）。サーバ API は lowercase 部分一致で候補を広めに返すが、
-// 本関数で厳密フィルタする方針。
 export function initCounts(keywords: string[]): VoteCounts {
   return Object.fromEntries(keywords.map((k) => [k, 0])) as VoteCounts
 }
@@ -21,23 +16,31 @@ export function initVoters(keywords: string[]): VoteVoters {
 export function countVotes(
   comments: Comment[],
   keywords: string[],
+  matchMode: MatchMode = 'exact',
 ): { counts: VoteCounts; voters: VoteVoters } {
   const counts: VoteCounts = initCounts(keywords)
   const voters: VoteVoters = initVoters(keywords)
   if (keywords.length === 0) return { counts, voters }
 
-  const keywordSet = new Set(keywords)
-
   const sorted = [...comments].sort((a, b) => a.publishedAt.localeCompare(b.publishedAt))
+
+  // partial では包含関係にあるキーワード (例: 'ho' と 'hoge') を同時登録したとき、
+  // 配列順ではなく最長一致を優先する。より具体的なキーワードに票を寄せるため。
+  const partialKeywords =
+    matchMode === 'partial' ? [...keywords].sort((a, b) => b.length - a.length) : keywords
 
   const voted = new Set<string>()
   for (const c of sorted) {
     if (voted.has(c.channelId)) continue
     const trimmed = c.message.trim()
-    if (!keywordSet.has(trimmed)) continue
+    const matched =
+      matchMode === 'exact'
+        ? keywords.find((k) => trimmed === k)
+        : partialKeywords.find((k) => trimmed.includes(k))
+    if (matched === undefined) continue
     voted.add(c.channelId)
-    counts[trimmed] += 1
-    voters[trimmed].push({ channelId: c.channelId, displayName: c.displayName })
+    counts[matched] += 1
+    voters[matched].push({ channelId: c.channelId, displayName: c.displayName, handle: c.handle })
   }
   return { counts, voters }
 }

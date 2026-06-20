@@ -68,13 +68,17 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		return PullOutput{AddedCount: 0, AutoReset: true, PollingIntervalMillis: 0}, nil
 	}
 
-	// @ハンドルのチャンネルIDを収集してChannels APIで名前解決（重複排除）
+	// チャンネルIDを収集（重複排除）
 	seen := make(map[string]bool)
+	var allChannelIDs []string
 	var handleChannelIDs []string
 	for _, msg := range items {
-		if strings.HasPrefix(msg.DisplayName, "@") && !seen[msg.ChannelID] {
+		if !seen[msg.ChannelID] {
 			seen[msg.ChannelID] = true
-			handleChannelIDs = append(handleChannelIDs, msg.ChannelID)
+			allChannelIDs = append(allChannelIDs, msg.ChannelID)
+			if strings.HasPrefix(msg.DisplayName, "@") {
+				handleChannelIDs = append(handleChannelIDs, msg.ChannelID)
+			}
 		}
 	}
 	var channelNames map[string]string
@@ -83,6 +87,15 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		channelNames, err = uc.YT.GetChannelDisplayNames(ctx, handleChannelIDs)
 		if err != nil {
 			logging.Log(ctx, "warn", "PULL", "Failed to resolve channel display names: %v", err)
+		}
+	}
+	// 全チャンネルのハンドルを取得（GetChannelDisplayNames のキャッシュを活用）
+	var channelHandles map[string]string
+	if len(allChannelIDs) > 0 {
+		var err error
+		channelHandles, err = uc.YT.GetChannelHandles(ctx, allChannelIDs)
+		if err != nil {
+			logging.Log(ctx, "warn", "PULL", "Failed to resolve channel handles: %v", err)
 		}
 	}
 
@@ -111,10 +124,17 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		}
 
 		// コメント保存
+		handle := channelHandles[msg.ChannelID]
+		// @プレフィックスの正規化: CustomUrl は通常 @username 形式だが、
+		// 付いていない場合は付けて出力する。空の場合はそのまま空文字。
+		if handle != "" && !strings.HasPrefix(handle, "@") {
+			handle = "@" + handle
+		}
 		if err := uc.Comments.Add(domain.Comment{
 			ID:          msg.ID,
 			ChannelID:   msg.ChannelID,
 			DisplayName: msg.DisplayName,
+			Handle:      handle,
 			Message:     msg.Message,
 			PublishedAt: msg.PublishedAt,
 		}); err != nil {

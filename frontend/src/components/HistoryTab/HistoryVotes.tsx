@@ -1,37 +1,31 @@
-import { useMemo, useState } from 'react'
 import type { Comment } from '../../utils/api'
-import { countVotes } from '../../utils/countVotes'
+import { useVoteTally } from '../../hooks/useVoteTally'
+import { MatchModeDescription } from '../MatchModeDescription'
+import { MatchModeToggle } from '../MatchModeToggle'
 import { PollResults } from '../PollTab/PollResults'
 
 interface HistoryVotesProps {
   comments: Comment[]
+  videoId?: string
+  savedAt?: string
 }
 
-function parseKeywords(input: string): string[] {
-  return [
-    ...new Set(
-      input
-        .split(/[\n,]/)
-        .map((k) => k.trim())
-        .filter((k) => k.length > 0),
-    ),
-  ]
-}
-
-export function HistoryVotes({ comments }: HistoryVotesProps) {
-  const [keywordsInput, setKeywordsInput] = useState('')
-
-  const parsedKeywords = useMemo(() => parseKeywords(keywordsInput), [keywordsInput])
-
-  const { counts, voters } = useMemo(
-    () => countVotes(comments, parsedKeywords),
-    [comments, parsedKeywords],
-  )
-
-  const totalVotes = useMemo(() => Object.values(counts).reduce((a, b) => a + b, 0), [counts])
+export function HistoryVotes({ comments, videoId, savedAt }: HistoryVotesProps) {
+  const {
+    keywordsInput,
+    setKeywordsInput,
+    matchMode,
+    setMatchMode,
+    parsedKeywords,
+    counts,
+    voters,
+    totalVotes,
+  } = useVoteTally({ mode: 'snapshot', comments })
 
   return (
     <div className="space-y-3">
+      <MatchModeToggle matchMode={matchMode} onMatchModeChange={setMatchMode} />
+      <MatchModeDescription matchMode={matchMode} variant="history" />
       <div className="flex gap-3 items-start">
         <textarea
           value={keywordsInput}
@@ -51,6 +45,8 @@ export function HistoryVotes({ comments }: HistoryVotesProps) {
         voters={voters}
         totalVotes={totalVotes}
         isLoading={false}
+        videoId={videoId}
+        savedAt={savedAt}
       />
     </div>
   )

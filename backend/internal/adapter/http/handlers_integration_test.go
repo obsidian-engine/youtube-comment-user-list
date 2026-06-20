@@ -206,7 +206,7 @@ func TestStatus_snapshotSavedAt_returnedAlways(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&body1); err != nil {
 		t.Fatalf("decode 1st response: %v", err)
 	}
-	res.Body.Close()
+	_ = res.Body.Close()
 
 	if _, exists := body1["snapshotSavedAt"]; !exists {
 		t.Error("1st /status: expected snapshotSavedAt field, got absent")
@@ -218,7 +218,7 @@ func TestStatus_snapshotSavedAt_returnedAlways(t *testing.T) {
 	if err != nil {
 		t.Fatalf("2nd GET /status: %v", err)
 	}
-	defer res2.Body.Close()
+	defer func() { _ = res2.Body.Close() }()
 	var body2 map[string]any
 	if err := json.NewDecoder(res2.Body).Decode(&body2); err != nil {
 		t.Fatalf("decode 2nd response: %v", err)
@@ -240,7 +240,7 @@ func TestStatus_noSnapshot_noSavedAt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /status: %v", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	var body map[string]any
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -275,7 +275,7 @@ func TestGET_HistorySnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /history/snapshots: %v", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode != stdhttp.StatusOK {
 		t.Fatalf("status = %d, want 200", res.StatusCode)
@@ -317,7 +317,7 @@ func TestGET_HistorySnapshot_byVideoID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /history/snapshots/vid1: %v", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode != stdhttp.StatusOK {
 		t.Fatalf("status = %d, want 200", res.StatusCode)
@@ -349,7 +349,7 @@ func TestGET_HistorySnapshot_notFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /history/snapshots/nonexistent: %v", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode != stdhttp.StatusNotFound {
 		t.Fatalf("status = %d, want 404", res.StatusCode)
@@ -404,7 +404,7 @@ func TestRouter_StatusResponseHasNoLogsField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /status: %v", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode != stdhttp.StatusOK {
 		t.Fatalf("status = %d, want 200", res.StatusCode)
@@ -480,7 +480,7 @@ func TestSuccessResponse_ContainsLogsField(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s %s: %v", tt.method, tt.path, err)
 			}
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			if res.StatusCode != stdhttp.StatusOK {
 				t.Fatalf("status = %d, want 200", res.StatusCode)
