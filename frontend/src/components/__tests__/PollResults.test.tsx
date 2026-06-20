@@ -239,7 +239,7 @@ describe('PollResults', () => {
       writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
     })
 
-    it('handle なしの場合は displayName のみコピー', async () => {
+    it('handle なしの場合は keyword + displayName + 末尾空タブでコピー', async () => {
       const user = userEvent.setup()
       render(
         <PollResults
@@ -258,11 +258,11 @@ describe('PollResults', () => {
       await act(async () => {
         await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       })
-      expect(writeTextSpy).toHaveBeenCalledWith('taro')
+      expect(writeTextSpy).toHaveBeenCalledWith('hoge\ttaro\t')
       expect(screen.getByRole('button', { name: 'コピー済' })).toBeInTheDocument()
     })
 
-    it('handle ありの場合は displayName と handle を TSV でコピー', async () => {
+    it('handle ありの場合は keyword + displayName + handle を TSV でコピー', async () => {
       const user = userEvent.setup()
       render(
         <PollResults
@@ -281,10 +281,10 @@ describe('PollResults', () => {
       await act(async () => {
         await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       })
-      expect(writeTextSpy).toHaveBeenCalledWith('taro\t@tarochannel')
+      expect(writeTextSpy).toHaveBeenCalledWith('hoge\ttaro\t@tarochannel')
     })
 
-    it('handle あり/なし混在時は行ごとに列数が変わる', async () => {
+    it('handle あり/なし混在でも列位置が揃う', async () => {
       const user = userEvent.setup()
       render(
         <PollResults
@@ -306,7 +306,7 @@ describe('PollResults', () => {
       await act(async () => {
         await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       })
-      expect(writeTextSpy).toHaveBeenCalledWith('taro\t@tarochannel\nhanako')
+      expect(writeTextSpy).toHaveBeenCalledWith('hoge\ttaro\t@tarochannel\nhoge\thanako\t')
     })
   })
 })

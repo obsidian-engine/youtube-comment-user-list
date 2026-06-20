@@ -10,9 +10,12 @@ interface PollResultsProps {
 }
 
 function voterListToTsv(
+  keyword: string,
   voters: Array<{ displayName: string; channelId: string; handle?: string }>,
 ): string {
-  return voters.map((v) => (v.handle ? `${v.displayName}\t${v.handle}` : v.displayName)).join('\n')
+  // keyword 列を先頭に付けた縦持ち TSV。空 handle でも末尾タブを残し、
+  // スプレッドシートに貼ったとき列がズレないようにする。
+  return voters.map((v) => `${keyword}\t${v.displayName}\t${v.handle ?? ''}`).join('\n')
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -53,7 +56,7 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
   const handleCopy = async (word: string) => {
     const list = voters[word] ?? []
     if (list.length === 0) return
-    const ok = await copyToClipboard(voterListToTsv(list))
+    const ok = await copyToClipboard(voterListToTsv(word, list))
     if (ok) {
       setCopiedKeyword(word)
       setTimeout(() => setCopiedKeyword((cur) => (cur === word ? null : cur)), 1500)
