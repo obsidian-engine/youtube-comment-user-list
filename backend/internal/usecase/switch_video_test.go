@@ -37,10 +37,16 @@ func (f *failingYT) ListLiveChatMessages(ctx context.Context, liveChatID string,
 func (f *failingYT) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error) {
 	return nil, nil
 }
+func (f *failingYT) GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error) {
+	return nil, nil
+}
 func (f *fakeYT) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
 	return nil, "", 0, 0, false, nil
 }
 func (f *fakeYT) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error) {
+	return nil, nil
+}
+func (f *fakeYT) GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error) {
 	return nil, nil
 }
 

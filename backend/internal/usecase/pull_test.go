@@ -31,6 +31,9 @@ func (f *fakeYTWithToken) GetActiveLiveChatID(ctx context.Context, videoID strin
 func (f *fakeYTWithToken) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error) {
 	return nil, nil
 }
+func (f *fakeYTWithToken) GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error) {
+	return nil, nil
+}
 func (f *fakeYTWithToken) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
 	// messagesフィールドがある場合はそれを使用（新しいテスト用）
 	if f.messages != nil {
@@ -50,6 +53,9 @@ func (f *fakeYTForPull) ListLiveChatMessages(ctx context.Context, liveChatID str
 	return f.items, "", 0, 0, f.ended, nil
 }
 func (f *fakeYTForPull) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error) {
+	return nil, nil
+}
+func (f *fakeYTForPull) GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error) {
 	return nil, nil
 }
 

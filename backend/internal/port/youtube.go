@@ -30,4 +30,7 @@ type YouTubePort interface {
 	ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) (items []ChatMessage, nextPageToken string, pollingIntervalMillis int64, skippedCount int, isEnded bool, err error)
 	// チャンネルIDからチャンネル名（snippet.title）を一括取得します。
 	GetChannelDisplayNames(ctx context.Context, channelIDs []string) (map[string]string, error)
+	// チャンネルIDからハンドル（@username, snippet.customUrl）を一括取得します。
+	// ハンドルが存在しないチャンネルはマップに含まれません。
+	GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error)
 }
