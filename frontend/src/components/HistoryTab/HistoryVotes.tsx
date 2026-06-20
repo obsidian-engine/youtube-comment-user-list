@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
 import type { Comment } from '../../utils/api'
-import { countVotes, type MatchMode } from '../../utils/countVotes'
-import { loadStoredMatchMode, saveStoredMatchMode } from '../../utils/pollMatchMode'
+import { useVoteTally } from '../../hooks/useVoteTally'
 import { MatchModeDescription } from '../MatchModeDescription'
 import { MatchModeToggle } from '../MatchModeToggle'
 import { PollResults } from '../PollTab/PollResults'
@@ -10,33 +8,17 @@ interface HistoryVotesProps {
   comments: Comment[]
 }
 
-function parseKeywords(input: string): string[] {
-  return [
-    ...new Set(
-      input
-        .split(/[\n,]/)
-        .map((k) => k.trim())
-        .filter((k) => k.length > 0),
-    ),
-  ]
-}
-
 export function HistoryVotes({ comments }: HistoryVotesProps) {
-  const [keywordsInput, setKeywordsInput] = useState('')
-  const [matchMode, setMatchMode] = useState<MatchMode>(() => loadStoredMatchMode())
-
-  const parsedKeywords = useMemo(() => parseKeywords(keywordsInput), [keywordsInput])
-
-  useEffect(() => {
-    saveStoredMatchMode(matchMode)
-  }, [matchMode])
-
-  const { counts, voters } = useMemo(
-    () => countVotes(comments, parsedKeywords, matchMode),
-    [comments, parsedKeywords, matchMode],
-  )
-
-  const totalVotes = useMemo(() => Object.values(counts).reduce((a, b) => a + b, 0), [counts])
+  const {
+    keywordsInput,
+    setKeywordsInput,
+    matchMode,
+    setMatchMode,
+    parsedKeywords,
+    counts,
+    voters,
+    totalVotes,
+  } = useVoteTally({ mode: 'snapshot', comments })
 
   return (
     <div className="space-y-3">
