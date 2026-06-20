@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { Comment } from '../utils/api'
-import { countVotes, type MatchMode, type VoteCounts, type VoteVoters } from '../utils/countVotes'
-import { loadStoredMatchMode, saveStoredMatchMode } from '../utils/pollMatchMode'
+import type { MatchMode, VoteCounts, VoteVoters } from '../utils/countVotes'
 import { parseKeywords } from '../utils/parseKeywords'
+import { useVoteTallyCore } from './useVoteTallyCore'
 
 type SnapshotOptions = {
   mode: 'snapshot'
@@ -25,20 +25,12 @@ type UseVoteTallyResult = {
 
 export function useVoteTally(options: UseVoteTallyOptions): UseVoteTallyResult {
   const [keywordsInput, setKeywordsInput] = useState('')
-  const [matchMode, setMatchMode] = useState<MatchMode>(() => loadStoredMatchMode())
-
   const parsedKeywords = useMemo(() => parseKeywords(keywordsInput), [keywordsInput])
 
-  useEffect(() => {
-    saveStoredMatchMode(matchMode)
-  }, [matchMode])
-
-  const { counts, voters } = useMemo(
-    () => countVotes(options.comments, parsedKeywords, matchMode),
-    [options.comments, parsedKeywords, matchMode],
-  )
-
-  const totalVotes = useMemo(() => Object.values(counts).reduce((a, b) => a + b, 0), [counts])
+  const { matchMode, setMatchMode, counts, voters, totalVotes } = useVoteTallyCore({
+    keywords: parsedKeywords,
+    comments: options.comments,
+  })
 
   return {
     keywordsInput,

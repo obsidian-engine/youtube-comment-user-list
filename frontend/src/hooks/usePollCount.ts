@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { searchComments, type Comment } from '../utils/api'
 import { mapHttpError } from '../utils/mapHttpError'
-import { countVotes, type MatchMode, type VoteCounts, type VoteVoters } from '../utils/countVotes'
-import { loadStoredMatchMode, saveStoredMatchMode } from '../utils/pollMatchMode'
+import { useVoteTallyCore } from './useVoteTallyCore'
+import type { MatchMode } from '../utils/countVotes'
 
 export const POLL_INTERVAL_SEC = 15
 const STORAGE_KEY = 'pollKeywords'
@@ -36,96 +36,84 @@ const ERROR_MESSAGES = {
   TIMEOUT: '応答がタイムアウトしました。再試行してください。',
 } as const
 
-interface PollState {
+interface PollMeta {
   keywords: string[]
-  matchMode: MatchMode
-  counts: VoteCounts
-  voters: VoteVoters
   isLoading: boolean
   errorMsg: string
   lastUpdated: string
+  /** clearResults 呼出後 true になり、次の recount で false に戻る */
+  isResultCleared: boolean
 }
 
-const initialState: PollState = {
+const initialMeta: PollMeta = {
   keywords: [],
-  matchMode: 'exact',
-  counts: {},
-  voters: {},
   isLoading: false,
   errorMsg: '',
   lastUpdated: '--:--:--',
+  isResultCleared: false,
 }
 
 export function usePollCount() {
-  const [state, setState] = useState<PollState>(() => {
+  const [meta, setMeta] = useState<PollMeta>(() => {
     const stored = loadStoredKeywords()
-    const matchMode = loadStoredMatchMode()
-    if (stored.length === 0) return { ...initialState, matchMode }
-    return {
-      ...initialState,
-      matchMode,
-      keywords: stored,
-      counts: Object.fromEntries(stored.map((k) => [k, 0])),
-      voters: Object.fromEntries(stored.map((k) => [k, []])),
-    }
+    return { ...initialMeta, keywords: stored }
   })
+
+  // core に渡す comments — performRecount 完了時に更新
+  const [fetchedComments, setFetchedComments] = useState<Comment[]>([])
+
   const controllerRef = useRef<AbortController | null>(null)
-  const stateRef = useRef(state)
-  stateRef.current = state
+  const metaRef = useRef(meta)
+  metaRef.current = meta
+
+  // 集計コア: matchMode 管理(load/save) + countVotes + totalVotes
+  const core = useVoteTallyCore({ keywords: meta.keywords, comments: fetchedComments })
+  const coreRef = useRef(core)
+  coreRef.current = core
 
   useEffect(() => {
-    saveStoredKeywords(state.keywords)
-  }, [state.keywords])
-
-  useEffect(() => {
-    saveStoredMatchMode(state.matchMode)
-  }, [state.matchMode])
+    saveStoredKeywords(meta.keywords)
+  }, [meta.keywords])
 
   const addKeyword = useCallback((word: string) => {
     const trimmed = word.trim()
     if (!trimmed) return
-    setState((prev) => {
+    setMeta((prev) => {
       if (prev.keywords.includes(trimmed)) return prev
-      const keywords = [...prev.keywords, trimmed]
       return {
         ...prev,
-        keywords,
-        counts: { ...prev.counts, [trimmed]: prev.counts[trimmed] ?? 0 },
-        voters: { ...prev.voters, [trimmed]: prev.voters[trimmed] ?? [] },
+        keywords: [...prev.keywords, trimmed],
         errorMsg: '',
       }
     })
   }, [])
 
   const removeKeyword = useCallback((word: string) => {
-    setState((prev) => {
-      const keywords = prev.keywords.filter((k) => k !== word)
-      const counts = { ...prev.counts }
-      const voters = { ...prev.voters }
-      delete counts[word]
-      delete voters[word]
-      return { ...prev, keywords, counts, voters }
-    })
+    setMeta((prev) => ({
+      ...prev,
+      keywords: prev.keywords.filter((k) => k !== word),
+    }))
   }, [])
 
   const clearKeywords = useCallback(() => {
     if (controllerRef.current) controllerRef.current.abort()
-    setState(initialState)
+    setMeta({ ...initialMeta, keywords: [] })
+    setFetchedComments([])
   }, [])
 
   const clearResults = useCallback(() => {
-    setState((prev) => ({
+    setFetchedComments([])
+    setMeta((prev) => ({
       ...prev,
-      counts: {},
-      voters: {},
       errorMsg: '',
       lastUpdated: '--:--:--',
+      isResultCleared: true,
     }))
   }, [])
 
-  const performRecount = useCallback(async (keywords: string[], matchMode: MatchMode) => {
+  const performRecount = useCallback(async (keywords: string[]) => {
     if (keywords.length === 0) {
-      setState((prev) => ({ ...prev, errorMsg: ERROR_MESSAGES.NO_KEYWORDS }))
+      setMeta((prev) => ({ ...prev, errorMsg: ERROR_MESSAGES.NO_KEYWORDS }))
       return
     }
 
@@ -133,28 +121,27 @@ export function usePollCount() {
     const controller = new AbortController()
     controllerRef.current = controller
 
-    setState((prev) => ({ ...prev, isLoading: true, errorMsg: '' }))
+    setMeta((prev) => ({ ...prev, isLoading: true, errorMsg: '' }))
 
     try {
       const comments: Comment[] = (await searchComments(keywords, controller.signal)) ?? []
-      const { counts, voters } = countVotes(comments, keywords, matchMode)
       const timeStr = new Date().toLocaleTimeString('ja-JP', {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
       })
-      setState((prev) => ({
+      setFetchedComments(comments)
+      setMeta((prev) => ({
         ...prev,
-        counts,
-        voters,
         isLoading: false,
         lastUpdated: timeStr,
+        isResultCleared: false,
       }))
     } catch (e) {
       try {
         const code = mapHttpError(e)
         const errorMsg = ERROR_MESSAGES[code]
-        setState((prev) => ({ ...prev, isLoading: false, errorMsg }))
+        setMeta((prev) => ({ ...prev, isLoading: false, errorMsg }))
       } catch {
         return
       }
@@ -162,26 +149,38 @@ export function usePollCount() {
   }, [])
 
   const recount = useCallback(async () => {
-    await performRecount(state.keywords, state.matchMode)
-  }, [state.keywords, state.matchMode, performRecount])
+    await performRecount(metaRef.current.keywords)
+  }, [performRecount])
 
   const setMatchMode = useCallback(
     (mode: MatchMode) => {
-      const { keywords, matchMode: currentMode } = stateRef.current
+      const keywords = metaRef.current.keywords
+      const currentMode = coreRef.current.matchMode
       if (currentMode === mode) return
 
-      setState((prev) => ({ ...prev, matchMode: mode }))
+      coreRef.current.setMatchMode(mode)
 
       if (keywords.length > 0) {
-        void performRecount(keywords, mode)
+        void performRecount(keywords)
       }
     },
     [performRecount],
   )
 
+  // clearResults 後は counts/voters を空にして旧 API の振る舞いを維持
+  const counts = meta.isResultCleared ? {} : core.counts
+  const voters = meta.isResultCleared ? {} : core.voters
+  const totalVotes = meta.isResultCleared ? 0 : core.totalVotes
+
   return {
-    ...state,
-    totalVotes: Object.values(state.counts).reduce((a, b) => a + b, 0),
+    keywords: meta.keywords,
+    matchMode: core.matchMode,
+    counts,
+    voters,
+    isLoading: meta.isLoading,
+    errorMsg: meta.errorMsg,
+    lastUpdated: meta.lastUpdated,
+    totalVotes,
     addKeyword,
     removeKeyword,
     clearKeywords,
