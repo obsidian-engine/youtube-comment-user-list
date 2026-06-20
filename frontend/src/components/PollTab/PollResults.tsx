@@ -9,8 +9,10 @@ interface PollResultsProps {
   isLoading: boolean
 }
 
-function voterListToTsv(voters: Array<{ displayName: string; channelId: string }>): string {
-  return voters.map((v) => `${v.displayName}\t${v.channelId}`).join('\n')
+function voterListToTsv(
+  voters: Array<{ displayName: string; channelId: string; handle?: string }>,
+): string {
+  return voters.map((v) => `${v.displayName}\t${v.handle || v.channelId}`).join('\n')
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -171,7 +173,7 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
                                 cursor: 'pointer',
                               }}
                             >
-                              {copiedKeyword === word ? 'コピー済' : '名前+channelId をコピー'}
+                              {copiedKeyword === word ? 'コピー済' : '名前+ハンドルをコピー'}
                             </button>
                           </div>
                           <ul className="space-y-1">
@@ -194,7 +196,7 @@ export function PollResults({ keywords, counts, voters, totalVotes, isLoading }:
                                     color: 'var(--c-ink-mute)',
                                   }}
                                 >
-                                  {v.channelId}
+                                  {v.handle || v.channelId}
                                 </span>
                               </li>
                             ))}
