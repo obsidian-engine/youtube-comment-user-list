@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Comment } from '../../utils/api'
 import { countVotes, type MatchMode } from '../../utils/countVotes'
 import { loadStoredMatchMode, saveStoredMatchMode } from '../../utils/pollMatchMode'
+import { MatchModeDescription } from '../MatchModeDescription'
 import { MatchModeToggle } from '../MatchModeToggle'
 import { PollResults } from '../PollTab/PollResults'
 
@@ -40,11 +41,7 @@ export function HistoryVotes({ comments }: HistoryVotesProps) {
   return (
     <div className="space-y-3">
       <MatchModeToggle matchMode={matchMode} onMatchModeChange={setMatchMode} />
-      <p className="text-[12px] text-slate-500">
-        {matchMode === 'exact'
-          ? 'コメントがキーワードと完全一致した場合に 1 票としてカウントします。'
-          : 'コメントにキーワードが含まれる場合に 1 票としてカウントします。'}
-      </p>
+      <MatchModeDescription matchMode={matchMode} variant="history" />
       <div className="flex gap-3 items-start">
         <textarea
           value={keywordsInput}

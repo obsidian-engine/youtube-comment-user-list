@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { LoadingButton } from '../LoadingButton'
+import { MatchModeDescription } from '../MatchModeDescription'
 import { MatchModeToggle } from '../MatchModeToggle'
 import type { MatchMode } from '../../utils/countVotes'
 
@@ -63,19 +64,7 @@ export function PollControls({
             disabled={isLoading}
           />
 
-          <p
-            style={{
-              fontFamily: 'var(--f-mono)',
-              fontSize: '11px',
-              color: 'var(--c-ink-mute)',
-              marginBottom: '14px',
-              lineHeight: 1.6,
-            }}
-          >
-            {matchMode === 'exact'
-              ? 'キーワードを 1 つずつ追加してください。コメントが完全一致した場合のみ 1 票としてカウントされます。'
-              : 'キーワードを 1 つずつ追加してください。コメントにキーワードが含まれる場合に 1 票としてカウントされます。'}
-          </p>
+          <MatchModeDescription matchMode={matchMode} variant="poll" />
 
           <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
             <input
