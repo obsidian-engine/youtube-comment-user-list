@@ -427,4 +427,24 @@ describe('countVotes - partial モード', () => {
     const comments = [c('u1', 'hogeです', '2024-01-01T00:00:01Z')]
     expect(countVotes(comments, ['hoge']).counts).toEqual({ hoge: 0 })
   })
+
+  it('包含関係のキーワードは最長一致を優先（配列順に依存しない）', () => {
+    const comments = [c('u1', 'hogeだ', '2024-01-01T00:00:01Z')]
+    expect(countVotes(comments, ['ho', 'hoge'], 'partial').counts).toEqual({
+      ho: 0,
+      hoge: 1,
+    })
+    expect(countVotes(comments, ['hoge', 'ho'], 'partial').counts).toEqual({
+      hoge: 1,
+      ho: 0,
+    })
+  })
+
+  it('最長一致しても含まれなければ短いキーワードにフォールバック', () => {
+    const comments = [c('u1', 'hoだ', '2024-01-01T00:00:01Z')]
+    expect(countVotes(comments, ['ho', 'hoge'], 'partial').counts).toEqual({
+      ho: 1,
+      hoge: 0,
+    })
+  })
 })

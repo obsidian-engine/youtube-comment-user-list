@@ -24,6 +24,11 @@ export function countVotes(
 
   const sorted = [...comments].sort((a, b) => a.publishedAt.localeCompare(b.publishedAt))
 
+  // partial では包含関係にあるキーワード (例: 'ho' と 'hoge') を同時登録したとき、
+  // 配列順ではなく最長一致を優先する。より具体的なキーワードに票を寄せるため。
+  const partialKeywords =
+    matchMode === 'partial' ? [...keywords].sort((a, b) => b.length - a.length) : keywords
+
   const voted = new Set<string>()
   for (const c of sorted) {
     if (voted.has(c.channelId)) continue
@@ -31,7 +36,7 @@ export function countVotes(
     const matched =
       matchMode === 'exact'
         ? keywords.find((k) => trimmed === k)
-        : keywords.find((k) => trimmed.includes(k))
+        : partialKeywords.find((k) => trimmed.includes(k))
     if (matched === undefined) continue
     voted.add(c.channelId)
     counts[matched] += 1
