@@ -353,8 +353,8 @@ func (a *API) GetChannelDisplayNames(ctx context.Context, channelIDs []string) (
 }
 
 // GetChannelHandles は channelIDs に対応するハンドル(@username)マップを返す。
-// GetChannelDisplayNames と同じAPIコールで取得済みのキャッシュを活用する。
-// キャッシュにない場合は Channels API を呼び出す。
+// GetChannelDisplayNames で既に解決済みの @ チャンネルはキャッシュから返す。
+// 未キャッシュのチャンネルは Channels API を1回呼び出し、以降はキャッシュする。
 // ハンドルが存在しない/空のチャンネルはマップに含まれない。
 func (a *API) GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error) {
 	result := make(map[string]string)
