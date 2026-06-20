@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { LoadingButton } from '../LoadingButton'
+import type { MatchMode } from '../../utils/countVotes'
 
 interface PollControlsProps {
   keywords: string[]
+  matchMode: MatchMode
+  onMatchModeChange: (mode: MatchMode) => void
   onAddKeyword: (word: string) => void
   onRemoveKeyword: (word: string) => void
   onClear: () => void
@@ -13,6 +16,8 @@ interface PollControlsProps {
 
 export function PollControls({
   keywords,
+  matchMode,
+  onMatchModeChange,
   onAddKeyword,
   onRemoveKeyword,
   onClear,
@@ -48,8 +53,40 @@ export function PollControls({
               marginBottom: '8px',
             }}
           >
-            投票キーワード（完全一致でカウント）
+            投票キーワード
           </h2>
+
+          <div
+            style={{
+              display: 'flex',
+              gap: '4px',
+              marginBottom: '12px',
+            }}
+            role="group"
+            aria-label="マッチモード"
+          >
+            {(['exact', 'partial'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => onMatchModeChange(mode)}
+                disabled={isLoading}
+                aria-pressed={matchMode === mode}
+                style={{
+                  fontFamily: 'var(--f-mono)',
+                  fontSize: '11px',
+                  letterSpacing: '0.12em',
+                  padding: '4px 12px',
+                  border: '1px solid var(--c-line-strong)',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  background: matchMode === mode ? 'var(--c-ink)' : 'transparent',
+                  color: matchMode === mode ? '#fff' : 'var(--c-ink-dim)',
+                  transition: 'background 0.15s, color 0.15s',
+                }}
+              >
+                {mode === 'exact' ? '完全一致' : '部分一致'}
+              </button>
+            ))}
+          </div>
 
           <p
             style={{
@@ -60,8 +97,9 @@ export function PollControls({
               lineHeight: 1.6,
             }}
           >
-            キーワードを 1 つずつ追加してください。コメントが完全一致した場合のみ 1
-            票としてカウントされます。
+            {matchMode === 'exact'
+              ? 'キーワードを 1 つずつ追加してください。コメントが完全一致した場合のみ 1 票としてカウントされます。'
+              : 'キーワードを 1 つずつ追加してください。コメントにキーワードが含まれる場合に 1 票としてカウントされます。'}
           </p>
 
           <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>

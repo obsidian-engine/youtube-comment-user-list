@@ -1,10 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { searchComments, type Comment } from '../utils/api'
 import { mapHttpError } from '../utils/mapHttpError'
-import { countVotes, type VoteCounts, type VoteVoters } from '../utils/countVotes'
+import { countVotes, type MatchMode, type VoteCounts, type VoteVoters } from '../utils/countVotes'
 
 export const POLL_INTERVAL_SEC = 15
 const STORAGE_KEY = 'pollKeywords'
+const MATCH_MODE_STORAGE_KEY = 'pollMatchMode'
+
+function loadStoredMatchMode(): MatchMode {
+  try {
+    const raw = localStorage.getItem(MATCH_MODE_STORAGE_KEY)
+    if (raw === 'exact' || raw === 'partial') return raw
+  } catch {
+    // ignore
+  }
+  return 'exact'
+}
 
 function loadStoredKeywords(): string[] {
   try {
@@ -37,6 +48,7 @@ const ERROR_MESSAGES = {
 
 interface PollState {
   keywords: string[]
+  matchMode: MatchMode
   counts: VoteCounts
   voters: VoteVoters
   isLoading: boolean
@@ -46,6 +58,7 @@ interface PollState {
 
 const initialState: PollState = {
   keywords: [],
+  matchMode: 'exact',
   counts: {},
   voters: {},
   isLoading: false,
@@ -56,9 +69,11 @@ const initialState: PollState = {
 export function usePollCount() {
   const [state, setState] = useState<PollState>(() => {
     const stored = loadStoredKeywords()
-    if (stored.length === 0) return initialState
+    const matchMode = loadStoredMatchMode()
+    if (stored.length === 0) return { ...initialState, matchMode }
     return {
       ...initialState,
+      matchMode,
       keywords: stored,
       counts: Object.fromEntries(stored.map((k) => [k, 0])),
       voters: Object.fromEntries(stored.map((k) => [k, []])),
@@ -69,6 +84,14 @@ export function usePollCount() {
   useEffect(() => {
     saveStoredKeywords(state.keywords)
   }, [state.keywords])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MATCH_MODE_STORAGE_KEY, state.matchMode)
+    } catch {
+      // ignore
+    }
+  }, [state.matchMode])
 
   const addKeyword = useCallback((word: string) => {
     const trimmed = word.trim()
@@ -127,7 +150,7 @@ export function usePollCount() {
 
     try {
       const comments: Comment[] = (await searchComments(keywords, controller.signal)) ?? []
-      const { counts, voters } = countVotes(comments, keywords)
+      const { counts, voters } = countVotes(comments, keywords, state.matchMode)
       const timeStr = new Date().toLocaleTimeString('ja-JP', {
         hour: '2-digit',
         minute: '2-digit',
@@ -149,7 +172,11 @@ export function usePollCount() {
         return
       }
     }
-  }, [state.keywords])
+  }, [state.keywords, state.matchMode])
+
+  const setMatchMode = useCallback((mode: MatchMode) => {
+    setState((prev) => ({ ...prev, matchMode: mode }))
+  }, [])
 
   return {
     ...state,
@@ -159,5 +186,6 @@ export function usePollCount() {
     clearKeywords,
     clearResults,
     recount,
+    setMatchMode,
   }
 }

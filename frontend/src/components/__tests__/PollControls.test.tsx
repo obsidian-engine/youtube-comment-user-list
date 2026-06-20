@@ -33,10 +33,14 @@ describe('PollControls', () => {
     vi.clearAllMocks()
   })
 
+  const onMatchModeChange = vi.fn()
+
   const renderControls = (props: Partial<Parameters<typeof PollControls>[0]> = {}) => {
     return render(
       <PollControls
         keywords={['hoge', 'fuga']}
+        matchMode="exact"
+        onMatchModeChange={onMatchModeChange}
         onAddKeyword={onAddKeyword}
         onRemoveKeyword={onRemoveKeyword}
         onClear={onClear}
@@ -51,7 +55,7 @@ describe('PollControls', () => {
   describe('表示要素', () => {
     it('見出しと説明文を表示', () => {
       renderControls()
-      expect(screen.getByText('投票キーワード（完全一致でカウント）')).toBeInTheDocument()
+      expect(screen.getByText('投票キーワード')).toBeInTheDocument()
       expect(screen.getByText(/キーワードを 1 つずつ追加/)).toBeInTheDocument()
     })
 

@@ -382,3 +382,49 @@ describe('countVotes - 投票結果の独立性（regression）', () => {
     expect(r1).toEqual(r2)
   })
 })
+
+describe('countVotes - partial モード', () => {
+  it('キーワードを含むコメントをカウント', () => {
+    const comments = [
+      c('u1', 'hogeです', '2024-01-01T00:00:01Z'),
+      c('u2', 'やっぱfuga', '2024-01-01T00:00:02Z'),
+    ]
+    expect(countVotes(comments, ['hoge', 'fuga'], 'partial').counts).toEqual({
+      hoge: 1,
+      fuga: 1,
+    })
+  })
+
+  it('完全一致の場合も partial でカウント', () => {
+    const comments = [c('u1', 'hoge', '2024-01-01T00:00:01Z')]
+    expect(countVotes(comments, ['hoge'], 'partial').counts).toEqual({ hoge: 1 })
+  })
+
+  it('含まれない場合は 0', () => {
+    const comments = [c('u1', 'piyo', '2024-01-01T00:00:01Z')]
+    expect(countVotes(comments, ['hoge'], 'partial').counts).toEqual({ hoge: 0 })
+  })
+
+  it('1コメンター1票ルールは partial でも有効', () => {
+    const comments = [
+      c('u1', 'hoge投票', '2024-01-01T00:00:01Z'),
+      c('u1', 'fuga投票', '2024-01-01T00:00:02Z'),
+    ]
+    expect(countVotes(comments, ['hoge', 'fuga'], 'partial').counts).toEqual({
+      hoge: 1,
+      fuga: 0,
+    })
+  })
+
+  it('複数キーワードのうち最初にマッチしたものに投票', () => {
+    const comments = [c('u1', 'hogehoge', '2024-01-01T00:00:01Z')]
+    const { counts } = countVotes(comments, ['hoge', 'fuga'], 'partial')
+    expect(counts['hoge']).toBe(1)
+    expect(counts['fuga']).toBe(0)
+  })
+
+  it('matchMode 省略時は exact 動作', () => {
+    const comments = [c('u1', 'hogeです', '2024-01-01T00:00:01Z')]
+    expect(countVotes(comments, ['hoge']).counts).toEqual({ hoge: 0 })
+  })
+})
