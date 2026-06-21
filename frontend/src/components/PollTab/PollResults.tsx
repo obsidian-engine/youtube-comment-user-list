@@ -26,6 +26,15 @@ function voterListToTsv(
     .join('\n')
 }
 
+function handleForCopy(handle?: string): string {
+  if (!handle) return ''
+  return handle.startsWith('@') ? handle.slice(1) : handle
+}
+
+function voterHandlesToText(voters: Array<{ handle?: string }>): string {
+  return voters.map((v) => handleForCopy(v.handle)).join('\n')
+}
+
 async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text)
@@ -66,6 +75,19 @@ const voterTdStyle: React.CSSProperties = {
   borderBottom: '1px solid var(--c-line)',
 }
 
+const copyButtonStyle: React.CSSProperties = {
+  fontFamily: 'var(--f-mono)',
+  fontSize: '11px',
+  letterSpacing: '0.1em',
+  padding: '4px 10px',
+  background: 'transparent',
+  color: 'var(--c-ink)',
+  border: '1px solid var(--c-line-strong)',
+  cursor: 'pointer',
+}
+
+type CopiedKind = 'full' | 'handles'
+
 export function PollResults({
   keywords,
   counts,
@@ -76,7 +98,7 @@ export function PollResults({
   savedAt = '',
 }: PollResultsProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [copiedKeyword, setCopiedKeyword] = useState<string | null>(null)
+  const [copied, setCopied] = useState<{ word: string; kind: CopiedKind } | null>(null)
 
   if (keywords.length === 0) return null
 
@@ -89,14 +111,26 @@ export function PollResults({
     })
   }
 
-  const handleCopy = async (word: string) => {
+  const markCopied = (word: string, kind: CopiedKind) => {
+    setCopied({ word, kind })
+    setTimeout(
+      () => setCopied((cur) => (cur?.word === word && cur.kind === kind ? null : cur)),
+      1500,
+    )
+  }
+
+  const handleCopyFull = async (word: string) => {
     const list = voters[word] ?? []
     if (list.length === 0) return
     const ok = await copyToClipboard(voterListToTsv(savedAt, videoId, word, list))
-    if (ok) {
-      setCopiedKeyword(word)
-      setTimeout(() => setCopiedKeyword((cur) => (cur === word ? null : cur)), 1500)
-    }
+    if (ok) markCopied(word, 'full')
+  }
+
+  const handleCopyHandles = async (word: string) => {
+    const list = voters[word] ?? []
+    if (list.length === 0) return
+    const ok = await copyToClipboard(voterHandlesToText(list))
+    if (ok) markCopied(word, 'handles')
   }
 
   return (
@@ -194,27 +228,40 @@ export function PollResults({
                             >
                               投票ユーザー ({list.length}人)
                             </span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                void handleCopy(word)
-                              }}
-                              aria-label={
-                                copiedKeyword === word ? 'コピー済' : 'クリップボードにコピー'
-                              }
-                              style={{
-                                fontFamily: 'var(--f-mono)',
-                                fontSize: '11px',
-                                letterSpacing: '0.1em',
-                                padding: '4px 10px',
-                                background: 'transparent',
-                                color: 'var(--c-ink)',
-                                border: '1px solid var(--c-line-strong)',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              {copiedKeyword === word ? 'コピー済' : '名前+ハンドルをコピー'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  void handleCopyFull(word)
+                                }}
+                                aria-label={
+                                  copied?.word === word && copied.kind === 'full'
+                                    ? 'コピー済'
+                                    : 'クリップボードにコピー'
+                                }
+                                style={copyButtonStyle}
+                              >
+                                {copied?.word === word && copied.kind === 'full'
+                                  ? 'コピー済'
+                                  : '名前+ハンドルをコピー'}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  void handleCopyHandles(word)
+                                }}
+                                aria-label={
+                                  copied?.word === word && copied.kind === 'handles'
+                                    ? 'コピー済'
+                                    : 'ハンドルをクリップボードにコピー'
+                                }
+                                style={copyButtonStyle}
+                              >
+                                {copied?.word === word && copied.kind === 'handles'
+                                  ? 'コピー済'
+                                  : 'ハンドルのみコピー'}
+                              </button>
+                            </div>
                           </div>
                           <table
                             className="w-full table-fixed"

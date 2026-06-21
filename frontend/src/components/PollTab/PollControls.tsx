@@ -71,7 +71,6 @@ export function PollControls({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
               placeholder="投票キーワードを入力"
               aria-label="キーワード入力"
               disabled={isLoading}

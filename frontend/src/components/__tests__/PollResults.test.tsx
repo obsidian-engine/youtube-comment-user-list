@@ -390,5 +390,56 @@ describe('PollResults', () => {
         '2026-06-20T10:00:00Z\tVIDEO123\thoge\ttaro\t@tarochannel',
       )
     })
+
+    it('ハンドルのみコピーは handle を改行区切りでコピーする', async () => {
+      const user = userEvent.setup()
+      render(
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 2 }}
+          voters={{
+            hoge: [
+              { channelId: 'UC1', displayName: 'taro', handle: '@tarochannel', message: 'hoge' },
+              { channelId: 'UC2', displayName: 'hanako', message: 'hoge' },
+            ],
+          }}
+          totalVotes={2}
+          isLoading={false}
+        />,
+      )
+      await act(async () => {
+        await user.click(screen.getByText('hoge'))
+      })
+      await act(async () => {
+        await user.click(screen.getByRole('button', { name: 'ハンドルをクリップボードにコピー' }))
+      })
+      expect(writeTextSpy).toHaveBeenCalledWith('tarochannel\n')
+    })
+
+    it('ハンドルのみコピー成功時はコピー済と表示する', async () => {
+      const user = userEvent.setup()
+      render(
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 1 }}
+          voters={{
+            hoge: [
+              { channelId: 'UC1', displayName: 'taro', handle: '@tarochannel', message: 'hoge' },
+            ],
+          }}
+          totalVotes={1}
+          isLoading={false}
+        />,
+      )
+      await act(async () => {
+        await user.click(screen.getByText('hoge'))
+      })
+      await act(async () => {
+        await user.click(screen.getByRole('button', { name: 'ハンドルをクリップボードにコピー' }))
+      })
+      expect(screen.getByRole('button', { name: 'コピー済', hidden: false })).toHaveTextContent(
+        'コピー済',
+      )
+    })
   })
 })
