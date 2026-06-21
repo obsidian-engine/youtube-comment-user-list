@@ -603,6 +603,48 @@ func TestClassifyAPIError(t *testing.T) {
 			wantCode: domain.ErrCodeRateLimited,
 		},
 		{
+			name: "400 API_KEY_INVALID (旧 Errors 形式) → ErrCodeAuthFailed",
+			err: &googleapi.Error{
+				Code:    400,
+				Message: "API key not valid. Please pass a valid API key.",
+				Errors:  []googleapi.ErrorItem{{Reason: "API_KEY_INVALID"}},
+			},
+			wantCode: domain.ErrCodeAuthFailed,
+		},
+		{
+			name: "400 API_KEY_INVALID (新 Details 形式) → ErrCodeAuthFailed",
+			err: &googleapi.Error{
+				Code:    400,
+				Message: "API key not valid. Please pass a valid API key.",
+				Details: []interface{}{
+					map[string]interface{}{
+						"@type":  "type.googleapis.com/google.rpc.ErrorInfo",
+						"reason": "API_KEY_INVALID",
+						"domain": "googleapis.com",
+					},
+				},
+			},
+			wantCode: domain.ErrCodeAuthFailed,
+		},
+		{
+			// 現代の Google API は Errors[0] に generic な "badRequest" を、Details に具体 reason を入れる。
+			// Details 優先 (現実の e2e で観測されたケース)。
+			name: "400 Details 優先 (Errors[0]=badRequest, Details=API_KEY_INVALID) → ErrCodeAuthFailed",
+			err: &googleapi.Error{
+				Code:    400,
+				Message: "API key not valid. Please pass a valid API key.",
+				Errors:  []googleapi.ErrorItem{{Reason: "badRequest"}},
+				Details: []interface{}{
+					map[string]interface{}{
+						"@type":  "type.googleapis.com/google.rpc.ErrorInfo",
+						"reason": "API_KEY_INVALID",
+						"domain": "googleapis.com",
+					},
+				},
+			},
+			wantCode: domain.ErrCodeAuthFailed,
+		},
+		{
 			name: "500 は分類せずそのまま",
 			err: &googleapi.Error{
 				Code:    500,
