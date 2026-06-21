@@ -135,8 +135,8 @@ describe('PollResults', () => {
   describe('投票ユーザー expand', () => {
     const voters = {
       hoge: [
-        { channelId: 'UC1', displayName: 'taro' },
-        { channelId: 'UC2', displayName: 'hanako' },
+        { channelId: 'UC1', displayName: 'taro', message: 'taroの投票' },
+        { channelId: 'UC2', displayName: 'hanako', message: 'hanakoの投票' },
       ],
       fuga: [],
     }
@@ -181,7 +181,9 @@ describe('PollResults', () => {
           keywords={['hoge']}
           counts={{ hoge: 1 }}
           voters={{
-            hoge: [{ channelId: 'UC1', displayName: 'taro', handle: '@tarochannel' }],
+            hoge: [
+              { channelId: 'UC1', displayName: 'taro', handle: '@tarochannel', message: 'hoge' },
+            ],
           }}
           totalVotes={1}
           isLoading={false}
@@ -192,6 +194,25 @@ describe('PollResults', () => {
       })
       expect(screen.getByText('@tarochannel')).toBeInTheDocument()
       expect(screen.queryByText('UC1')).toBeNull()
+    })
+
+    it('展開時にコメント本文を表示する', async () => {
+      const user = userEvent.setup()
+      render(
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 1 }}
+          voters={{
+            hoge: [{ channelId: 'UC1', displayName: 'taro', message: 'hoge投票' }],
+          }}
+          totalVotes={1}
+          isLoading={false}
+        />,
+      )
+      await act(async () => {
+        await user.click(screen.getByText('hoge'))
+      })
+      expect(screen.getByText('hoge投票')).toBeInTheDocument()
     })
 
     it('再クリックで折りたたまれる', async () => {
@@ -246,7 +267,7 @@ describe('PollResults', () => {
           keywords={['hoge']}
           counts={{ hoge: 1 }}
           voters={{
-            hoge: [{ channelId: 'UC1', displayName: 'taro' }],
+            hoge: [{ channelId: 'UC1', displayName: 'taro', message: 'hoge' }],
           }}
           totalVotes={1}
           isLoading={false}
@@ -269,7 +290,9 @@ describe('PollResults', () => {
           keywords={['hoge']}
           counts={{ hoge: 1 }}
           voters={{
-            hoge: [{ channelId: 'UC1', displayName: 'taro', handle: '@tarochannel' }],
+            hoge: [
+              { channelId: 'UC1', displayName: 'taro', handle: '@tarochannel', message: 'hoge' },
+            ],
           }}
           totalVotes={1}
           isLoading={false}
@@ -292,8 +315,8 @@ describe('PollResults', () => {
           counts={{ hoge: 2 }}
           voters={{
             hoge: [
-              { channelId: 'UC1', displayName: 'taro', handle: '@tarochannel' },
-              { channelId: 'UC2', displayName: 'hanako' },
+              { channelId: 'UC1', displayName: 'taro', handle: '@tarochannel', message: 'hoge' },
+              { channelId: 'UC2', displayName: 'hanako', message: 'hoge' },
             ],
           }}
           totalVotes={2}
@@ -316,7 +339,9 @@ describe('PollResults', () => {
           keywords={['hoge']}
           counts={{ hoge: 1 }}
           voters={{
-            hoge: [{ channelId: 'UC1', displayName: 'taro', handle: '@tarochannel' }],
+            hoge: [
+              { channelId: 'UC1', displayName: 'taro', handle: '@tarochannel', message: 'hoge' },
+            ],
           }}
           totalVotes={1}
           isLoading={false}

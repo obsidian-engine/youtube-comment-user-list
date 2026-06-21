@@ -1,7 +1,7 @@
 import type { Comment } from './api'
 
 export type VoteCounts = Record<string, number>
-export type Voter = { channelId: string; displayName: string; handle?: string }
+export type Voter = { channelId: string; displayName: string; handle?: string; message: string }
 export type VoteVoters = Record<string, Voter[]>
 export type MatchMode = 'exact' | 'partial'
 
@@ -40,7 +40,12 @@ export function countVotes(
     if (matched === undefined) continue
     voted.add(c.channelId)
     counts[matched] += 1
-    voters[matched].push({ channelId: c.channelId, displayName: c.displayName, handle: c.handle })
+    voters[matched].push({
+      channelId: c.channelId,
+      displayName: c.displayName,
+      handle: c.handle,
+      message: trimmed,
+    })
   }
   return { counts, voters }
 }

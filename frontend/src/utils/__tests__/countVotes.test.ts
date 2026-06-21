@@ -15,6 +15,35 @@ const c = (
   publishedAt,
 })
 
+describe('countVotes - voters 出力', () => {
+  it('exact マッチ時に message を trimmed で保存する', () => {
+    const comments = [c('u1', '  hoge  ', '2024-01-01T00:00:01Z')]
+    const { voters } = countVotes(comments, ['hoge'])
+    expect(voters.hoge).toEqual([{ channelId: 'u1', displayName: 'u1', message: 'hoge' }])
+  })
+
+  it('partial マッチ時にコメント全文を message として保存する', () => {
+    const comments = [c('u1', '賛成です', '2024-01-01T00:00:01Z')]
+    const { voters } = countVotes(comments, ['賛成'], 'partial')
+    expect(voters['賛成']).toEqual([{ channelId: 'u1', displayName: 'u1', message: '賛成です' }])
+  })
+
+  it('handle がある場合も message と一緒に保存する', () => {
+    const comment: Comment = {
+      id: '1',
+      channelId: 'u1',
+      displayName: 'taro',
+      handle: '@taro',
+      message: 'hoge',
+      publishedAt: '2024-01-01T00:00:01Z',
+    }
+    const { voters } = countVotes([comment], ['hoge'])
+    expect(voters.hoge).toEqual([
+      { channelId: 'u1', displayName: 'taro', handle: '@taro', message: 'hoge' },
+    ])
+  })
+})
+
 describe('countVotes - 入力境界', () => {
   it('空コメント・空キーワードはすべて0', () => {
     expect(countVotes([], []).counts).toEqual({})

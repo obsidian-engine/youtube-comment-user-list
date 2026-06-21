@@ -17,7 +17,7 @@ function voterListToTsv(
   savedAt: string,
   videoId: string,
   keyword: string,
-  voters: Array<{ displayName: string; channelId: string; handle?: string }>,
+  voters: Array<{ displayName: string; channelId: string; handle?: string; message?: string }>,
 ): string {
   // 配信日 / videoId / keyword を先頭に付けた縦持ち TSV。空 handle でも末尾タブを
   // 残し、スプレッドシートに貼ったとき列がズレないようにする。
@@ -202,24 +202,40 @@ export function PollResults({
                                 key={v.channelId}
                                 style={{
                                   display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
+                                  flexDirection: 'column',
+                                  gap: '2px',
                                   fontSize: '13px',
                                   color: 'var(--c-ink)',
                                 }}
                               >
-                                <span>{v.displayName}</span>
-                                {v.handle && (
-                                  <span
-                                    style={{
-                                      fontFamily: 'var(--f-mono)',
-                                      fontSize: '11px',
-                                      color: 'var(--c-ink-mute)',
-                                    }}
-                                  >
-                                    {v.handle}
-                                  </span>
-                                )}
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                  }}
+                                >
+                                  <span>{v.displayName}</span>
+                                  {v.handle && (
+                                    <span
+                                      style={{
+                                        fontFamily: 'var(--f-mono)',
+                                        fontSize: '11px',
+                                        color: 'var(--c-ink-mute)',
+                                      }}
+                                    >
+                                      {v.handle}
+                                    </span>
+                                  )}
+                                </div>
+                                <span
+                                  style={{
+                                    fontSize: '13px',
+                                    color: 'var(--c-ink-dim)',
+                                  }}
+                                >
+                                  {v.message}
+                                </span>
                               </li>
                             ))}
                           </ul>
