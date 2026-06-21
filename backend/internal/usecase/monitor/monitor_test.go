@@ -364,6 +364,46 @@ func TestMonitor_Reserved_ActualStartTimeZero_NoSwitch(t *testing.T) {
 	}
 }
 
+// TestMonitor_Reserved_ScheduledFuture_NoSwitch: actualStartTime が立っていても scheduledStartTime が未来なら SwitchVideo を呼ばない。
+// premiere / test broadcast 中に actualStartTime が先行して立つケース対策 (本番で観測)。
+func TestMonitor_Reserved_ScheduledFuture_NoSwitch(t *testing.T) {
+	sw := &fakeSwitcher{}
+	pl := &fakePuller{}
+	yt := &fakeYT{details: port.VideoLiveDetails{
+		ActualStartTime:    time.Now().Add(-1 * time.Minute), // 立ってる
+		ScheduledStartTime: time.Now().Add(12 * time.Hour),   // 未来
+	}}
+	state := memory.NewStateRepo()
+	_ = state.Set(context.Background(), domain.LiveState{
+		Status:  domain.StatusReserved,
+		VideoID: "vid_premiere",
+	})
+
+	tickC := make(chan time.Time, 1)
+	m := buildMonitor(sw, pl, yt, state, tickC)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		m.Run(ctx)
+	}()
+
+	tickC <- time.Now()
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not return after ctx cancel")
+	}
+
+	if sw.calls.Load() != 0 {
+		t.Errorf("SwitchVideo.Execute should NOT be called when scheduledStartTime is in the future, got %d", sw.calls.Load())
+	}
+}
+
 // TestMonitor_Reserved_ActualStartTimeSet_Switches: actualStartTime が立っていれば SwitchVideo を呼ぶ。
 func TestMonitor_Reserved_ActualStartTimeSet_Switches(t *testing.T) {
 	sw := &fakeSwitcher{}
