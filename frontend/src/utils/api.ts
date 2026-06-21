@@ -66,11 +66,14 @@ async function throwIfError(res: Response): Promise<void> {
 }
 
 export type StatusResponse = {
-  status?: 'WAITING' | 'ACTIVE'
+  status?: 'WAITING' | 'ACTIVE' | 'RESERVED'
   count?: number
   videoId?: string
   startedAt?: string
   endedAt?: string
+  reservedAt?: string
+  scheduledStartTime?: string
+  autonomousMonitoring?: boolean
   snapshotSavedAt?: string
 }
 

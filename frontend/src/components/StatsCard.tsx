@@ -3,18 +3,20 @@ import type { User } from '../utils/api'
 interface StatsCardProps {
   users: User[]
   active: boolean
+  reserved?: boolean
   startTime?: string
+  scheduledStartTime?: string
   lastUpdated?: string
   lastSnapshotAt?: string
   skippedCount: number
 }
 
-const getMonitoringStartTime = (startTime?: string): string => {
-  if (!startTime) return '未開始'
+const formatDateTime = (value?: string): string | null => {
+  if (!value) return null
   try {
-    const start = new Date(startTime)
-    if (isNaN(start.getTime())) return '未開始'
-    return start.toLocaleString('ja-JP', {
+    const d = new Date(value)
+    if (isNaN(d.getTime())) return null
+    return d.toLocaleString('ja-JP', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -22,20 +24,27 @@ const getMonitoringStartTime = (startTime?: string): string => {
       minute: '2-digit',
     })
   } catch {
-    return '未開始'
+    return null
   }
 }
 
 export function StatsCard({
   users,
   active,
+  reserved = false,
   startTime,
+  scheduledStartTime,
   lastUpdated,
   lastSnapshotAt,
   skippedCount,
 }: StatsCardProps) {
   const totalUsers = users.length
-  const monitoringStartTime = getMonitoringStartTime(active ? startTime : undefined)
+  const startTimeLabel = reserved ? '開始予定' : '監視開始'
+  const startTimeValue = reserved
+    ? (formatDateTime(scheduledStartTime) ?? '未定')
+    : active
+      ? (formatDateTime(startTime) ?? '未開始')
+      : '未開始'
 
   const labelStyle: React.CSSProperties = {
     fontFamily: 'var(--f-mono)',
@@ -64,7 +73,12 @@ export function StatsCard({
     lineHeight: 1,
   } as React.CSSProperties
 
-  const statusClass = active ? 'eyebrow__status eyebrow__status--live' : 'eyebrow__status'
+  const statusClass = active
+    ? 'eyebrow__status eyebrow__status--live'
+    : reserved
+      ? 'eyebrow__status eyebrow__status--reserved'
+      : 'eyebrow__status'
+  const statusLabel = active ? '監視中' : reserved ? '予約中' : '停止中'
 
   return (
     <div className="card-editorial">
@@ -74,7 +88,7 @@ export function StatsCard({
         <div className="eyebrow__rule" />
         <div className={statusClass}>
           <div className="eyebrow__status-dot" />
-          {active ? '監視中' : '停止中'}
+          {statusLabel}
         </div>
       </div>
 
@@ -99,9 +113,9 @@ export function StatsCard({
             </div>
           </div>
 
-          {/* 監視開始時間 */}
+          {/* 監視開始時間 or 開始予定 */}
           <div>
-            <div style={labelStyle}>監視開始</div>
+            <div style={labelStyle}>{startTimeLabel}</div>
             <div
               style={{
                 fontFamily: 'var(--f-mono)',
@@ -112,7 +126,7 @@ export function StatsCard({
                 marginTop: '4px',
               }}
             >
-              {monitoringStartTime}
+              {startTimeValue}
             </div>
           </div>
 

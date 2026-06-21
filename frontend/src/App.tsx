@@ -64,6 +64,7 @@ export default function App() {
 
   const {
     active,
+    reserved,
     users,
     videoId,
     intervalSec,
@@ -120,7 +121,9 @@ export default function App() {
             <StatsCard
               users={users}
               active={active}
+              reserved={reserved}
               startTime={state.startTime}
+              scheduledStartTime={state.scheduledStartTime}
               lastUpdated={lastUpdated}
               lastSnapshotAt={lastSnapshotAt}
               skippedCount={state.skippedCount}

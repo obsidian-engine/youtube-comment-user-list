@@ -135,6 +135,7 @@ body::before {
   gap: 6px;
 }
 .eyebrow__status--live { color: var(--c-accent); }
+.eyebrow__status--reserved { color: var(--c-accent-2); }
 .eyebrow__status-dot {
   width: 6px;
   height: 6px;

@@ -69,6 +69,7 @@ interface AppState {
   snapshotRestoreMsg: string
   lastSnapshotAt: string
   startTime?: string
+  scheduledStartTime?: string
   skippedCount: number
   loadingStates: LoadingStates
 }
@@ -104,6 +105,7 @@ export function useAppState(addEntry?: AddEntryFn) {
     snapshotRestoreMsg: '',
     lastSnapshotAt: '',
     startTime: undefined,
+    scheduledStartTime: undefined,
     skippedCount: 0,
     loadingStates: {
       switching: false,
@@ -180,6 +182,7 @@ export function useAppState(addEntry?: AddEntryFn) {
             status,
             users: finalUsers,
             startTime: st.startedAt,
+            scheduledStartTime: st.scheduledStartTime,
             errorMsg: '',
             lastSnapshotAt: newSnapshotAt ?? prev.lastSnapshotAt,
             ...(snapshotRestoreMsg ? { snapshotRestoreMsg } : {}),
@@ -380,7 +383,14 @@ export function useAppState(addEntry?: AddEntryFn) {
     }
   }, [state.snapshotRestoreMsg])
 
-  const derivedState = useMemo(() => ({ ...state, active: state.status === 'ACTIVE' }), [state])
+  const derivedState = useMemo(
+    () => ({
+      ...state,
+      active: state.status === 'ACTIVE',
+      reserved: state.status === 'RESERVED',
+    }),
+    [state],
+  )
 
   return { state: derivedState, actions }
 }

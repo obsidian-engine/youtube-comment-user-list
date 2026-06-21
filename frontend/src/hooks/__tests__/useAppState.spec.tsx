@@ -60,6 +60,7 @@ describe('useAppState', () => {
     expect(result.current.state).toEqual({
       status: 'WAITING',
       active: false,
+      reserved: false,
       users: [],
       videoId: '',
       intervalSec: 60,
@@ -70,6 +71,7 @@ describe('useAppState', () => {
       snapshotRestoreMsg: '',
       lastSnapshotAt: '',
       startTime: undefined,
+      scheduledStartTime: undefined,
       skippedCount: 0,
       loadingStates: {
         switching: false,
