@@ -215,6 +215,37 @@ describe('PollResults', () => {
       expect(screen.getByText('hoge投票')).toBeInTheDocument()
     })
 
+    it('展開時に名前・ハンドル・コメントの表形式で表示する', async () => {
+      const user = userEvent.setup()
+      render(
+        <PollResults
+          keywords={['hoge']}
+          counts={{ hoge: 1 }}
+          voters={{
+            hoge: [
+              {
+                channelId: 'UC1',
+                displayName: 'taro',
+                handle: '@tarochannel',
+                message: 'hoge投票',
+              },
+            ],
+          }}
+          totalVotes={1}
+          isLoading={false}
+        />,
+      )
+      await act(async () => {
+        await user.click(screen.getByText('hoge'))
+      })
+      expect(screen.getByText('名前')).toBeInTheDocument()
+      expect(screen.getByText('ハンドル')).toBeInTheDocument()
+      expect(screen.getByText('コメント')).toBeInTheDocument()
+      expect(screen.getByText('taro')).toBeInTheDocument()
+      expect(screen.getByText('@tarochannel')).toBeInTheDocument()
+      expect(screen.getByText('hoge投票')).toBeInTheDocument()
+    })
+
     it('再クリックで折りたたまれる', async () => {
       const user = userEvent.setup()
       render(

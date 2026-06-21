@@ -46,6 +46,26 @@ const thStyle: React.CSSProperties = {
   background: 'var(--c-ink)',
 }
 
+const voterThStyle: React.CSSProperties = {
+  padding: '8px 12px',
+  fontFamily: 'var(--f-mono)',
+  fontWeight: 700,
+  fontSize: '10px',
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  color: 'var(--c-ink-dim)',
+  background: 'var(--c-bg-2)',
+  borderBottom: '1px solid var(--c-line)',
+  textAlign: 'left',
+}
+
+const voterTdStyle: React.CSSProperties = {
+  padding: '10px 12px',
+  fontSize: '13px',
+  verticalAlign: 'top',
+  borderBottom: '1px solid var(--c-line)',
+}
+
 export function PollResults({
   keywords,
   counts,
@@ -196,49 +216,57 @@ export function PollResults({
                               {copiedKeyword === word ? 'コピー済' : '名前+ハンドルをコピー'}
                             </button>
                           </div>
-                          <ul className="space-y-1">
-                            {list.map((v) => (
-                              <li
-                                key={v.channelId}
-                                style={{
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '2px',
-                                  fontSize: '13px',
-                                  color: 'var(--c-ink)',
-                                }}
-                              >
-                                <div
+                          <table
+                            className="w-full table-fixed"
+                            style={{ fontSize: '13px', lineHeight: 1.6 }}
+                          >
+                            <thead>
+                              <tr>
+                                <th style={{ ...voterThStyle, width: '150px' }}>名前</th>
+                                <th style={{ ...voterThStyle, width: '140px' }}>ハンドル</th>
+                                <th style={voterThStyle}>コメント</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {list.map((v, i) => (
+                                <tr
+                                  key={v.channelId}
                                   style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
+                                    background: i % 2 === 0 ? 'var(--c-bg)' : '#fff',
                                   }}
                                 >
-                                  <span>{v.displayName}</span>
-                                  {v.handle && (
-                                    <span
-                                      style={{
-                                        fontFamily: 'var(--f-mono)',
-                                        fontSize: '11px',
-                                        color: 'var(--c-ink-mute)',
-                                      }}
-                                    >
-                                      {v.handle}
-                                    </span>
-                                  )}
-                                </div>
-                                <span
-                                  style={{
-                                    fontSize: '13px',
-                                    color: 'var(--c-ink-dim)',
-                                  }}
-                                >
-                                  {v.message}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
+                                  <td
+                                    style={{
+                                      ...voterTdStyle,
+                                      color: 'var(--c-ink)',
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    {v.displayName}
+                                  </td>
+                                  <td
+                                    style={{
+                                      ...voterTdStyle,
+                                      fontFamily: 'var(--f-mono)',
+                                      fontSize: '12px',
+                                      color: 'var(--c-ink-mute)',
+                                    }}
+                                  >
+                                    {v.handle ?? ''}
+                                  </td>
+                                  <td
+                                    style={{
+                                      ...voterTdStyle,
+                                      color: 'var(--c-ink-dim)',
+                                      wordBreak: 'break-word',
+                                    }}
+                                  >
+                                    {v.message}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       )}
                     </td>
