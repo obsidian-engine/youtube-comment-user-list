@@ -45,12 +45,13 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 				startedAt = now
 			}
 			restoredState := domain.LiveState{
-				Status:        domain.StatusWaiting,
-				VideoID:       in.VideoID,
-				LiveChatID:    prevState.LiveChatID,
-				StartedAt:     startedAt,
-				EndedAt:       now,
-				NextPageToken: "",
+				Status:               domain.StatusWaiting,
+				VideoID:              in.VideoID,
+				LiveChatID:           prevState.LiveChatID,
+				StartedAt:            startedAt,
+				EndedAt:              now,
+				NextPageToken:        "",
+				AutonomousMonitoring: false, // フォールバックで明示的に false (永続化漏れ防止)
 			}
 			if setErr := uc.State.Set(ctx, restoredState); setErr != nil {
 				return SwitchVideoOutput{}, fmt.Errorf("state_set: %w", setErr)
@@ -84,12 +85,13 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 			startedAt = now
 		}
 		finalState := domain.LiveState{
-			Status:        domain.StatusWaiting,
-			VideoID:       in.VideoID,
-			LiveChatID:    restoredState.LiveChatID,
-			StartedAt:     startedAt,
-			EndedAt:       now,
-			NextPageToken: "",
+			Status:               domain.StatusWaiting,
+			VideoID:              in.VideoID,
+			LiveChatID:           restoredState.LiveChatID,
+			StartedAt:            startedAt,
+			EndedAt:              now,
+			NextPageToken:        "",
+			AutonomousMonitoring: false, // フォールバックで明示的に false (永続化漏れ防止)
 		}
 		if setErr := uc.State.Set(ctx, finalState); setErr != nil {
 			return SwitchVideoOutput{}, fmt.Errorf("state_set: %w", setErr)
@@ -133,11 +135,12 @@ func (uc *SwitchVideo) Execute(ctx context.Context, in SwitchVideoInput) (Switch
 		}
 	}
 	newState := domain.LiveState{
-		Status:        domain.StatusActive,
-		VideoID:       in.VideoID,
-		LiveChatID:    meta.LiveChatID,
-		StartedAt:     startedAt,
-		NextPageToken: "",
+		Status:               domain.StatusActive,
+		VideoID:              in.VideoID,
+		LiveChatID:           meta.LiveChatID,
+		StartedAt:            startedAt,
+		NextPageToken:        "",
+		AutonomousMonitoring: prevState.AutonomousMonitoring, // Reserve 経由なら true を維持
 	}
 
 	if err := uc.State.Set(ctx, newState); err != nil {

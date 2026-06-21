@@ -31,6 +31,9 @@ func (f *fakeYTForURL) GetChannelDisplayNames(ctx context.Context, channelIDs []
 func (f *fakeYTForURL) GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error) {
 	return nil, nil
 }
+func (f *fakeYTForURL) GetVideoLiveDetails(ctx context.Context, videoID string) (port.VideoLiveDetails, error) {
+	return port.VideoLiveDetails{}, nil
+}
 
 type fakeClockForURL struct{}
 

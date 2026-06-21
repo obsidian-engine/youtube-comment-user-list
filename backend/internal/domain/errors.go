@@ -12,11 +12,13 @@ var ErrNotFound = errors.New("not found")
 type APIErrorCode string
 
 const (
-	ErrCodeQuotaExceeded APIErrorCode = "quota_exceeded"
-	ErrCodeVideoNotFound APIErrorCode = "video_not_found"
-	ErrCodeLiveChatEnded APIErrorCode = "live_chat_ended"
-	ErrCodeAuthFailed    APIErrorCode = "auth_failed"
-	ErrCodeRateLimited   APIErrorCode = "rate_limited"
+	ErrCodeQuotaExceeded   APIErrorCode = "quota_exceeded"
+	ErrCodeVideoNotFound   APIErrorCode = "video_not_found"
+	ErrCodeLiveChatEnded   APIErrorCode = "live_chat_ended"
+	ErrCodeAuthFailed      APIErrorCode = "auth_failed"
+	ErrCodeRateLimited     APIErrorCode = "rate_limited"
+	ErrCodeConflict        APIErrorCode = "conflict"         // 現 state と矛盾する操作 (例: ACTIVE 中の Reserve)
+	ErrCodeInvalidArgument APIErrorCode = "invalid_argument" // 入力不正 (例: 非 live video の Reserve)
 )
 
 // APIError は YouTube API エラーを機械可読コードとともに保持する。

@@ -1,10 +1,12 @@
 package http_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	stdhttp "net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -18,6 +20,56 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
+
+// fakeYTForReserve は /reserve endpoint テスト用の YouTubePort 実装。
+// GetVideoLiveDetails のみ意味のある値を返す。getDetailsErr が非 nil ならそれを返す。
+type fakeYTForReserve struct {
+	isLive             bool
+	scheduledStartTime time.Time
+	getDetailsErr      error
+}
+
+func (f *fakeYTForReserve) GetActiveLiveChatID(_ context.Context, videoID string) (port.VideoMeta, error) {
+	return port.VideoMeta{LiveChatID: "chat-" + videoID}, nil
+}
+func (f *fakeYTForReserve) ListLiveChatMessages(_ context.Context, _ string, _ string) ([]port.ChatMessage, string, int64, int, bool, error) {
+	return nil, "", 0, 0, false, nil
+}
+func (f *fakeYTForReserve) GetChannelDisplayNames(_ context.Context, _ []string) (map[string]string, error) {
+	return nil, nil
+}
+func (f *fakeYTForReserve) GetChannelHandles(_ context.Context, _ []string) (map[string]string, error) {
+	return nil, nil
+}
+func (f *fakeYTForReserve) GetVideoLiveDetails(_ context.Context, _ string) (port.VideoLiveDetails, error) {
+	if f.getDetailsErr != nil {
+		return port.VideoLiveDetails{}, f.getDetailsErr
+	}
+	return port.VideoLiveDetails{
+		IsLiveContent:      f.isLive,
+		ScheduledStartTime: f.scheduledStartTime,
+	}, nil
+}
+
+// newTestServerWithReserve は Reserve / CancelReserve を含む Handlers を持つテストサーバーを返す。
+func newTestServerWithReserve(yt port.YouTubePort) *httptest.Server {
+	users := memory.NewUserRepo()
+	state := memory.NewStateRepo()
+	clock := system.NewSystemClock()
+	coord := &snapshot.NopCoordinator{}
+
+	h := &ahttp.Handlers{
+		Status:        &usecase.Status{Users: users, State: state},
+		SwitchVideo:   &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord},
+		Pull:          &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
+		Reset:         &usecase.Reset{Users: users, State: state, Snap: coord},
+		Reserve:       &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord},
+		CancelReserve: &usecase.CancelReserve{State: state, Snap: coord},
+		Users:         users,
+		Coord:         coord,
+	}
+	return httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
+}
 
 // fakeCoordinator は LastSavedAt を制御できるテスト用 Coordinator 実装です。
 type fakeCoordinator struct {
@@ -418,6 +470,234 @@ func TestRouter_StatusResponseHasNoLogsField(t *testing.T) {
 	// 正常系では logs は omitempty で absent
 	if _, hasLogs := body["logs"]; hasLogs {
 		t.Errorf("logs field must be absent for successful response with empty collector, got body=%v", body)
+	}
+}
+
+// --- /reserve / /cancel-reserve endpoint integration tests ---
+
+// TestReserve_Success: live video を渡して RESERVED 状態になることを確認する。
+func TestReserve_Success(t *testing.T) {
+	scheduled := time.Date(2024, 6, 10, 18, 0, 0, 0, time.UTC)
+	yt := &fakeYTForReserve{isLive: true, scheduledStartTime: scheduled}
+	ts := newTestServerWithReserve(yt)
+	defer ts.Close()
+
+	body := strings.NewReader(`{"videoId":"VID123"}`)
+	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/reserve", body)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := stdhttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /reserve: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != stdhttp.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+
+	var resp map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["status"] != "RESERVED" {
+		t.Errorf("status = %v, want RESERVED", resp["status"])
+	}
+	if resp["videoId"] != "VID123" {
+		t.Errorf("videoId = %v, want VID123", resp["videoId"])
+	}
+	if _, ok := resp["scheduledStartTime"]; !ok {
+		t.Error("scheduledStartTime field missing")
+	}
+}
+
+// TestReserve_EmptyVideoID: videoId 空は 400 を返す。
+func TestReserve_EmptyVideoID(t *testing.T) {
+	yt := &fakeYTForReserve{isLive: true}
+	ts := newTestServerWithReserve(yt)
+	defer ts.Close()
+
+	body := bytes.NewReader([]byte(`{"videoId":""}`))
+	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/reserve", body)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := stdhttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /reserve: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != stdhttp.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", res.StatusCode)
+	}
+}
+
+// TestReserve_ConflictWhenActive: ACTIVE 状態での Reserve は 409 を返す。
+func TestReserve_ConflictWhenActive(t *testing.T) {
+	yt := &fakeYTForReserve{isLive: true}
+	users := memory.NewUserRepo()
+	state := memory.NewStateRepo()
+	clock := system.NewSystemClock()
+	coord := &snapshot.NopCoordinator{}
+
+	// 事前に ACTIVE 状態を作る
+	_ = state.Set(context.Background(), domain.LiveState{Status: domain.StatusActive, VideoID: "existing"})
+
+	h := &ahttp.Handlers{
+		Status:        &usecase.Status{Users: users, State: state},
+		SwitchVideo:   &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord},
+		Pull:          &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
+		Reset:         &usecase.Reset{Users: users, State: state, Snap: coord},
+		Reserve:       &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord},
+		CancelReserve: &usecase.CancelReserve{State: state, Snap: coord},
+		Users:         users,
+		Coord:         coord,
+	}
+	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
+	defer ts.Close()
+
+	body := strings.NewReader(`{"videoId":"VID999"}`)
+	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/reserve", body)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := stdhttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /reserve: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != stdhttp.StatusConflict {
+		t.Fatalf("status = %d, want 409", res.StatusCode)
+	}
+}
+
+// TestReserve_VideoNotFound: 存在しない videoId は 404 を返す (httpStatusFor 経由)。
+func TestReserve_VideoNotFound(t *testing.T) {
+	yt := &fakeYTForReserve{
+		getDetailsErr: &domain.APIError{Code: domain.ErrCodeVideoNotFound, Message: "video not found"},
+	}
+	ts := newTestServerWithReserve(yt)
+	defer ts.Close()
+
+	body := strings.NewReader(`{"videoId":"UNKNOWN"}`)
+	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/reserve", body)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := stdhttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /reserve: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != stdhttp.StatusNotFound {
+		t.Fatalf("status = %d, want 404", res.StatusCode)
+	}
+
+	var resp map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["code"] != string(domain.ErrCodeVideoNotFound) {
+		t.Errorf("code = %v, want %s", resp["code"], domain.ErrCodeVideoNotFound)
+	}
+}
+
+// TestReserve_NotLiveContent: live 配信でない videoId は 400 を返す。
+func TestReserve_NotLiveContent(t *testing.T) {
+	yt := &fakeYTForReserve{isLive: false}
+	ts := newTestServerWithReserve(yt)
+	defer ts.Close()
+
+	body := strings.NewReader(`{"videoId":"NORMALVIDEO"}`)
+	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/reserve", body)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := stdhttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /reserve: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != stdhttp.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", res.StatusCode)
+	}
+}
+
+// TestCancelReserve_ConflictWhenActive: ACTIVE 状態での cancel-reserve は 409 を返す
+// (現セッション保護のためシンメトリックに拒否する設計)。
+func TestCancelReserve_ConflictWhenActive(t *testing.T) {
+	yt := &fakeYTForReserve{isLive: true}
+	users := memory.NewUserRepo()
+	state := memory.NewStateRepo()
+	clock := system.NewSystemClock()
+	coord := &snapshot.NopCoordinator{}
+
+	_ = state.Set(context.Background(), domain.LiveState{Status: domain.StatusActive, VideoID: "existing"})
+
+	h := &ahttp.Handlers{
+		Status:        &usecase.Status{Users: users, State: state},
+		SwitchVideo:   &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord},
+		Pull:          &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
+		Reset:         &usecase.Reset{Users: users, State: state, Snap: coord},
+		Reserve:       &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord},
+		CancelReserve: &usecase.CancelReserve{State: state, Snap: coord},
+		Users:         users,
+		Coord:         coord,
+	}
+	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
+	defer ts.Close()
+
+	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/cancel-reserve", nil)
+	res, err := stdhttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /cancel-reserve: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != stdhttp.StatusConflict {
+		t.Fatalf("status = %d, want 409", res.StatusCode)
+	}
+}
+
+// TestCancelReserve_Success: RESERVED 状態から cancel-reserve すると WAITING になる。
+func TestCancelReserve_Success(t *testing.T) {
+	yt := &fakeYTForReserve{isLive: true}
+	users := memory.NewUserRepo()
+	state := memory.NewStateRepo()
+	clock := system.NewSystemClock()
+	coord := &snapshot.NopCoordinator{}
+
+	// 事前に RESERVED 状態を作る
+	_ = state.Set(context.Background(), domain.LiveState{
+		Status:  domain.StatusReserved,
+		VideoID: "VID123",
+	})
+
+	h := &ahttp.Handlers{
+		Status:        &usecase.Status{Users: users, State: state},
+		SwitchVideo:   &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord},
+		Pull:          &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
+		Reset:         &usecase.Reset{Users: users, State: state, Snap: coord},
+		Reserve:       &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord},
+		CancelReserve: &usecase.CancelReserve{State: state, Snap: coord},
+		Users:         users,
+		Coord:         coord,
+	}
+	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
+	defer ts.Close()
+
+	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/cancel-reserve", nil)
+	res, err := stdhttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /cancel-reserve: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != stdhttp.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+
+	var resp map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["status"] != "WAITING" {
+		t.Errorf("status = %v, want WAITING", resp["status"])
 	}
 }
 

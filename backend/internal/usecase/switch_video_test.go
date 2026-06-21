@@ -40,6 +40,9 @@ func (f *failingYT) GetChannelDisplayNames(ctx context.Context, channelIDs []str
 func (f *failingYT) GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error) {
 	return nil, nil
 }
+func (f *failingYT) GetVideoLiveDetails(ctx context.Context, videoID string) (port.VideoLiveDetails, error) {
+	return port.VideoLiveDetails{}, nil
+}
 func (f *fakeYT) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
 	return nil, "", 0, 0, false, nil
 }
@@ -48,6 +51,9 @@ func (f *fakeYT) GetChannelDisplayNames(ctx context.Context, channelIDs []string
 }
 func (f *fakeYT) GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error) {
 	return nil, nil
+}
+func (f *fakeYT) GetVideoLiveDetails(ctx context.Context, videoID string) (port.VideoLiveDetails, error) {
+	return port.VideoLiveDetails{}, nil
 }
 
 type fixedClock struct{ t time.Time }
@@ -228,6 +234,99 @@ func TestSwitchVideo_APIError_SameVideoID_NoUsers_ReturnsError(t *testing.T) {
 	}
 }
 
+// TestSwitchVideo_PreservesAutonomousMonitoring: Reserve→ACTIVE 遷移時に AutonomousMonitoring=true が維持されること。
+// monitor が ACTIVE 後も Pull tick を継続する依存 (servers-side reserve flow の core 仕様)。
+func TestSwitchVideo_PreservesAutonomousMonitoring(t *testing.T) {
+	ctx := context.Background()
+
+	users := memory.NewUserRepo()
+	state := memory.NewStateRepo()
+	// 予約済 (Reserve usecase が書いた状態を模す)
+	_ = state.Set(ctx, domain.LiveState{
+		Status:               domain.StatusReserved,
+		VideoID:              "video123",
+		AutonomousMonitoring: true,
+		ReservedAt:           time.Date(2026, 6, 21, 9, 0, 0, 0, time.UTC),
+		ScheduledStartTime:   time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC),
+	})
+
+	yt := &fakeYT{}
+	clock := fixedClock{t: time.Date(2026, 6, 21, 10, 5, 0, 0, time.UTC)}
+
+	uc := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
+
+	if _, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "video123"}); err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	got, _ := state.Get(ctx)
+	if got.Status != domain.StatusActive {
+		t.Errorf("Status = %v, want ACTIVE", got.Status)
+	}
+	if !got.AutonomousMonitoring {
+		t.Error("AutonomousMonitoring = false, want true (Reserve→ACTIVE 遷移時に引き継がれるべき)")
+	}
+}
+
+// TestSwitchVideo_ManualSwitch_NoAutonomousMonitoring: 手動 SwitchVideo (prevState.AM=false) は AM=false のまま。
+// monitor の Pull tick を起動しない仕様 (フロント pull のみで動かす既存挙動の維持)。
+func TestSwitchVideo_ManualSwitch_NoAutonomousMonitoring(t *testing.T) {
+	ctx := context.Background()
+
+	users := memory.NewUserRepo()
+	state := memory.NewStateRepo()
+	// WAITING (AM はゼロ値 = false)
+	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusWaiting})
+
+	yt := &fakeYT{}
+	clock := fixedClock{t: time.Now()}
+
+	uc := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
+
+	if _, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "video123"}); err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	got, _ := state.Get(ctx)
+	if got.AutonomousMonitoring {
+		t.Error("AutonomousMonitoring = true, want false (manual switch は autonomous でない)")
+	}
+}
+
+// TestSwitchVideo_APIError_InMemoryFallback_ClearsAutonomousMonitoring:
+// API error フォールバックの in-memory 復元パスで AutonomousMonitoring=false が強制クリアされる。
+// 配信終了 → WAITING 復元時に monitor の Pull tick を確実に停止するため (永続化漏れ防止)。
+func TestSwitchVideo_APIError_InMemoryFallback_ClearsAutonomousMonitoring(t *testing.T) {
+	ctx := context.Background()
+
+	users := memory.NewUserRepo()
+	_ = users.UpsertWithJoinTime("ch1", "Alice", time.Now())
+
+	state := memory.NewStateRepo()
+	_ = state.Set(ctx, domain.LiveState{
+		Status:               domain.StatusActive,
+		VideoID:              "video123",
+		LiveChatID:           "live:abc",
+		AutonomousMonitoring: true,
+	})
+
+	yt := &failingYT{}
+	clock := fixedClock{t: time.Now()}
+
+	uc := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
+
+	out, err := uc.Execute(ctx, usecase.SwitchVideoInput{VideoID: "video123"})
+	if err != nil {
+		t.Fatalf("Execute should succeed (in-memory fallback): %v", err)
+	}
+	if out.State.Status != domain.StatusWaiting {
+		t.Errorf("Status = %v, want WAITING", out.State.Status)
+	}
+	if out.State.AutonomousMonitoring {
+		t.Error("AutonomousMonitoring = true, want false (fallback should force clear)")
+	}
+}
+
 // TestSwitchVideo_DifferentVideo_ClearsComments: 別 video 切替で CommentRepo がクリアされる
 func TestSwitchVideo_DifferentVideo_ClearsComments(t *testing.T) {
 	ctx := context.Background()
@@ -378,6 +477,10 @@ func TestSwitchVideo_APIError_RestoreFromGCS_succeeds(t *testing.T) {
 	// EndedAt は now
 	if !out.State.EndedAt.Equal(now) {
 		t.Errorf("State.EndedAt = %v, want %v", out.State.EndedAt, now)
+	}
+	// GCS fallback でも AutonomousMonitoring=false を強制クリア
+	if out.State.AutonomousMonitoring {
+		t.Error("AutonomousMonitoring = true, want false (GCS fallback should force clear)")
 	}
 }
 

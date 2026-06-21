@@ -21,6 +21,15 @@ type VideoMeta struct {
 	ChannelTitle string
 }
 
+// VideoLiveDetails は予約監視に必要な liveStreamingDetails の情報です。
+type VideoLiveDetails struct {
+	LiveChatID         string // activeLiveChatId (チャット未開なら空)
+	Title              string
+	ChannelTitle       string
+	ScheduledStartTime time.Time // liveStreamingDetails.scheduledStartTime (未指定なら zero)
+	IsLiveContent      bool      // liveStreamingDetails != nil なら true
+}
+
 // YouTubePort は YouTube API 呼び出しを抽象化します。
 type YouTubePort interface {
 	// 指定 videoID の activeLiveChatId と動画メタデータを取得します。
@@ -33,4 +42,6 @@ type YouTubePort interface {
 	// チャンネルIDからハンドル（@username, snippet.customUrl）を一括取得します。
 	// ハンドルが存在しないチャンネルはマップに含まれません。
 	GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error)
+	// 指定 videoID の liveStreamingDetails を取得します。activeLiveChatId 空でもエラーにせず返します (予約用)。
+	GetVideoLiveDetails(ctx context.Context, videoID string) (VideoLiveDetails, error)
 }
