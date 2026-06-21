@@ -38,10 +38,34 @@ var reasonToCode = map[string]domain.APIErrorCode{
 	"liveChatEnded":         domain.ErrCodeLiveChatEnded,
 	"liveChatDisabled":      domain.ErrCodeLiveChatEnded,
 	"liveChatNotActive":     domain.ErrCodeLiveChatEnded,
+	// API key 不正は HTTP 400 で返ることが手動 e2e で観測済 (reason は大文字)
+	"API_KEY_INVALID": domain.ErrCodeAuthFailed,
+}
+
+// extractReason は googleapi.Error から reason を抽出する。
+// Details (google.rpc.ErrorInfo) を優先。Errors[0] は generic な "badRequest" のみで
+// 具体 reason は Details に入るケースが現代 SDK では多い (例: API_KEY_INVALID)。
+func extractReason(gErr *googleapi.Error) string {
+	for _, d := range gErr.Details {
+		m, ok := d.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if t, _ := m["@type"].(string); !strings.Contains(t, "ErrorInfo") {
+			continue
+		}
+		if r, ok := m["reason"].(string); ok && r != "" {
+			return r
+		}
+	}
+	if len(gErr.Errors) > 0 {
+		return gErr.Errors[0].Reason
+	}
+	return ""
 }
 
 // classifyAPIError は googleapi.Error を domain.APIError に変換する。
-// HTTP status + Errors[0].Reason に基づいて分類し、既存の logging.Log 呼出は維持する。
+// HTTP status + reason (旧 Errors[0] / 新 Details[].ErrorInfo) に基づいて分類する。
 // 分類できない場合は元のエラーをそのまま返す。
 func classifyAPIError(err error) error {
 	if err == nil {
@@ -53,12 +77,10 @@ func classifyAPIError(err error) error {
 		return err
 	}
 
+	reason := extractReason(gErr)
+
 	// 401/403 で reason 不明な場合は auth_failed にフォールバック
 	if gErr.Code == 401 || gErr.Code == 403 {
-		reason := ""
-		if len(gErr.Errors) > 0 {
-			reason = gErr.Errors[0].Reason
-		}
 		if code, ok := reasonToCode[reason]; ok {
 			return &domain.APIError{Code: code, Message: gErr.Message, Wrapped: err}
 		}
@@ -66,10 +88,6 @@ func classifyAPIError(err error) error {
 	}
 
 	// reason マップで変換を試みる
-	reason := ""
-	if len(gErr.Errors) > 0 {
-		reason = gErr.Errors[0].Reason
-	}
 	if code, ok := reasonToCode[reason]; ok {
 		return &domain.APIError{Code: code, Message: gErr.Message, Wrapped: err}
 	}
@@ -141,40 +159,47 @@ func isTransientError(err error) bool {
 	return false
 }
 
-func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (port.VideoMeta, error) {
-	log.Printf("[YOUTUBE_API] GetActiveLiveChatID called with videoID: %s", videoID)
-
+// fetchVideo は videos.list を共通呼び出しする。
+// videoID 不在 / API key 不在 / 動画未取得は domain error / generic error で返す。
+func (a *API) fetchVideo(ctx context.Context, videoID string, parts []string) (*youtube.Video, error) {
 	if a.APIKey == "" {
 		log.Printf("[YOUTUBE_API] Error: API key is empty")
-		return port.VideoMeta{}, errors.New("youtube api key is required")
+		return nil, errors.New("youtube api key is required")
 	}
 
 	if videoID == "" {
 		log.Printf("[YOUTUBE_API] Error: videoID is empty")
-		return port.VideoMeta{}, errors.New("video ID is required")
+		return nil, errors.New("video ID is required")
 	}
 
-	// YouTube Data API v3を使用して動画情報を取得
 	service, err := youtube.NewService(ctx, option.WithAPIKey(a.APIKey))
 	if err != nil {
 		log.Printf("[YOUTUBE_API] Failed to create YouTube service: %v", err)
-		return port.VideoMeta{}, err
+		return nil, err
 	}
 
-	// snippet を追加して title / channelTitle を同一 call で取得する
-	call := service.Videos.List([]string{"liveStreamingDetails", "snippet"}).Id(videoID)
-	response, err := call.Do()
+	response, err := service.Videos.List(parts).Id(videoID).Do()
 	if err != nil {
 		log.Printf("[YOUTUBE_API] Failed to get video details: %v", err)
-		return port.VideoMeta{}, classifyAPIError(err)
+		return nil, classifyAPIError(err)
 	}
 
 	if len(response.Items) == 0 {
 		log.Printf("[YOUTUBE_API] Video not found: %s", videoID)
-		return port.VideoMeta{}, &domain.APIError{Code: domain.ErrCodeVideoNotFound, Message: "video not found"}
+		return nil, &domain.APIError{Code: domain.ErrCodeVideoNotFound, Message: "video not found"}
 	}
 
-	video := response.Items[0]
+	return response.Items[0], nil
+}
+
+func (a *API) GetActiveLiveChatID(ctx context.Context, videoID string) (port.VideoMeta, error) {
+	log.Printf("[YOUTUBE_API] GetActiveLiveChatID called with videoID: %s", videoID)
+
+	video, err := a.fetchVideo(ctx, videoID, []string{"liveStreamingDetails", "snippet"})
+	if err != nil {
+		return port.VideoMeta{}, err
+	}
+
 	if video.LiveStreamingDetails == nil {
 		log.Printf("[YOUTUBE_API] Video is not a live stream: %s", videoID)
 		return port.VideoMeta{}, &domain.APIError{Code: domain.ErrCodeVideoNotFound, Message: "video is not a live stream"}
@@ -410,4 +435,32 @@ func (a *API) GetChannelHandles(ctx context.Context, channelIDs []string) (map[s
 
 	logging.Log(ctx, "info", "YOUTUBE_API", "Resolved %d/%d channel handles (cache size: %d)", len(result), len(channelIDs), len(a.channelHandleCache))
 	return result, nil
+}
+
+// GetVideoLiveDetails は指定 videoID の liveStreamingDetails を取得します。
+// activeLiveChatId が空でもエラーにせず返します (予約監視用)。
+func (a *API) GetVideoLiveDetails(ctx context.Context, videoID string) (port.VideoLiveDetails, error) {
+	video, err := a.fetchVideo(ctx, videoID, []string{"liveStreamingDetails", "snippet"})
+	if err != nil {
+		return port.VideoLiveDetails{}, err
+	}
+
+	details := port.VideoLiveDetails{
+		IsLiveContent: video.LiveStreamingDetails != nil,
+	}
+	if video.Snippet != nil {
+		details.Title = video.Snippet.Title
+		details.ChannelTitle = video.Snippet.ChannelTitle
+	}
+	if video.LiveStreamingDetails != nil {
+		details.LiveChatID = video.LiveStreamingDetails.ActiveLiveChatId
+		if s := video.LiveStreamingDetails.ScheduledStartTime; s != "" {
+			if t, perr := time.Parse(time.RFC3339, s); perr == nil {
+				details.ScheduledStartTime = t
+			} else {
+				logging.Log(ctx, "warn", "YOUTUBE_API", "Failed to parse scheduledStartTime %q for video %s: %v", s, videoID, perr)
+			}
+		}
+	}
+	return details, nil
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/youtube"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/config"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/monitor"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
 )
 
@@ -77,23 +78,35 @@ func main() {
 	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
 	ucPull := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
 	ucReset := &usecase.Reset{Users: users, Comments: comments, State: state, Snap: coord}
+	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord}
+	ucCancelReserve := &usecase.CancelReserve{State: state, Snap: coord}
 
 	h := &ahttp.Handlers{
-		Status:      ucStatus,
-		SwitchVideo: ucSwitch,
-		Pull:        ucPull,
-		Reset:       ucReset,
-		Users:       users,
-		Comments:    comments,
-		Coord:       coord,
-		ListHistory: listHistory,
-		GetHistory:  getHistory,
+		Status:        ucStatus,
+		SwitchVideo:   ucSwitch,
+		Pull:          ucPull,
+		Reset:         ucReset,
+		Reserve:       ucReserve,
+		CancelReserve: ucCancelReserve,
+		Users:         users,
+		Comments:      comments,
+		Coord:         coord,
+		ListHistory:   listHistory,
+		GetHistory:    getHistory,
 	}
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: ahttp.NewRouter(h, cfg.FrontendOrigin)}
 
 	// グレースフルシャットダウンのためのコンテキスト設定
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// Monitor goroutine: RESERVED 状態を監視して配信開始時に SwitchVideo を自動実行する。
+	// signal.NotifyContext の ctx をそのまま渡すことで、シャットダウン時に自然停止する。
+	mon := monitor.New(ucSwitch, ucPull, state, clock)
+	mon.Interval = monitor.DefaultInterval
+	mon.Buffer = monitor.DefaultBuffer
+	go mon.Run(ctx)
+	log.Printf("Monitor goroutine started (interval=%s, buffer=%s)", monitor.DefaultInterval, monitor.DefaultBuffer)
 
 	// サーバーを別ゴルーチンで起動
 	go func() {

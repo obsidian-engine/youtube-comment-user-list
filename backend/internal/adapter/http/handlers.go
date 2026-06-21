@@ -18,28 +18,33 @@ import (
 )
 
 type Handlers struct {
-	Status      *usecase.Status
-	SwitchVideo *usecase.SwitchVideo
-	Pull        *usecase.Pull
-	Reset       *usecase.Reset
-	Users       port.UserRepo
-	Comments    port.CommentRepo
-	Coord       snapshot.Coordinator
-	ListHistory *usecase.ListHistorySnapshots
-	GetHistory  *usecase.GetHistorySnapshot
+	Status        *usecase.Status
+	SwitchVideo   *usecase.SwitchVideo
+	Pull          *usecase.Pull
+	Reset         *usecase.Reset
+	Reserve       *usecase.Reserve
+	CancelReserve *usecase.CancelReserve
+	Users         port.UserRepo
+	Comments      port.CommentRepo
+	Coord         snapshot.Coordinator
+	ListHistory   *usecase.ListHistorySnapshots
+	GetHistory    *usecase.GetHistorySnapshot
 }
 
 // StatusResponse represents the response for /status endpoint
 type StatusResponse struct {
-	Status          string      `json:"status"`
-	Count           int         `json:"count"`
-	VideoID         string      `json:"videoId"`
-	LiveChatID      string      `json:"liveChatId"`
-	StartedAt       any         `json:"startedAt"`
-	EndedAt         any         `json:"endedAt"`
-	LastPulledAt    any         `json:"lastPulledAt"`
-	SnapshotSavedAt *time.Time  `json:"snapshotSavedAt,omitempty"`
-	Logs            []LogDetail `json:"logs,omitempty"`
+	Status               string      `json:"status"`
+	Count                int         `json:"count"`
+	VideoID              string      `json:"videoId"`
+	LiveChatID           string      `json:"liveChatId"`
+	StartedAt            any         `json:"startedAt"`
+	EndedAt              any         `json:"endedAt"`
+	LastPulledAt         any         `json:"lastPulledAt"`
+	ReservedAt           any         `json:"reservedAt"`
+	ScheduledStartTime   any         `json:"scheduledStartTime"`
+	AutonomousMonitoring bool        `json:"autonomousMonitoring"`
+	SnapshotSavedAt      *time.Time  `json:"snapshotSavedAt,omitempty"`
+	Logs                 []LogDetail `json:"logs,omitempty"`
 }
 
 // SwitchVideoResponse represents the response for /switch-video endpoint
@@ -69,6 +74,22 @@ type PullResponse struct {
 
 // ResetResponse represents the response for /reset endpoint
 type ResetResponse struct {
+	Status string      `json:"status"`
+	Logs   []LogDetail `json:"logs,omitempty"`
+}
+
+// ReserveResponse represents the response for /reserve endpoint
+type ReserveResponse struct {
+	Status             string      `json:"status"`
+	VideoID            string      `json:"videoId"`
+	LiveChatID         string      `json:"liveChatId,omitempty"`
+	ScheduledStartTime any         `json:"scheduledStartTime"`
+	ReservedAt         any         `json:"reservedAt"`
+	Logs               []LogDetail `json:"logs,omitempty"`
+}
+
+// CancelReserveResponse represents the response for /cancel-reserve endpoint
+type CancelReserveResponse struct {
 	Status string      `json:"status"`
 	Logs   []LogDetail `json:"logs,omitempty"`
 }
@@ -110,14 +131,17 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 
 		log.Printf("[STATUS] Current status: %s, Users: %d", out.Status, out.Count)
 		response := StatusResponse{
-			Status:       string(out.Status),
-			Count:        out.Count,
-			VideoID:      out.VideoID,
-			LiveChatID:   out.LiveChatID,
-			StartedAt:    out.StartedAt,
-			EndedAt:      out.EndedAt,
-			LastPulledAt: out.LastPulledAt,
-			Logs:         collectLogs(collector),
+			Status:               string(out.Status),
+			Count:                out.Count,
+			VideoID:              out.VideoID,
+			LiveChatID:           out.LiveChatID,
+			StartedAt:            out.StartedAt,
+			EndedAt:              out.EndedAt,
+			LastPulledAt:         out.LastPulledAt,
+			ReservedAt:           out.ReservedAt,
+			ScheduledStartTime:   out.ScheduledStartTime,
+			AutonomousMonitoring: out.AutonomousMonitoring,
+			Logs:                 collectLogs(collector),
 		}
 		if h.Coord != nil {
 			if savedAt := h.Coord.LastSavedAt(); !savedAt.IsZero() {
@@ -270,6 +294,49 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		resp := newHistorySnapshotResponse(out.Snapshot)
 		resp.Logs = collectLogs(collector)
 		render.JSON(w, r, resp)
+	})
+
+	r.Post("/reserve", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		log.Printf("[RESERVE] Processing reserve request")
+		collector := collectorFromRequest(r)
+		var req struct {
+			VideoID string `json:"videoId"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			renderBadRequestWithCollector(w, r, "Invalid JSON", collector)
+			return
+		}
+		out, err := h.Reserve.Execute(r.Context(), usecase.ReserveInput{VideoID: req.VideoID})
+		if err != nil {
+			log.Printf("[RESERVE] Execute error: %v", err)
+			renderUsecaseError(w, r, err, "Failed to reserve: "+err.Error(), collector, StatusInternalServerError, "internal_error")
+			return
+		}
+		response := ReserveResponse{
+			Status:             string(out.State.Status),
+			VideoID:            out.State.VideoID,
+			LiveChatID:         out.State.LiveChatID,
+			ScheduledStartTime: out.State.ScheduledStartTime,
+			ReservedAt:         out.State.ReservedAt,
+			Logs:               collectLogs(collector),
+		}
+		render.JSON(w, r, response)
+	})
+
+	r.Post("/cancel-reserve", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		log.Printf("[CANCEL_RESERVE] Processing cancel-reserve request")
+		collector := collectorFromRequest(r)
+		out, err := h.CancelReserve.Execute(r.Context())
+		if err != nil {
+			log.Printf("[CANCEL_RESERVE] Execute error: %v", err)
+			renderUsecaseError(w, r, err, "Failed to cancel reserve: "+err.Error(), collector, StatusInternalServerError, "internal_error")
+			return
+		}
+		response := CancelReserveResponse{
+			Status: string(out.State.Status),
+			Logs:   collectLogs(collector),
+		}
+		render.JSON(w, r, response)
 	})
 
 	r.Get("/comments", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {

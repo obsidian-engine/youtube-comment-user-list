@@ -34,6 +34,9 @@ func (f *fakeYTWithToken) GetChannelDisplayNames(ctx context.Context, channelIDs
 func (f *fakeYTWithToken) GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error) {
 	return nil, nil
 }
+func (f *fakeYTWithToken) GetVideoLiveDetails(ctx context.Context, videoID string) (port.VideoLiveDetails, error) {
+	return port.VideoLiveDetails{}, nil
+}
 func (f *fakeYTWithToken) ListLiveChatMessages(ctx context.Context, liveChatID string, pageToken string) ([]port.ChatMessage, string, int64, int, bool, error) {
 	// messagesフィールドがある場合はそれを使用（新しいテスト用）
 	if f.messages != nil {
@@ -58,6 +61,9 @@ func (f *fakeYTForPull) GetChannelDisplayNames(ctx context.Context, channelIDs [
 func (f *fakeYTForPull) GetChannelHandles(ctx context.Context, channelIDs []string) (map[string]string, error) {
 	return nil, nil
 }
+func (f *fakeYTForPull) GetVideoLiveDetails(ctx context.Context, videoID string) (port.VideoLiveDetails, error) {
+	return port.VideoLiveDetails{}, nil
+}
 
 type fakeClock struct {
 	now time.Time
@@ -65,6 +71,41 @@ type fakeClock struct {
 
 func (f *fakeClock) Now() time.Time {
 	return f.now
+}
+
+// TestPull_OnStreamEnd_ClearsAutonomousMonitoring: 配信終了検知で AutonomousMonitoring=false がクリアされる。
+// monitor の Pull tick を確実に停止する core 仕様。
+func TestPull_OnStreamEnd_ClearsAutonomousMonitoring(t *testing.T) {
+	ctx := context.Background()
+	users := memory.NewUserRepo()
+	state := memory.NewStateRepo()
+	_ = state.Set(ctx, domain.LiveState{
+		Status:               domain.StatusActive,
+		VideoID:              "v",
+		LiveChatID:           "live:abc",
+		AutonomousMonitoring: true,
+	})
+	yt := &fakeYTForPull{ended: true} // 配信終了
+	clock := &fakeClock{now: time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)}
+
+	comments := memory.NewCommentRepo()
+	uc := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
+
+	out, err := uc.Execute(ctx)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+	if !out.AutoReset {
+		t.Error("AutoReset = false, want true")
+	}
+
+	got, _ := state.Get(ctx)
+	if got.Status != domain.StatusWaiting {
+		t.Errorf("Status = %v, want WAITING", got.Status)
+	}
+	if got.AutonomousMonitoring {
+		t.Error("AutonomousMonitoring = true, want false (stream end should clear)")
+	}
 }
 
 func TestPull_AddsUsers_NormalFlow(t *testing.T) {

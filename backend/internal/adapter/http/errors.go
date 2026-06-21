@@ -76,6 +76,11 @@ func renderBadRequest(w stdhttp.ResponseWriter, r *stdhttp.Request, message stri
 	renderErrorWithCollector(w, r, StatusBadRequest, "bad_request", message, nil)
 }
 
+// renderBadRequestWithCollector はバッドリクエスト用のヘルパー (collector 付き)
+func renderBadRequestWithCollector(w stdhttp.ResponseWriter, r *stdhttp.Request, message string, collector *logging.Collector) {
+	renderErrorWithCollector(w, r, StatusBadRequest, "bad_request", message, collector)
+}
+
 // renderBadGateway はバッドゲートウェイ用のヘルパー
 func renderBadGateway(w stdhttp.ResponseWriter, r *stdhttp.Request, message string) {
 	renderErrorWithCollector(w, r, StatusBadGateway, "bad_gateway", message, nil)
@@ -112,6 +117,10 @@ func httpStatusFor(code domain.APIErrorCode) int {
 		return stdhttp.StatusGone
 	case domain.ErrCodeAuthFailed:
 		return stdhttp.StatusUnauthorized
+	case domain.ErrCodeConflict:
+		return StatusConflict
+	case domain.ErrCodeInvalidArgument:
+		return StatusBadRequest
 	default:
 		return StatusBadGateway
 	}

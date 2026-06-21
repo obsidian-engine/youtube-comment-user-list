@@ -9,13 +9,16 @@ import (
 )
 
 type StatusOutput struct {
-	Status       domain.Status
-	Count        int
-	VideoID      string
-	LiveChatID   string
-	StartedAt    time.Time
-	EndedAt      time.Time
-	LastPulledAt time.Time
+	Status               domain.Status
+	Count                int
+	VideoID              string
+	LiveChatID           string
+	StartedAt            time.Time
+	EndedAt              time.Time
+	LastPulledAt         time.Time
+	ReservedAt           time.Time
+	ScheduledStartTime   time.Time
+	AutonomousMonitoring bool
 }
 
 type Status struct {
@@ -34,12 +37,15 @@ func (uc *Status) Execute(ctx context.Context) (StatusOutput, error) {
 	count := uc.Users.Count()
 
 	return StatusOutput{
-		Status:       state.Status,
-		Count:        count,
-		VideoID:      state.VideoID,
-		LiveChatID:   state.LiveChatID,
-		StartedAt:    state.StartedAt,
-		EndedAt:      state.EndedAt,
-		LastPulledAt: state.LastPulledAt,
+		Status:               state.Status,
+		Count:                count,
+		VideoID:              state.VideoID,
+		LiveChatID:           state.LiveChatID,
+		StartedAt:            state.StartedAt,
+		EndedAt:              state.EndedAt,
+		LastPulledAt:         state.LastPulledAt,
+		ReservedAt:           state.ReservedAt,
+		ScheduledStartTime:   state.ScheduledStartTime,
+		AutonomousMonitoring: state.AutonomousMonitoring,
 	}, nil
 }

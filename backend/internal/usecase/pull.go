@@ -61,6 +61,7 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 		state.Status = domain.StatusWaiting
 		state.EndedAt = uc.Clock.Now()
 		state.NextPageToken = ""
+		state.AutonomousMonitoring = false // monitor の Pull tick を停止
 		if err := uc.State.Set(ctx, state); err != nil {
 			return PullOutput{}, fmt.Errorf("state_set: %w", err)
 		}
