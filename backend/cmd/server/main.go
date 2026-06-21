@@ -102,7 +102,7 @@ func main() {
 
 	// Monitor goroutine: RESERVED 状態を監視して配信開始時に SwitchVideo を自動実行する。
 	// signal.NotifyContext の ctx をそのまま渡すことで、シャットダウン時に自然停止する。
-	mon := monitor.New(ucSwitch, ucPull, state, clock)
+	mon := monitor.New(ucSwitch, ucPull, yt, state, clock)
 	mon.Interval = monitor.DefaultInterval
 	mon.Buffer = monitor.DefaultBuffer
 	go mon.Run(ctx)

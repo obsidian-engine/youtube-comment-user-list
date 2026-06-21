@@ -27,6 +27,7 @@ type VideoLiveDetails struct {
 	Title              string
 	ChannelTitle       string
 	ScheduledStartTime time.Time // liveStreamingDetails.scheduledStartTime (未指定なら zero)
+	ActualStartTime    time.Time // liveStreamingDetails.actualStartTime (未開始なら zero)
 	IsLiveContent      bool      // liveStreamingDetails != nil なら true
 }
 

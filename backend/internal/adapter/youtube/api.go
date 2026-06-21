@@ -461,6 +461,13 @@ func (a *API) GetVideoLiveDetails(ctx context.Context, videoID string) (port.Vid
 				logging.Log(ctx, "warn", "YOUTUBE_API", "Failed to parse scheduledStartTime %q for video %s: %v", s, videoID, perr)
 			}
 		}
+		if s := video.LiveStreamingDetails.ActualStartTime; s != "" {
+			if t, perr := time.Parse(time.RFC3339, s); perr == nil {
+				details.ActualStartTime = t
+			} else {
+				logging.Log(ctx, "warn", "YOUTUBE_API", "Failed to parse actualStartTime %q for video %s: %v", s, videoID, perr)
+			}
+		}
 	}
 	return details, nil
 }

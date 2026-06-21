@@ -8,9 +8,22 @@ import (
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/memory"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/monitor"
 )
+
+// fakeYT は monitor.detailsFetcher を満たす最小 fake。
+type fakeYT struct {
+	details port.VideoLiveDetails
+	err     error
+	calls   atomic.Int32
+}
+
+func (f *fakeYT) GetVideoLiveDetails(_ context.Context, _ string) (port.VideoLiveDetails, error) {
+	f.calls.Add(1)
+	return f.details, f.err
+}
 
 // --- fake implementations ---
 
@@ -40,14 +53,19 @@ type fixedClock struct{ t time.Time }
 func (c fixedClock) Now() time.Time { return c.t }
 
 // buildMonitor は tick channel inject 済みの Monitor を生成するヘルパー。
-func buildMonitor(sw *fakeSwitcher, pl *fakePuller, state *memory.StateRepo, tickC <-chan time.Time) *monitor.Monitor {
-	return &monitor.Monitor{
+// yt が nil の場合は actualStartTime 判定をスキップする (= 古い挙動)。
+func buildMonitor(sw *fakeSwitcher, pl *fakePuller, yt *fakeYT, state *memory.StateRepo, tickC <-chan time.Time) *monitor.Monitor {
+	m := &monitor.Monitor{
 		SwitchVideo: sw,
 		Pull:        pl,
 		State:       state,
 		Clock:       fixedClock{t: time.Now()},
 		TickC:       tickC,
 	}
+	if yt != nil {
+		m.YT = yt
+	}
+	return m
 }
 
 // --- tests ---
@@ -56,6 +74,7 @@ func buildMonitor(sw *fakeSwitcher, pl *fakePuller, state *memory.StateRepo, tic
 func TestMonitor_Reserved_CallsSwitchVideo(t *testing.T) {
 	sw := &fakeSwitcher{}
 	pl := &fakePuller{}
+	yt := &fakeYT{details: port.VideoLiveDetails{ActualStartTime: time.Now().Add(-1 * time.Minute)}}
 	state := memory.NewStateRepo()
 	_ = state.Set(context.Background(), domain.LiveState{
 		Status:  domain.StatusReserved,
@@ -63,7 +82,7 @@ func TestMonitor_Reserved_CallsSwitchVideo(t *testing.T) {
 	})
 
 	tickC := make(chan time.Time, 1)
-	m := buildMonitor(sw, pl, state, tickC)
+	m := buildMonitor(sw, pl, yt, state, tickC)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -106,7 +125,7 @@ func TestMonitor_ActiveAM_CallsPull(t *testing.T) {
 	})
 
 	tickC := make(chan time.Time, 1)
-	m := buildMonitor(sw, pl, state, tickC)
+	m := buildMonitor(sw, pl, nil, state, tickC)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -143,7 +162,7 @@ func TestMonitor_Waiting_NoOp(t *testing.T) {
 	})
 
 	tickC := make(chan time.Time, 1)
-	m := buildMonitor(sw, pl, state, tickC)
+	m := buildMonitor(sw, pl, nil, state, tickC)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -179,7 +198,7 @@ func TestMonitor_CtxCancel_Exits(t *testing.T) {
 
 	// tickC に何も送らない状態でキャンセルしても終わる
 	tickC := make(chan time.Time)
-	m := buildMonitor(sw, pl, state, tickC)
+	m := buildMonitor(sw, pl, nil, state, tickC)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -212,10 +231,12 @@ func TestMonitor_ScheduledStartTime_SleepSkippedIfPast(t *testing.T) {
 		ScheduledStartTime: pastScheduled,
 	})
 
+	yt := &fakeYT{details: port.VideoLiveDetails{ActualStartTime: time.Now().Add(-1 * time.Minute)}}
 	tickC := make(chan time.Time, 1)
 	m := &monitor.Monitor{
 		SwitchVideo: sw,
 		Pull:        pl,
+		YT:          yt,
 		State:       state,
 		Clock:       fixedClock{t: time.Now()},
 		Buffer:      5 * time.Minute,
@@ -300,5 +321,81 @@ func TestMonitor_ScheduledStartTime_SleepsUntilBuffer(t *testing.T) {
 	// 20ms でキャンセルしたので process は呼ばれていないはず
 	if sw.calls.Load() != 0 {
 		t.Errorf("SwitchVideo.Execute should not be called during sleep, got %d calls", sw.calls.Load())
+	}
+}
+
+// TestMonitor_Reserved_ActualStartTimeZero_NoSwitch: actualStartTime が zero (未開始) なら SwitchVideo を呼ばない。
+// 修正前は ActiveLiveChatId が立っただけで SwitchVideo が成功し ACTIVE に遷移していた (premature activation)。
+func TestMonitor_Reserved_ActualStartTimeZero_NoSwitch(t *testing.T) {
+	sw := &fakeSwitcher{}
+	pl := &fakePuller{}
+	yt := &fakeYT{details: port.VideoLiveDetails{}} // ActualStartTime zero
+	state := memory.NewStateRepo()
+	_ = state.Set(context.Background(), domain.LiveState{
+		Status:  domain.StatusReserved,
+		VideoID: "vid_not_started",
+	})
+
+	tickC := make(chan time.Time, 1)
+	m := buildMonitor(sw, pl, yt, state, tickC)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		m.Run(ctx)
+	}()
+
+	tickC <- time.Now()
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not return after ctx cancel")
+	}
+
+	if sw.calls.Load() != 0 {
+		t.Errorf("SwitchVideo.Execute should NOT be called when actualStartTime is zero, got %d", sw.calls.Load())
+	}
+	if yt.calls.Load() < 1 {
+		t.Errorf("GetVideoLiveDetails should be called at least once, got %d", yt.calls.Load())
+	}
+}
+
+// TestMonitor_Reserved_ActualStartTimeSet_Switches: actualStartTime が立っていれば SwitchVideo を呼ぶ。
+func TestMonitor_Reserved_ActualStartTimeSet_Switches(t *testing.T) {
+	sw := &fakeSwitcher{}
+	pl := &fakePuller{}
+	yt := &fakeYT{details: port.VideoLiveDetails{ActualStartTime: time.Now().Add(-30 * time.Second)}}
+	state := memory.NewStateRepo()
+	_ = state.Set(context.Background(), domain.LiveState{
+		Status:  domain.StatusReserved,
+		VideoID: "vid_started",
+	})
+
+	tickC := make(chan time.Time, 1)
+	m := buildMonitor(sw, pl, yt, state, tickC)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		m.Run(ctx)
+	}()
+
+	tickC <- time.Now()
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not return after ctx cancel")
+	}
+
+	if sw.calls.Load() < 1 {
+		t.Errorf("SwitchVideo.Execute should be called when actualStartTime is set, got %d", sw.calls.Load())
 	}
 }

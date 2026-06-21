@@ -28,10 +28,16 @@ type puller interface {
 	Execute(ctx context.Context) (usecase.PullOutput, error)
 }
 
+// detailsFetcher は YouTubePort.GetVideoLiveDetails のサブセット (test fake 注入用)。
+type detailsFetcher interface {
+	GetVideoLiveDetails(ctx context.Context, videoID string) (port.VideoLiveDetails, error)
+}
+
 // Monitor は配信開始を待ち受けて SwitchVideo / Pull を自動呼出しする。
 type Monitor struct {
 	SwitchVideo switcher
 	Pull        puller
+	YT          detailsFetcher
 	State       port.StateRepo
 	Clock       port.Clock
 	Interval    time.Duration // 0 なら DefaultInterval
@@ -46,12 +52,14 @@ type Monitor struct {
 func New(
 	sv *usecase.SwitchVideo,
 	pl *usecase.Pull,
+	yt port.YouTubePort,
 	state port.StateRepo,
 	clock port.Clock,
 ) *Monitor {
 	return &Monitor{
 		SwitchVideo: sv,
 		Pull:        pl,
+		YT:          yt,
 		State:       state,
 		Clock:       clock,
 	}
@@ -129,6 +137,18 @@ func (m *Monitor) process(ctx context.Context) {
 
 	switch {
 	case st.Status == domain.StatusReserved:
+		// 配信開始済みかを actualStartTime で判定 (ActiveLiveChatId は数時間前から open するため不可)
+		if m.YT != nil {
+			details, derr := m.YT.GetVideoLiveDetails(ctx, st.VideoID)
+			if derr != nil {
+				logging.Log(ctx, "warn", "MONITOR", "get_video_live_details failed: %v", derr)
+				return
+			}
+			if details.ActualStartTime.IsZero() {
+				logging.Log(ctx, "info", "MONITOR", "tick: RESERVED but actualStartTime is zero, waiting (videoId=%s)", st.VideoID)
+				return
+			}
+		}
 		logging.Log(ctx, "info", "MONITOR", "tick: RESERVED → SwitchVideo (videoId=%s)", st.VideoID)
 		_, err := m.SwitchVideo.Execute(ctx, usecase.SwitchVideoInput{VideoID: st.VideoID})
 		if err != nil {
