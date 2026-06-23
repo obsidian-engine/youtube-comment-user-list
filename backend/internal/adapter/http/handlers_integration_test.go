@@ -26,6 +26,7 @@ import (
 type fakeYTForReserve struct {
 	isLive             bool
 	scheduledStartTime time.Time
+	actualStartTime    time.Time
 	getDetailsErr      error
 }
 
@@ -48,6 +49,7 @@ func (f *fakeYTForReserve) GetVideoLiveDetails(_ context.Context, _ string) (por
 	return port.VideoLiveDetails{
 		IsLiveContent:      f.isLive,
 		ScheduledStartTime: f.scheduledStartTime,
+		ActualStartTime:    f.actualStartTime,
 	}, nil
 }
 
@@ -58,15 +60,17 @@ func newTestServerWithReserve(yt port.YouTubePort) *httptest.Server {
 	clock := system.NewSystemClock()
 	coord := &snapshot.NopCoordinator{}
 
+	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord}
+	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord}
 	h := &ahttp.Handlers{
-		Status:        &usecase.Status{Users: users, State: state},
-		SwitchVideo:   &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord},
-		Pull:          &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
-		Reset:         &usecase.Reset{Users: users, State: state, Snap: coord},
-		Reserve:       &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord},
-		CancelReserve: &usecase.CancelReserve{State: state, Snap: coord},
-		Users:         users,
-		Coord:         coord,
+		Status:         &usecase.Status{Users: users, State: state},
+		Pull:           &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
+		Reset:          &usecase.Reset{Users: users, State: state, Snap: coord},
+		Reserve:        ucReserve,
+		CancelReserve:  &usecase.CancelReserve{State: state, Snap: coord},
+		StartOrReserve: &usecase.StartOrReserve{YT: yt, Clock: clock, SwitchVideo: ucSwitch, Reserve: ucReserve},
+		Users:          users,
+		Coord:          coord,
 	}
 	return httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
 }
@@ -91,13 +95,15 @@ func newTestServerWithCoord(frontend string, coord snapshot.Coordinator) *httpte
 	yt := youtube.New("") // テスト用の空キー
 	clock := system.NewSystemClock()
 
+	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
+	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
 	h := &ahttp.Handlers{
-		Status:      &usecase.Status{Users: users, State: state},
-		SwitchVideo: &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}},
-		Pull:        &usecase.Pull{YT: yt, Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
-		Reset:       &usecase.Reset{Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
-		Users:       users,
-		Coord:       coord,
+		Status:         &usecase.Status{Users: users, State: state},
+		Pull:           &usecase.Pull{YT: yt, Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
+		Reset:          &usecase.Reset{Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
+		StartOrReserve: &usecase.StartOrReserve{YT: yt, Clock: clock, SwitchVideo: ucSwitch, Reserve: ucReserve},
+		Users:          users,
+		Coord:          coord,
 	}
 	router := ahttp.NewRouter(h, frontend)
 	return httptest.NewServer(router)
@@ -158,15 +164,17 @@ func newTestServerWithHistory(sink *fakeSnapshotSink) *httptest.Server {
 	yt := youtube.New("")
 	clock := system.NewSystemClock()
 
+	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
+	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
 	h := &ahttp.Handlers{
-		Status:      &usecase.Status{Users: users, State: state},
-		SwitchVideo: &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}},
-		Pull:        &usecase.Pull{YT: yt, Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
-		Reset:       &usecase.Reset{Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
-		Users:       users,
-		Coord:       &snapshot.NopCoordinator{},
-		ListHistory: &usecase.ListHistorySnapshots{Sink: sink},
-		GetHistory:  &usecase.GetHistorySnapshot{Sink: sink},
+		Status:         &usecase.Status{Users: users, State: state},
+		Pull:           &usecase.Pull{YT: yt, Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
+		Reset:          &usecase.Reset{Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
+		StartOrReserve: &usecase.StartOrReserve{YT: yt, Clock: clock, SwitchVideo: ucSwitch, Reserve: ucReserve},
+		Users:          users,
+		Coord:          &snapshot.NopCoordinator{},
+		ListHistory:    &usecase.ListHistorySnapshots{Sink: sink},
+		GetHistory:     &usecase.GetHistorySnapshot{Sink: sink},
 	}
 	router := ahttp.NewRouter(h, "http://example.com")
 	return httptest.NewServer(router)
@@ -424,15 +432,13 @@ func TestRouter_StatusResponseHasNoLogsField(t *testing.T) {
 	users := memory.NewUserRepo()
 	state := memory.NewStateRepo()
 	yt := youtube.New("")
-	clock := system.NewSystemClock()
 
 	h := &ahttp.Handlers{
-		Status:      &usecase.Status{Users: users, State: state},
-		SwitchVideo: &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}},
-		Pull:        &usecase.Pull{YT: yt, Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
-		Reset:       &usecase.Reset{Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
-		Users:       users,
-		Coord:       &snapshot.NopCoordinator{},
+		Status: &usecase.Status{Users: users, State: state},
+		Pull:   &usecase.Pull{YT: yt, Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
+		Reset:  &usecase.Reset{Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
+		Users:  users,
+		Coord:  &snapshot.NopCoordinator{},
 	}
 
 	// NewRouter が組む production middleware 順 (Recover 外側 → Collector 内側) を利用する。
@@ -541,15 +547,17 @@ func TestReserve_ConflictWhenActive(t *testing.T) {
 	// 事前に ACTIVE 状態を作る
 	_ = state.Set(context.Background(), domain.LiveState{Status: domain.StatusActive, VideoID: "existing"})
 
+	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord}
+	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord}
 	h := &ahttp.Handlers{
-		Status:        &usecase.Status{Users: users, State: state},
-		SwitchVideo:   &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord},
-		Pull:          &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
-		Reset:         &usecase.Reset{Users: users, State: state, Snap: coord},
-		Reserve:       &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord},
-		CancelReserve: &usecase.CancelReserve{State: state, Snap: coord},
-		Users:         users,
-		Coord:         coord,
+		Status:         &usecase.Status{Users: users, State: state},
+		Pull:           &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
+		Reset:          &usecase.Reset{Users: users, State: state, Snap: coord},
+		Reserve:        ucReserve,
+		CancelReserve:  &usecase.CancelReserve{State: state, Snap: coord},
+		StartOrReserve: &usecase.StartOrReserve{YT: yt, Clock: clock, SwitchVideo: ucSwitch, Reserve: ucReserve},
+		Users:          users,
+		Coord:          coord,
 	}
 	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
 	defer ts.Close()
@@ -629,15 +637,17 @@ func TestCancelReserve_ConflictWhenActive(t *testing.T) {
 
 	_ = state.Set(context.Background(), domain.LiveState{Status: domain.StatusActive, VideoID: "existing"})
 
+	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord}
+	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord}
 	h := &ahttp.Handlers{
-		Status:        &usecase.Status{Users: users, State: state},
-		SwitchVideo:   &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord},
-		Pull:          &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
-		Reset:         &usecase.Reset{Users: users, State: state, Snap: coord},
-		Reserve:       &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord},
-		CancelReserve: &usecase.CancelReserve{State: state, Snap: coord},
-		Users:         users,
-		Coord:         coord,
+		Status:         &usecase.Status{Users: users, State: state},
+		Pull:           &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
+		Reset:          &usecase.Reset{Users: users, State: state, Snap: coord},
+		Reserve:        ucReserve,
+		CancelReserve:  &usecase.CancelReserve{State: state, Snap: coord},
+		StartOrReserve: &usecase.StartOrReserve{YT: yt, Clock: clock, SwitchVideo: ucSwitch, Reserve: ucReserve},
+		Users:          users,
+		Coord:          coord,
 	}
 	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
 	defer ts.Close()
@@ -668,15 +678,17 @@ func TestCancelReserve_Success(t *testing.T) {
 		VideoID: "VID123",
 	})
 
+	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord}
+	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord}
 	h := &ahttp.Handlers{
-		Status:        &usecase.Status{Users: users, State: state},
-		SwitchVideo:   &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord},
-		Pull:          &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
-		Reset:         &usecase.Reset{Users: users, State: state, Snap: coord},
-		Reserve:       &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord},
-		CancelReserve: &usecase.CancelReserve{State: state, Snap: coord},
-		Users:         users,
-		Coord:         coord,
+		Status:         &usecase.Status{Users: users, State: state},
+		Pull:           &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
+		Reset:          &usecase.Reset{Users: users, State: state, Snap: coord},
+		Reserve:        ucReserve,
+		CancelReserve:  &usecase.CancelReserve{State: state, Snap: coord},
+		StartOrReserve: &usecase.StartOrReserve{YT: yt, Clock: clock, SwitchVideo: ucSwitch, Reserve: ucReserve},
+		Users:          users,
+		Coord:          coord,
 	}
 	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
 	defer ts.Close()
@@ -776,5 +788,92 @@ func TestSuccessResponse_ContainsLogsField(t *testing.T) {
 				t.Errorf("logs key present=%v, want %v; body=%v", hasLogs, tt.wantLogsKey, body)
 			}
 		})
+	}
+}
+
+// TestSwitchVideo_DispatchesToReserve_WhenNotStarted: 未開始 video (actualStartTime zero) は Reserve に振り分けられる。
+func TestSwitchVideo_DispatchesToReserve_WhenNotStarted(t *testing.T) {
+	scheduled := time.Now().Add(12 * time.Hour)
+	yt := &fakeYTForReserve{isLive: true, scheduledStartTime: scheduled} // actualStartTime zero
+	srv := newTestServerWithReserve(yt)
+	defer srv.Close()
+
+	body := strings.NewReader(`{"videoId":"abcdefghijk"}`)
+	res, err := stdhttp.Post(srv.URL+"/switch-video", "application/json", body)
+	if err != nil {
+		t.Fatalf("POST /switch-video: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != stdhttp.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+	var got map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got["status"] != string(domain.StatusReserved) {
+		t.Errorf("status = %v, want RESERVED", got["status"])
+	}
+	if got["scheduledStartTime"] == nil {
+		t.Error("scheduledStartTime should be present in response")
+	}
+}
+
+// TestSwitchVideo_DispatchesToReserve_WhenScheduledFuture: actualStartTime あっても scheduledStartTime 未来なら Reserve。
+func TestSwitchVideo_DispatchesToReserve_WhenScheduledFuture(t *testing.T) {
+	yt := &fakeYTForReserve{
+		isLive:             true,
+		actualStartTime:    time.Now().Add(-1 * time.Minute), // 立ってる
+		scheduledStartTime: time.Now().Add(6 * time.Hour),    // 未来 (premiere ケース)
+	}
+	srv := newTestServerWithReserve(yt)
+	defer srv.Close()
+
+	body := strings.NewReader(`{"videoId":"premiere001"}`)
+	res, err := stdhttp.Post(srv.URL+"/switch-video", "application/json", body)
+	if err != nil {
+		t.Fatalf("POST /switch-video: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != stdhttp.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+	var got map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got["status"] != string(domain.StatusReserved) {
+		t.Errorf("status = %v, want RESERVED", got["status"])
+	}
+}
+
+// TestSwitchVideo_SwitchesDirectly_WhenStarted: actualStartTime + scheduledStartTime 過去 なら従来通り SwitchVideo に進む。
+func TestSwitchVideo_SwitchesDirectly_WhenStarted(t *testing.T) {
+	yt := &fakeYTForReserve{
+		isLive:             true,
+		actualStartTime:    time.Now().Add(-10 * time.Minute),
+		scheduledStartTime: time.Now().Add(-15 * time.Minute), // 過去
+	}
+	srv := newTestServerWithReserve(yt)
+	defer srv.Close()
+
+	body := strings.NewReader(`{"videoId":"liveid00001"}`)
+	res, err := stdhttp.Post(srv.URL+"/switch-video", "application/json", body)
+	if err != nil {
+		t.Fatalf("POST /switch-video: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != stdhttp.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+	var got map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got["status"] != string(domain.StatusActive) {
+		t.Errorf("status = %v, want ACTIVE", got["status"])
 	}
 }

@@ -9,18 +9,20 @@ type User = {
 }
 
 // 簡易なメモリ状態（各テストで server.use で上書き可）
-let state: 'WAITING' | 'ACTIVE' = 'WAITING'
+let state: 'WAITING' | 'ACTIVE' | 'RESERVED' = 'WAITING'
 let users: User[] = []
+let videoId: string | undefined
 
 export const resetMockState = () => {
   state = 'WAITING'
   users = []
+  videoId = undefined
 }
 
 export const handlers = [
   // 状態
   http.get('*/status', () => {
-    return HttpResponse.json({ status: state, count: users.length })
+    return HttpResponse.json({ status: state, count: users.length, videoId })
   }),
 
   // ユーザー一覧
@@ -34,6 +36,7 @@ export const handlers = [
     try {
       const body = (await request.json()) as { videoId?: string }
       if (!body?.videoId) return new HttpResponse('bad request', { status: 400 })
+      videoId = body.videoId
     } catch {
       return new HttpResponse('bad request', { status: 400 })
     }
@@ -49,7 +52,7 @@ export const handlers = [
       channelId: `UC${users.length + 1}`,
       displayName: `User-${users.length + 1}`,
       joinedAt: now,
-      firstCommentedAt: now  // 初回コメント日時を設定
+      firstCommentedAt: now, // 初回コメント日時を設定
     })
     return new HttpResponse(null, { status: 200 })
   }),
@@ -58,6 +61,7 @@ export const handlers = [
   http.post('*/reset', () => {
     state = 'WAITING'
     users = []
+    videoId = undefined
     return new HttpResponse(null, { status: 200 })
   }),
 ]
@@ -66,7 +70,7 @@ export const __mock = {
   get state() {
     return state
   },
-  set state(v: 'WAITING' | 'ACTIVE') {
+  set state(v: 'WAITING' | 'ACTIVE' | 'RESERVED') {
     state = v
   },
   get users() {

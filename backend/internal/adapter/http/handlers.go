@@ -18,17 +18,17 @@ import (
 )
 
 type Handlers struct {
-	Status        *usecase.Status
-	SwitchVideo   *usecase.SwitchVideo
-	Pull          *usecase.Pull
-	Reset         *usecase.Reset
-	Reserve       *usecase.Reserve
-	CancelReserve *usecase.CancelReserve
-	Users         port.UserRepo
-	Comments      port.CommentRepo
-	Coord         snapshot.Coordinator
-	ListHistory   *usecase.ListHistorySnapshots
-	GetHistory    *usecase.GetHistorySnapshot
+	Status         *usecase.Status
+	Pull           *usecase.Pull
+	Reset          *usecase.Reset
+	Reserve        *usecase.Reserve
+	CancelReserve  *usecase.CancelReserve
+	StartOrReserve *usecase.StartOrReserve
+	Users          port.UserRepo
+	Comments       port.CommentRepo
+	Coord          snapshot.Coordinator
+	ListHistory    *usecase.ListHistorySnapshots
+	GetHistory     *usecase.GetHistorySnapshot
 }
 
 // StatusResponse represents the response for /status endpoint
@@ -49,11 +49,13 @@ type StatusResponse struct {
 
 // SwitchVideoResponse represents the response for /switch-video endpoint
 type SwitchVideoResponse struct {
-	Status     string      `json:"status"`
-	VideoID    string      `json:"videoId"`
-	LiveChatID string      `json:"liveChatId"`
-	StartedAt  any         `json:"startedAt"`
-	Logs       []LogDetail `json:"logs,omitempty"`
+	Status             string      `json:"status"`
+	VideoID            string      `json:"videoId"`
+	LiveChatID         string      `json:"liveChatId"`
+	StartedAt          any         `json:"startedAt"`
+	ScheduledStartTime any         `json:"scheduledStartTime,omitempty"`
+	ReservedAt         any         `json:"reservedAt,omitempty"`
+	Logs               []LogDetail `json:"logs,omitempty"`
 }
 
 // LogDetail represents a single log entry in the response
@@ -196,21 +198,23 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		}
 
 		log.Printf("[SWITCH_VIDEO] Successfully extracted videoID: '%s' (length: %d) from: '%s'", videoID, len(videoID), req.VideoID)
-		log.Printf("[SWITCH_VIDEO] Calling SwitchVideo.Execute with videoID: '%s'", videoID)
-		out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: videoID})
+		log.Printf("[SWITCH_VIDEO] Calling StartOrReserve.Execute with videoID: '%s'", videoID)
+		out, err := h.StartOrReserve.Execute(r.Context(), usecase.StartOrReserveInput{VideoID: videoID})
 		if err != nil {
 			log.Printf("[SWITCH_VIDEO] Execute error: %v", err)
 			renderUsecaseError(w, r, err, "Failed to switch video: "+err.Error(), collector, StatusBadGateway, "bad_gateway")
 			return
 		}
 
-		log.Printf("[SWITCH_VIDEO] Successfully switched to video %s, status: %s", out.State.VideoID, out.State.Status)
+		log.Printf("[SWITCH_VIDEO] Dispatched=%s videoId=%s status=%s", out.Dispatched, out.State.VideoID, out.State.Status)
 		response := SwitchVideoResponse{
-			Status:     string(out.State.Status),
-			VideoID:    out.State.VideoID,
-			LiveChatID: out.State.LiveChatID,
-			StartedAt:  out.State.StartedAt,
-			Logs:       collectLogs(collector),
+			Status:             string(out.State.Status),
+			VideoID:            out.State.VideoID,
+			LiveChatID:         out.State.LiveChatID,
+			StartedAt:          out.State.StartedAt,
+			ScheduledStartTime: out.State.ScheduledStartTime,
+			ReservedAt:         out.State.ReservedAt,
+			Logs:               collectLogs(collector),
 		}
 		render.JSON(w, r, response)
 	})

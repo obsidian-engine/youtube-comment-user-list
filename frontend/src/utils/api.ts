@@ -96,14 +96,27 @@ export async function getUsers(signal?: AbortSignal): Promise<User[] | null> {
   return json<User[] | null>(res)
 }
 
-export async function postSwitchVideo(videoId: string, signal?: AbortSignal): Promise<void> {
+export type SwitchVideoResponse = {
+  status: 'WAITING' | 'ACTIVE' | 'RESERVED'
+  videoId?: string
+  liveChatId?: string
+  startedAt?: string
+  scheduledStartTime?: string
+  reservedAt?: string
+  logs?: LogDetail[]
+}
+
+export async function postSwitchVideo(
+  videoId: string,
+  signal?: AbortSignal,
+): Promise<SwitchVideoResponse> {
   const res = await fetch(`${BASE}/switch-video`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ videoId }),
     signal,
   })
-  await throwIfError(res)
+  return json<SwitchVideoResponse>(res)
 }
 
 export type BackendLog = {

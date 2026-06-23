@@ -63,6 +63,7 @@ describe('useAppState', () => {
       reserved: false,
       users: [],
       videoId: '',
+      currentVideoId: undefined,
       intervalSec: 60,
       lastUpdated: '--:--:--',
       lastFetchTime: '',
@@ -155,7 +156,7 @@ describe('useAppState', () => {
   })
 
   test('onSwitch関数がvideoIdありで成功する', async () => {
-    mockPostSwitchVideo.mockResolvedValue(undefined)
+    mockPostSwitchVideo.mockResolvedValue({ status: 'ACTIVE' })
     mockPostPull.mockResolvedValue({ addedCount: 0, skippedCount: 0, autoReset: false })
     mockGetStatus.mockResolvedValue({ status: 'ACTIVE' })
     mockGetUsers.mockResolvedValue([])
@@ -173,6 +174,26 @@ describe('useAppState', () => {
     expect(mockPostSwitchVideo).toHaveBeenCalledWith('test-video', expect.any(AbortSignal))
     expect(localStorage.getItem('videoId')).toBe('test-video')
     expect(result.current.state.infoMsg).toBe('切替しました')
+  })
+
+  test('onSwitch関数がRESERVEDの場合は予約メッセージを表示しpullしない', async () => {
+    mockPostSwitchVideo.mockResolvedValue({ status: 'RESERVED' })
+    mockGetStatus.mockResolvedValue({ status: 'RESERVED', videoId: 'test-video' })
+    mockGetUsers.mockResolvedValue([])
+
+    const { result } = renderHook(() => useAppState())
+
+    act(() => {
+      result.current.actions.setVideoId('test-video')
+    })
+
+    await act(async () => {
+      await result.current.actions.onSwitch()
+    })
+
+    expect(mockPostSwitchVideo).toHaveBeenCalledWith('test-video', expect.any(AbortSignal))
+    expect(mockPostPull).not.toHaveBeenCalled()
+    expect(result.current.state.infoMsg).toBe('予約しました（配信開始を待機中）')
   })
 
   test('onPull関数が成功し、lastFetchTimeを更新する', async () => {

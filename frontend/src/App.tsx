@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAutoRefresh } from './hooks/useAutoRefresh'
 import { useAppState } from './hooks/useAppState'
 import { useCommentSearch } from './hooks/useCommentSearch'
@@ -76,6 +76,12 @@ export default function App() {
     loadingStates,
   } = state
 
+  // 初回 mount 時に refresh を 1 度走らせて status / users を取得する
+  useEffect(() => {
+    void actions.refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // 名前読み上げタブの自動更新
   useAutoRefresh(intervalSec, actions.onPullSilent)
 
@@ -102,6 +108,8 @@ export default function App() {
             <Controls
               videoId={videoId}
               setVideoId={actions.setVideoId}
+              status={state.status}
+              currentVideoId={state.currentVideoId}
               loadingStates={loadingStates}
               onSwitch={handleSwitch}
               onPull={actions.onPull}

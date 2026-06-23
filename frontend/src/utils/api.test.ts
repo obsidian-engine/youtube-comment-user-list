@@ -100,12 +100,12 @@ describe('API functions', () => {
     test('正常にビデオ切替リクエストを送信', async () => {
       server.use(
         http.post('*/switch-video', () => {
-          return new HttpResponse(null, { status: 200 })
+          return HttpResponse.json({ status: 'ACTIVE' })
         }),
       )
 
-      await postSwitchVideo('test-video')
-      // 例外が投げられなければ成功
+      const res = await postSwitchVideo('test-video')
+      expect(res.status).toBe('ACTIVE')
     })
 
     test('AbortSignalを正しく渡す', async () => {
@@ -113,7 +113,7 @@ describe('API functions', () => {
 
       server.use(
         http.post('*/switch-video', () => {
-          return new HttpResponse(null, { status: 200 })
+          return HttpResponse.json({ status: 'ACTIVE' })
         }),
       )
 

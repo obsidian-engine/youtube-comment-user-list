@@ -6,7 +6,7 @@ import App from '../App'
 vi.mock('../utils/api', () => ({
   getStatus: vi.fn().mockResolvedValue({ count: 0, active: false }),
   getUsers: vi.fn().mockResolvedValue([]),
-  postSwitchVideo: vi.fn().mockResolvedValue({}),
+  postSwitchVideo: vi.fn().mockResolvedValue({ status: 'ACTIVE' }),
   postPull: vi.fn().mockResolvedValue({}),
   postReset: vi.fn().mockResolvedValue({}),
 }))
