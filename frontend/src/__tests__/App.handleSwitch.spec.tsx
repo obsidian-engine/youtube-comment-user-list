@@ -89,7 +89,7 @@ describe('App - handleSwitch', () => {
 
     const input = screen.getByLabelText('videoId') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'VID_NEW' } })
-    fireEvent.click(screen.getByRole('button', { name: '切替' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始' }))
 
     await waitFor(() => {
       expect(clearCommentsSpy).toHaveBeenCalledTimes(1)
@@ -101,7 +101,7 @@ describe('App - handleSwitch', () => {
 
     const input = screen.getByLabelText('videoId') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'VID_NEW' } })
-    fireEvent.click(screen.getByRole('button', { name: '切替' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始' }))
 
     await waitFor(() => {
       expect(clearResultsSpy).toHaveBeenCalledTimes(1)
@@ -113,7 +113,7 @@ describe('App - handleSwitch', () => {
 
     const input = screen.getByLabelText('videoId') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'VID_NEW' } })
-    fireEvent.click(screen.getByRole('button', { name: '切替' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始' }))
 
     await waitFor(() => {
       expect(clearCommentsSpy).toHaveBeenCalledTimes(1)

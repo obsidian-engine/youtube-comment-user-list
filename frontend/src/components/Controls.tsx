@@ -10,6 +10,8 @@ interface LoadingStates {
 interface ControlsProps {
   videoId: string
   setVideoId: (value: string) => void
+  status: string
+  currentVideoId?: string
   loadingStates: LoadingStates
   onSwitch: () => Promise<void>
   onPull: () => Promise<void>
@@ -19,11 +21,24 @@ interface ControlsProps {
 export function Controls({
   videoId,
   setVideoId,
+  status,
+  currentVideoId,
   loadingStates,
   onSwitch,
   onPull,
   onReset,
 }: ControlsProps) {
+  const isReserved = status === 'RESERVED'
+  const isActive = status === 'ACTIVE'
+  // ACTIVE 中: 入力 videoId が空 or 現行と一致 → Pull、別 video 入力中 → 開始 (= 切替)
+  // WAITING / RESERVED → 開始 (SwitchVideo dispatcher が reserve/switch を自動判別)
+  const sameVideo = !videoId || videoId === currentVideoId
+  const action: 'pull' | 'start' = isActive && sameVideo ? 'pull' : 'start'
+  const actionLabel = action === 'pull' ? '今すぐ取得' : '開始'
+  const actionLoading = action === 'pull' ? loadingStates.pulling : loadingStates.switching
+  const actionLoadingText = action === 'pull' ? '取得中…' : '開始中…'
+  const actionHandler = action === 'pull' ? onPull : onSwitch
+  const actionDisabled = isReserved
   return (
     <section aria-label="操作" className="card-editorial">
       <div className="eyebrow">
@@ -42,8 +57,8 @@ export function Controls({
               aria-label="videoId"
               value={videoId}
               onChange={(e) => setVideoId(e.target.value)}
-              placeholder="videoId を入力"
-              disabled={loadingStates.switching}
+              placeholder={isReserved ? '予約中 (キャンセルは curl)' : 'videoId を入力'}
+              disabled={actionLoading || actionDisabled}
               autoComplete="off"
               spellCheck={false}
               className="input-rule"
@@ -56,23 +71,16 @@ export function Controls({
               }}
             />
             <LoadingButton
-              ariaLabel="切替"
-              isLoading={loadingStates.switching}
-              loadingText="切替中…"
-              onClick={onSwitch}
+              ariaLabel={actionLabel}
+              isLoading={actionLoading}
+              loadingText={actionLoadingText}
+              onClick={actionHandler}
+              disabled={actionDisabled}
             >
-              切替
+              {actionLabel}
             </LoadingButton>
           </div>
           <div className="md:col-span-4 flex gap-2 justify-start md:justify-end">
-            <LoadingButton
-              ariaLabel="今すぐ取得"
-              isLoading={loadingStates.pulling}
-              loadingText="取得中…"
-              onClick={onPull}
-            >
-              今すぐ取得
-            </LoadingButton>
             <LoadingButton
               variant="outline"
               ariaLabel="リセット"

@@ -26,6 +26,7 @@ import (
 type fakeYTForReserve struct {
 	isLive             bool
 	scheduledStartTime time.Time
+	actualStartTime    time.Time
 	getDetailsErr      error
 }
 
@@ -48,6 +49,7 @@ func (f *fakeYTForReserve) GetVideoLiveDetails(_ context.Context, _ string) (por
 	return port.VideoLiveDetails{
 		IsLiveContent:      f.isLive,
 		ScheduledStartTime: f.scheduledStartTime,
+		ActualStartTime:    f.actualStartTime,
 	}, nil
 }
 
@@ -67,6 +69,8 @@ func newTestServerWithReserve(yt port.YouTubePort) *httptest.Server {
 		CancelReserve: &usecase.CancelReserve{State: state, Snap: coord},
 		Users:         users,
 		Coord:         coord,
+		YT:            yt,
+		Clock:         clock,
 	}
 	return httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
 }
@@ -550,6 +554,8 @@ func TestReserve_ConflictWhenActive(t *testing.T) {
 		CancelReserve: &usecase.CancelReserve{State: state, Snap: coord},
 		Users:         users,
 		Coord:         coord,
+		YT:            yt,
+		Clock:         clock,
 	}
 	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
 	defer ts.Close()
@@ -638,6 +644,8 @@ func TestCancelReserve_ConflictWhenActive(t *testing.T) {
 		CancelReserve: &usecase.CancelReserve{State: state, Snap: coord},
 		Users:         users,
 		Coord:         coord,
+		YT:            yt,
+		Clock:         clock,
 	}
 	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
 	defer ts.Close()
@@ -677,6 +685,8 @@ func TestCancelReserve_Success(t *testing.T) {
 		CancelReserve: &usecase.CancelReserve{State: state, Snap: coord},
 		Users:         users,
 		Coord:         coord,
+		YT:            yt,
+		Clock:         clock,
 	}
 	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
 	defer ts.Close()
@@ -776,5 +786,92 @@ func TestSuccessResponse_ContainsLogsField(t *testing.T) {
 				t.Errorf("logs key present=%v, want %v; body=%v", hasLogs, tt.wantLogsKey, body)
 			}
 		})
+	}
+}
+
+// TestSwitchVideo_DispatchesToReserve_WhenNotStarted: 未開始 video (actualStartTime zero) は Reserve に振り分けられる。
+func TestSwitchVideo_DispatchesToReserve_WhenNotStarted(t *testing.T) {
+	scheduled := time.Now().Add(12 * time.Hour)
+	yt := &fakeYTForReserve{isLive: true, scheduledStartTime: scheduled} // actualStartTime zero
+	srv := newTestServerWithReserve(yt)
+	defer srv.Close()
+
+	body := strings.NewReader(`{"videoId":"abcdefghijk"}`)
+	res, err := stdhttp.Post(srv.URL+"/switch-video", "application/json", body)
+	if err != nil {
+		t.Fatalf("POST /switch-video: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != stdhttp.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+	var got map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got["status"] != string(domain.StatusReserved) {
+		t.Errorf("status = %v, want RESERVED", got["status"])
+	}
+	if got["scheduledStartTime"] == nil {
+		t.Error("scheduledStartTime should be present in response")
+	}
+}
+
+// TestSwitchVideo_DispatchesToReserve_WhenScheduledFuture: actualStartTime あっても scheduledStartTime 未来なら Reserve。
+func TestSwitchVideo_DispatchesToReserve_WhenScheduledFuture(t *testing.T) {
+	yt := &fakeYTForReserve{
+		isLive:             true,
+		actualStartTime:    time.Now().Add(-1 * time.Minute), // 立ってる
+		scheduledStartTime: time.Now().Add(6 * time.Hour),    // 未来 (premiere ケース)
+	}
+	srv := newTestServerWithReserve(yt)
+	defer srv.Close()
+
+	body := strings.NewReader(`{"videoId":"premiere001"}`)
+	res, err := stdhttp.Post(srv.URL+"/switch-video", "application/json", body)
+	if err != nil {
+		t.Fatalf("POST /switch-video: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != stdhttp.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+	var got map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got["status"] != string(domain.StatusReserved) {
+		t.Errorf("status = %v, want RESERVED", got["status"])
+	}
+}
+
+// TestSwitchVideo_SwitchesDirectly_WhenStarted: actualStartTime + scheduledStartTime 過去 なら従来通り SwitchVideo に進む。
+func TestSwitchVideo_SwitchesDirectly_WhenStarted(t *testing.T) {
+	yt := &fakeYTForReserve{
+		isLive:             true,
+		actualStartTime:    time.Now().Add(-10 * time.Minute),
+		scheduledStartTime: time.Now().Add(-15 * time.Minute), // 過去
+	}
+	srv := newTestServerWithReserve(yt)
+	defer srv.Close()
+
+	body := strings.NewReader(`{"videoId":"liveid00001"}`)
+	res, err := stdhttp.Post(srv.URL+"/switch-video", "application/json", body)
+	if err != nil {
+		t.Fatalf("POST /switch-video: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != stdhttp.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+	var got map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got["status"] != string(domain.StatusActive) {
+		t.Errorf("status = %v, want ACTIVE", got["status"])
 	}
 }

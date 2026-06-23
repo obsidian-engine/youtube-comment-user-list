@@ -93,6 +93,8 @@ func main() {
 		Coord:         coord,
 		ListHistory:   listHistory,
 		GetHistory:    getHistory,
+		YT:            yt,
+		Clock:         clock,
 	}
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: ahttp.NewRouter(h, cfg.FrontendOrigin)}
 

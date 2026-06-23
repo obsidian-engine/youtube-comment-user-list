@@ -22,17 +22,25 @@ vi.mock('../hooks/useHistory', () => ({
 describe('App Integration (MSW)', () => {
   // 統合テスト用に長めのタイムアウトを設定
   vi.setConfig({ testTimeout: 12000 })
+
+  beforeEach(() => {
+    localStorage.clear()
+  })
   test('切替成功で監視中表示になり、pull で人数が増える', async () => {
     let currentState: 'WAITING' | 'ACTIVE' = 'WAITING'
+    let currentVid: string | undefined
     const users: User[] = []
 
     server.use(
-      http.get('*/status', () => HttpResponse.json({ status: currentState, count: users.length })),
+      http.get('*/status', () =>
+        HttpResponse.json({ status: currentState, count: users.length, videoId: currentVid }),
+      ),
       http.get('*/users.json', () => HttpResponse.json(users)),
       http.post('*/switch-video', async ({ request }) => {
         try {
           const body = (await request.json()) as { videoId?: string }
           if (!body?.videoId) return new HttpResponse('bad request', { status: 400 })
+          currentVid = body.videoId
         } catch {
           return new HttpResponse('bad request', { status: 400 })
         }
@@ -64,13 +72,13 @@ describe('App Integration (MSW)', () => {
     expect(screen.getByText('0')).toBeInTheDocument()
 
     // videoId 未入力でエラー
-    fireEvent.click(screen.getByRole('button', { name: '切替' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始' }))
     expect(await screen.findByRole('alert')).toBeInTheDocument()
 
     // 入力して切替
     const input = screen.getByLabelText('videoId') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'VID123' } })
-    fireEvent.click(screen.getByRole('button', { name: '切替' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始' }))
     await waitFor(async () => {
       const activeEls = await screen.findAllByText('監視中')
       expect(activeEls[0]).toBeInTheDocument()
@@ -82,11 +90,14 @@ describe('App Integration (MSW)', () => {
   })
 
   test('初回コメント時間が正しく表示される', async () => {
+    localStorage.setItem('videoId', 'mock-vid')
     const mockDate = new Date('2024-01-01T10:30:00Z')
     const users: User[] = []
 
     server.use(
-      http.get('*/status', () => HttpResponse.json({ status: 'ACTIVE', count: users.length })),
+      http.get('*/status', () =>
+        HttpResponse.json({ status: 'ACTIVE', count: users.length, videoId: 'mock-vid' }),
+      ),
       http.get('*/users.json', () => HttpResponse.json(users)),
       http.post('*/pull', () => {
         users.push({
@@ -113,8 +124,8 @@ describe('App Integration (MSW)', () => {
     // ユーザーがいない時は「ユーザーがいません。」が表示される
     expect(screen.getByText('ユーザーがいません。')).toBeInTheDocument()
 
-    // 今すぐ取得でユーザーを追加
-    fireEvent.click(screen.getByRole('button', { name: '今すぐ取得' }))
+    // 今すぐ取得でユーザーを追加 (status 反映で ACTIVE 化を待つ)
+    fireEvent.click(await screen.findByRole('button', { name: '今すぐ取得' }))
 
     // 初回コメント時間が正しく表示される
     await waitFor(() => {
@@ -141,10 +152,13 @@ describe('App Integration (MSW)', () => {
   })
 
   test('手動「今すぐ取得」は「取得しました」メッセージが表示される', async () => {
+    localStorage.setItem('videoId', 'mock-vid')
     const users: User[] = []
 
     server.use(
-      http.get('*/status', () => HttpResponse.json({ status: 'ACTIVE', count: users.length })),
+      http.get('*/status', () =>
+        HttpResponse.json({ status: 'ACTIVE', count: users.length, videoId: 'mock-vid' }),
+      ),
       http.get('*/users.json', () => HttpResponse.json(users)),
       http.post('*/pull', () => {
         users.push({
@@ -168,7 +182,7 @@ describe('App Integration (MSW)', () => {
     expect(screen.getByText('ユーザーがいません。')).toBeInTheDocument()
 
     // 手動で「今すぐ取得」ボタンをクリック
-    fireEvent.click(screen.getByRole('button', { name: '今すぐ取得' }))
+    fireEvent.click(await screen.findByRole('button', { name: '今すぐ取得' }))
 
     // ユーザーが追加される
     await waitFor(() => {
@@ -217,6 +231,7 @@ describe('App Integration (MSW)', () => {
   })
 
   test('停止中(WAITING)でもユーザーリストが保持される', async () => {
+    localStorage.setItem('videoId', 'mock-vid')
     let currentStatus: 'WAITING' | 'ACTIVE' = 'ACTIVE'
     const users: User[] = [
       {
@@ -238,6 +253,7 @@ describe('App Integration (MSW)', () => {
         HttpResponse.json({
           status: currentStatus,
           count: users.length,
+          videoId: 'mock-vid',
           startedAt: currentStatus === 'ACTIVE' ? new Date().toISOString() : undefined,
         }),
       ),
@@ -255,7 +271,7 @@ describe('App Integration (MSW)', () => {
     render(<App />)
 
     // 手動でrefresh実行（MSWがレスポンスを確実に返すため）
-    const refreshButton = screen.getByRole('button', { name: '今すぐ取得' })
+    const refreshButton = await screen.findByRole('button', { name: '今すぐ取得' })
     fireEvent.click(refreshButton)
 
     // レスポンス後のユーザー表示を待つ
@@ -321,6 +337,7 @@ describe('App Integration (MSW)', () => {
   })
 
   test('切替実行時のみユーザーリストがクリアされる', async () => {
+    localStorage.setItem('videoId', 'mock-vid')
     const users: User[] = [
       {
         channelId: 'UC1',
@@ -335,6 +352,7 @@ describe('App Integration (MSW)', () => {
         return HttpResponse.json({
           status: 'ACTIVE',
           count: users.length,
+          videoId: 'mock-vid',
           startedAt: users.length > 0 ? new Date().toISOString() : undefined,
         })
       }),
@@ -359,7 +377,7 @@ describe('App Integration (MSW)', () => {
     render(<App />)
 
     // 手動でrefresh実行（MSWがレスポンスを確実に返すため）
-    const refreshBtn = screen.getByRole('button', { name: '今すぐ取得' })
+    const refreshBtn = await screen.findByRole('button', { name: '今すぐ取得' })
     fireEvent.click(refreshBtn)
 
     // 初期状態：ユーザーが読み込まれるまで待つ
@@ -383,7 +401,7 @@ describe('App Integration (MSW)', () => {
     // videoIdを入力して切替実行
     const input = screen.getByLabelText('videoId') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'new-video-123' } })
-    fireEvent.click(screen.getByRole('button', { name: '切替' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始' }))
 
     // 切替後はリストがクリアされる（refreshWithClearが呼ばれる）
     await waitFor(

@@ -29,6 +29,9 @@ type Handlers struct {
 	Coord         snapshot.Coordinator
 	ListHistory   *usecase.ListHistorySnapshots
 	GetHistory    *usecase.GetHistorySnapshot
+	// YT / Clock は /switch-video の dispatcher (未開始なら Reserve 振り分け) で利用。
+	YT    port.YouTubePort
+	Clock port.Clock
 }
 
 // StatusResponse represents the response for /status endpoint
@@ -49,11 +52,13 @@ type StatusResponse struct {
 
 // SwitchVideoResponse represents the response for /switch-video endpoint
 type SwitchVideoResponse struct {
-	Status     string      `json:"status"`
-	VideoID    string      `json:"videoId"`
-	LiveChatID string      `json:"liveChatId"`
-	StartedAt  any         `json:"startedAt"`
-	Logs       []LogDetail `json:"logs,omitempty"`
+	Status             string      `json:"status"`
+	VideoID            string      `json:"videoId"`
+	LiveChatID         string      `json:"liveChatId"`
+	StartedAt          any         `json:"startedAt"`
+	ScheduledStartTime any         `json:"scheduledStartTime,omitempty"`
+	ReservedAt         any         `json:"reservedAt,omitempty"`
+	Logs               []LogDetail `json:"logs,omitempty"`
 }
 
 // LogDetail represents a single log entry in the response
@@ -196,6 +201,40 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		}
 
 		log.Printf("[SWITCH_VIDEO] Successfully extracted videoID: '%s' (length: %d) from: '%s'", videoID, len(videoID), req.VideoID)
+
+		// Dispatcher: 未開始の配信 (actualStartTime zero or scheduledStartTime 未来) なら Reserve に振り分ける。
+		// monitor.go の判定式と同一。
+		if h.YT != nil && h.Clock != nil && h.Reserve != nil {
+			details, derr := h.YT.GetVideoLiveDetails(r.Context(), videoID)
+			if derr != nil {
+				log.Printf("[SWITCH_VIDEO] GetVideoLiveDetails error: %v", derr)
+				renderUsecaseError(w, r, derr, "Failed to get video details: "+derr.Error(), collector, StatusBadGateway, "bad_gateway")
+				return
+			}
+			now := h.Clock.Now()
+			scheduledFuture := !details.ScheduledStartTime.IsZero() && details.ScheduledStartTime.After(now)
+			if details.IsLiveContent && (details.ActualStartTime.IsZero() || scheduledFuture) {
+				log.Printf("[SWITCH_VIDEO] Dispatching to Reserve (videoId=%s actualStart=%v scheduled=%v)", videoID, details.ActualStartTime, details.ScheduledStartTime)
+				rout, rerr := h.Reserve.Execute(r.Context(), usecase.ReserveInput{VideoID: videoID})
+				if rerr != nil {
+					log.Printf("[SWITCH_VIDEO] Reserve.Execute error: %v", rerr)
+					renderUsecaseError(w, r, rerr, "Failed to reserve: "+rerr.Error(), collector, StatusInternalServerError, "internal_error")
+					return
+				}
+				response := SwitchVideoResponse{
+					Status:             string(rout.State.Status),
+					VideoID:            rout.State.VideoID,
+					LiveChatID:         rout.State.LiveChatID,
+					StartedAt:          rout.State.StartedAt,
+					ScheduledStartTime: rout.State.ScheduledStartTime,
+					ReservedAt:         rout.State.ReservedAt,
+					Logs:               collectLogs(collector),
+				}
+				render.JSON(w, r, response)
+				return
+			}
+		}
+
 		log.Printf("[SWITCH_VIDEO] Calling SwitchVideo.Execute with videoID: '%s'", videoID)
 		out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: videoID})
 		if err != nil {

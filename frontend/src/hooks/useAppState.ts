@@ -61,6 +61,7 @@ interface AppState {
   status: string
   users: User[]
   videoId: string
+  currentVideoId?: string
   intervalSec: number
   lastUpdated: string
   lastFetchTime: string
@@ -97,6 +98,7 @@ export function useAppState(addEntry?: AddEntryFn) {
     status: 'WAITING',
     users: [],
     videoId: localStorage.getItem('videoId') || '',
+    currentVideoId: undefined,
     intervalSec: 60,
     lastUpdated: '--:--:--',
     lastFetchTime: '',
@@ -183,6 +185,7 @@ export function useAppState(addEntry?: AddEntryFn) {
             users: finalUsers,
             startTime: st.startedAt,
             scheduledStartTime: st.scheduledStartTime,
+            currentVideoId: st.videoId,
             errorMsg: '',
             lastSnapshotAt: newSnapshotAt ?? prev.lastSnapshotAt,
             ...(snapshotRestoreMsg ? { snapshotRestoreMsg } : {}),

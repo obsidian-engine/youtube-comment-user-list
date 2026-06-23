@@ -63,6 +63,7 @@ describe('useAppState', () => {
       reserved: false,
       users: [],
       videoId: '',
+      currentVideoId: undefined,
       intervalSec: 60,
       lastUpdated: '--:--:--',
       lastFetchTime: '',
