@@ -48,9 +48,13 @@ func TestSwitchVideoWithURL(t *testing.T) {
 	yt := &fakeYTForURL{}
 
 	clock := &fakeClockForURL{}
+	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
+	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
 	handlers := &Handlers{
-		Users:       users,
-		SwitchVideo: &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}},
+		Users:          users,
+		SwitchVideo:    ucSwitch,
+		Reserve:        ucReserve,
+		StartOrReserve: &usecase.StartOrReserve{YT: yt, Clock: clock, SwitchVideo: ucSwitch, Reserve: ucReserve},
 	}
 
 	router := NewRouter(handlers, "*")

@@ -222,7 +222,9 @@ export function useAppState(addEntry?: AddEntryFn) {
 
   const handleAsyncAction = useCallback(
     async (
-      action: (signal: AbortSignal) => Promise<void>,
+      action: (
+        signal: AbortSignal,
+      ) => Promise<{ successMsg?: string; clearUsers?: boolean } | void>,
       loadingKey: keyof LoadingStates,
       successMsg: string,
       errorMsgPrefix: string = '',
@@ -244,12 +246,16 @@ export function useAppState(addEntry?: AddEntryFn) {
         const controller = new AbortController()
         controllerRef.current = controller
 
-        await action(controller.signal)
+        const actionResult = await action(controller.signal)
 
         // リクエストが成功したらcontrollerをクリア
         controllerRef.current = null
 
-        setState((prev) => ({ ...prev, errorMsg: '', infoMsg: successMsg }))
+        setState((prev) => ({
+          ...prev,
+          errorMsg: '',
+          infoMsg: actionResult?.successMsg ?? successMsg,
+        }))
 
         // 取得系アクション（pulling）の場合は取得時刻を更新
         if (loadingKey === 'pulling') {
@@ -260,7 +266,7 @@ export function useAppState(addEntry?: AddEntryFn) {
         }
 
         // 切替・リセット時はユーザーリストをクリア、それ以外は保持
-        await refresh({ clearUsers: shouldClearUsers })
+        await refresh({ clearUsers: actionResult?.clearUsers ?? shouldClearUsers })
       } catch (e) {
         // AbortErrorの場合はエラーメッセージを表示しない
         if (e instanceof Error && e.name === 'AbortError') {
@@ -328,16 +334,23 @@ export function useAppState(addEntry?: AddEntryFn) {
       setState((prev) => ({ ...prev, skippedCount: 0 }))
       await handleAsyncAction(
         async (signal) => {
-          await postSwitchVideo(state.videoId, signal)
+          const res = await postSwitchVideo(state.videoId, signal)
           localStorage.setItem('videoId', state.videoId)
+          if (res.status === 'RESERVED') {
+            addEntry?.('info', `配信予約: ${state.videoId}`)
+            return {
+              successMsg: '予約しました（配信開始を待機中）',
+              clearUsers: false,
+            }
+          }
           addEntry?.('info', `配信切替: ${state.videoId}`)
           await pullAction(signal)
+          return { successMsg: '切替しました', clearUsers: true }
         },
         'switching',
         '切替しました',
         '切替',
         switchControllerRef,
-        true, // 切替時はユーザーリストをクリア
       )
     }, [state.videoId, handleAsyncAction, addEntry, pullAction]),
 

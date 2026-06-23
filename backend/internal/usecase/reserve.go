@@ -12,6 +12,8 @@ import (
 
 type ReserveInput struct {
 	VideoID string
+	// Details が非 nil のとき GetVideoLiveDetails をスキップ (StartOrReserve からの再利用)。
+	Details *port.VideoLiveDetails
 }
 
 type ReserveOutput struct {
@@ -40,9 +42,15 @@ func (uc *Reserve) Execute(ctx context.Context, in ReserveInput) (ReserveOutput,
 		return ReserveOutput{}, &domain.APIError{Code: domain.ErrCodeConflict, Message: "stream is currently active, reset first"}
 	}
 
-	details, err := uc.YT.GetVideoLiveDetails(ctx, in.VideoID)
-	if err != nil {
-		return ReserveOutput{}, fmt.Errorf("get_video_live_details: %w", err)
+	var details port.VideoLiveDetails
+	if in.Details != nil {
+		details = *in.Details
+	} else {
+		var err error
+		details, err = uc.YT.GetVideoLiveDetails(ctx, in.VideoID)
+		if err != nil {
+			return ReserveOutput{}, fmt.Errorf("get_video_live_details: %w", err)
+		}
 	}
 	if !details.IsLiveContent {
 		return ReserveOutput{}, &domain.APIError{Code: domain.ErrCodeInvalidArgument, Message: "video is not a live stream"}

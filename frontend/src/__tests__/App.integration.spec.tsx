@@ -46,7 +46,7 @@ describe('App Integration (MSW)', () => {
         }
         currentState = 'ACTIVE'
         users.length = 0 // 配列をクリア
-        return new HttpResponse(null, { status: 200 })
+        return HttpResponse.json({ status: 'ACTIVE', videoId: currentVid })
       }),
       http.post('*/pull', () => {
         users.push({
@@ -362,7 +362,7 @@ describe('App Integration (MSW)', () => {
       http.post('*/switch-video', () => {
         // 切替時にユーザーをクリア
         users.length = 0
-        return new HttpResponse(null, { status: 200 })
+        return HttpResponse.json({ status: 'ACTIVE', videoId: 'new-video-123' })
       }),
       http.post('*/pull', () =>
         HttpResponse.json({

@@ -18,20 +18,18 @@ import (
 )
 
 type Handlers struct {
-	Status        *usecase.Status
-	SwitchVideo   *usecase.SwitchVideo
-	Pull          *usecase.Pull
-	Reset         *usecase.Reset
-	Reserve       *usecase.Reserve
-	CancelReserve *usecase.CancelReserve
-	Users         port.UserRepo
-	Comments      port.CommentRepo
-	Coord         snapshot.Coordinator
-	ListHistory   *usecase.ListHistorySnapshots
-	GetHistory    *usecase.GetHistorySnapshot
-	// YT / Clock は /switch-video の dispatcher (未開始なら Reserve 振り分け) で利用。
-	YT    port.YouTubePort
-	Clock port.Clock
+	Status         *usecase.Status
+	SwitchVideo    *usecase.SwitchVideo
+	Pull           *usecase.Pull
+	Reset          *usecase.Reset
+	Reserve        *usecase.Reserve
+	CancelReserve  *usecase.CancelReserve
+	StartOrReserve *usecase.StartOrReserve
+	Users          port.UserRepo
+	Comments       port.CommentRepo
+	Coord          snapshot.Coordinator
+	ListHistory    *usecase.ListHistorySnapshots
+	GetHistory     *usecase.GetHistorySnapshot
 }
 
 // StatusResponse represents the response for /status endpoint
@@ -201,55 +199,23 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 		}
 
 		log.Printf("[SWITCH_VIDEO] Successfully extracted videoID: '%s' (length: %d) from: '%s'", videoID, len(videoID), req.VideoID)
-
-		// Dispatcher: 未開始の配信 (actualStartTime zero or scheduledStartTime 未来) なら Reserve に振り分ける。
-		// monitor.go の判定式と同一。
-		if h.YT != nil && h.Clock != nil && h.Reserve != nil {
-			details, derr := h.YT.GetVideoLiveDetails(r.Context(), videoID)
-			if derr != nil {
-				log.Printf("[SWITCH_VIDEO] GetVideoLiveDetails error: %v", derr)
-				renderUsecaseError(w, r, derr, "Failed to get video details: "+derr.Error(), collector, StatusBadGateway, "bad_gateway")
-				return
-			}
-			now := h.Clock.Now()
-			scheduledFuture := !details.ScheduledStartTime.IsZero() && details.ScheduledStartTime.After(now)
-			if details.IsLiveContent && (details.ActualStartTime.IsZero() || scheduledFuture) {
-				log.Printf("[SWITCH_VIDEO] Dispatching to Reserve (videoId=%s actualStart=%v scheduled=%v)", videoID, details.ActualStartTime, details.ScheduledStartTime)
-				rout, rerr := h.Reserve.Execute(r.Context(), usecase.ReserveInput{VideoID: videoID})
-				if rerr != nil {
-					log.Printf("[SWITCH_VIDEO] Reserve.Execute error: %v", rerr)
-					renderUsecaseError(w, r, rerr, "Failed to reserve: "+rerr.Error(), collector, StatusInternalServerError, "internal_error")
-					return
-				}
-				response := SwitchVideoResponse{
-					Status:             string(rout.State.Status),
-					VideoID:            rout.State.VideoID,
-					LiveChatID:         rout.State.LiveChatID,
-					StartedAt:          rout.State.StartedAt,
-					ScheduledStartTime: rout.State.ScheduledStartTime,
-					ReservedAt:         rout.State.ReservedAt,
-					Logs:               collectLogs(collector),
-				}
-				render.JSON(w, r, response)
-				return
-			}
-		}
-
-		log.Printf("[SWITCH_VIDEO] Calling SwitchVideo.Execute with videoID: '%s'", videoID)
-		out, err := h.SwitchVideo.Execute(r.Context(), usecase.SwitchVideoInput{VideoID: videoID})
+		log.Printf("[SWITCH_VIDEO] Calling StartOrReserve.Execute with videoID: '%s'", videoID)
+		out, err := h.StartOrReserve.Execute(r.Context(), usecase.StartOrReserveInput{VideoID: videoID})
 		if err != nil {
 			log.Printf("[SWITCH_VIDEO] Execute error: %v", err)
 			renderUsecaseError(w, r, err, "Failed to switch video: "+err.Error(), collector, StatusBadGateway, "bad_gateway")
 			return
 		}
 
-		log.Printf("[SWITCH_VIDEO] Successfully switched to video %s, status: %s", out.State.VideoID, out.State.Status)
+		log.Printf("[SWITCH_VIDEO] Dispatched=%s videoId=%s status=%s", out.Dispatched, out.State.VideoID, out.State.Status)
 		response := SwitchVideoResponse{
-			Status:     string(out.State.Status),
-			VideoID:    out.State.VideoID,
-			LiveChatID: out.State.LiveChatID,
-			StartedAt:  out.State.StartedAt,
-			Logs:       collectLogs(collector),
+			Status:             string(out.State.Status),
+			VideoID:            out.State.VideoID,
+			LiveChatID:         out.State.LiveChatID,
+			StartedAt:          out.State.StartedAt,
+			ScheduledStartTime: out.State.ScheduledStartTime,
+			ReservedAt:         out.State.ReservedAt,
+			Logs:               collectLogs(collector),
 		}
 		render.JSON(w, r, response)
 	})

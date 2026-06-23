@@ -137,17 +137,15 @@ func (m *Monitor) process(ctx context.Context) {
 
 	switch {
 	case st.Status == domain.StatusReserved:
-		// 配信開始済みかを判定: ActualStartTime が立っていて、かつ ScheduledStartTime が過去 (or zero) であること
-		// premiere / test broadcast 中は ActualStartTime が先行して立つことがあるため、ScheduledStartTime も併用する
+		// 配信開始済みかを usecase.IsLiveNotStarted で判定 (handler の StartOrReserve と同一述語)。
+		// premiere / test broadcast 中は ActualStartTime が先行して立つことがあるため、ScheduledStartTime も併用する。
 		if m.YT != nil {
 			details, derr := m.YT.GetVideoLiveDetails(ctx, st.VideoID)
 			if derr != nil {
 				logging.Log(ctx, "warn", "MONITOR", "get_video_live_details failed: %v", derr)
 				return
 			}
-			now := m.Clock.Now()
-			scheduledFuture := !details.ScheduledStartTime.IsZero() && details.ScheduledStartTime.After(now)
-			if details.ActualStartTime.IsZero() || scheduledFuture {
+			if usecase.IsLiveNotStarted(details, m.Clock.Now()) {
 				logging.Log(ctx, "info", "MONITOR", "tick: RESERVED, waiting (videoId=%s actualStart=%s scheduled=%s)",
 					st.VideoID, details.ActualStartTime.Format(time.RFC3339), details.ScheduledStartTime.Format(time.RFC3339))
 				return

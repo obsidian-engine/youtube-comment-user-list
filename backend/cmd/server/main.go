@@ -80,21 +80,26 @@ func main() {
 	ucReset := &usecase.Reset{Users: users, Comments: comments, State: state, Snap: coord}
 	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord}
 	ucCancelReserve := &usecase.CancelReserve{State: state, Snap: coord}
+	ucStartOrReserve := &usecase.StartOrReserve{
+		YT:          yt,
+		Clock:       clock,
+		SwitchVideo: ucSwitch,
+		Reserve:     ucReserve,
+	}
 
 	h := &ahttp.Handlers{
-		Status:        ucStatus,
-		SwitchVideo:   ucSwitch,
-		Pull:          ucPull,
-		Reset:         ucReset,
-		Reserve:       ucReserve,
-		CancelReserve: ucCancelReserve,
-		Users:         users,
-		Comments:      comments,
-		Coord:         coord,
-		ListHistory:   listHistory,
-		GetHistory:    getHistory,
-		YT:            yt,
-		Clock:         clock,
+		Status:         ucStatus,
+		SwitchVideo:    ucSwitch,
+		Pull:           ucPull,
+		Reset:          ucReset,
+		Reserve:        ucReserve,
+		CancelReserve:  ucCancelReserve,
+		Users:          users,
+		Comments:       comments,
+		Coord:          coord,
+		ListHistory:    listHistory,
+		GetHistory:     getHistory,
+		StartOrReserve: ucStartOrReserve,
 	}
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: ahttp.NewRouter(h, cfg.FrontendOrigin)}
 
