@@ -64,7 +64,6 @@ func newTestServerWithReserve(yt port.YouTubePort) *httptest.Server {
 	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord}
 	h := &ahttp.Handlers{
 		Status:         &usecase.Status{Users: users, State: state},
-		SwitchVideo:    ucSwitch,
 		Pull:           &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
 		Reset:          &usecase.Reset{Users: users, State: state, Snap: coord},
 		Reserve:        ucReserve,
@@ -100,7 +99,6 @@ func newTestServerWithCoord(frontend string, coord snapshot.Coordinator) *httpte
 	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
 	h := &ahttp.Handlers{
 		Status:         &usecase.Status{Users: users, State: state},
-		SwitchVideo:    ucSwitch,
 		Pull:           &usecase.Pull{YT: yt, Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
 		Reset:          &usecase.Reset{Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
 		StartOrReserve: &usecase.StartOrReserve{YT: yt, Clock: clock, SwitchVideo: ucSwitch, Reserve: ucReserve},
@@ -170,7 +168,6 @@ func newTestServerWithHistory(sink *fakeSnapshotSink) *httptest.Server {
 	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
 	h := &ahttp.Handlers{
 		Status:         &usecase.Status{Users: users, State: state},
-		SwitchVideo:    ucSwitch,
 		Pull:           &usecase.Pull{YT: yt, Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
 		Reset:          &usecase.Reset{Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
 		StartOrReserve: &usecase.StartOrReserve{YT: yt, Clock: clock, SwitchVideo: ucSwitch, Reserve: ucReserve},
@@ -435,15 +432,13 @@ func TestRouter_StatusResponseHasNoLogsField(t *testing.T) {
 	users := memory.NewUserRepo()
 	state := memory.NewStateRepo()
 	yt := youtube.New("")
-	clock := system.NewSystemClock()
 
 	h := &ahttp.Handlers{
-		Status:      &usecase.Status{Users: users, State: state},
-		SwitchVideo: &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}},
-		Pull:        &usecase.Pull{YT: yt, Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
-		Reset:       &usecase.Reset{Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
-		Users:       users,
-		Coord:       &snapshot.NopCoordinator{},
+		Status: &usecase.Status{Users: users, State: state},
+		Pull:   &usecase.Pull{YT: yt, Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
+		Reset:  &usecase.Reset{Users: users, State: state, Snap: &snapshot.NopCoordinator{}},
+		Users:  users,
+		Coord:  &snapshot.NopCoordinator{},
 	}
 
 	// NewRouter が組む production middleware 順 (Recover 外側 → Collector 内側) を利用する。
@@ -556,7 +551,6 @@ func TestReserve_ConflictWhenActive(t *testing.T) {
 	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord}
 	h := &ahttp.Handlers{
 		Status:         &usecase.Status{Users: users, State: state},
-		SwitchVideo:    ucSwitch,
 		Pull:           &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
 		Reset:          &usecase.Reset{Users: users, State: state, Snap: coord},
 		Reserve:        ucReserve,
@@ -647,7 +641,6 @@ func TestCancelReserve_ConflictWhenActive(t *testing.T) {
 	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord}
 	h := &ahttp.Handlers{
 		Status:         &usecase.Status{Users: users, State: state},
-		SwitchVideo:    ucSwitch,
 		Pull:           &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
 		Reset:          &usecase.Reset{Users: users, State: state, Snap: coord},
 		Reserve:        ucReserve,
@@ -689,7 +682,6 @@ func TestCancelReserve_Success(t *testing.T) {
 	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord}
 	h := &ahttp.Handlers{
 		Status:         &usecase.Status{Users: users, State: state},
-		SwitchVideo:    ucSwitch,
 		Pull:           &usecase.Pull{YT: yt, Users: users, State: state, Snap: coord},
 		Reset:          &usecase.Reset{Users: users, State: state, Snap: coord},
 		Reserve:        ucReserve,

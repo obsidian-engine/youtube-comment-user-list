@@ -32,7 +32,12 @@ func (f *fakeYTForURL) GetChannelHandles(ctx context.Context, channelIDs []strin
 	return nil, nil
 }
 func (f *fakeYTForURL) GetVideoLiveDetails(ctx context.Context, videoID string) (port.VideoLiveDetails, error) {
-	return port.VideoLiveDetails{}, nil
+	// URL 抽出テスト用 fake: live 配信が開始済みの状態を返し SwitchVideo にディスパッチされるようにする。
+	return port.VideoLiveDetails{
+		IsLiveContent:   true,
+		LiveChatID:      "live:chat:" + videoID,
+		ActualStartTime: time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
+	}, nil
 }
 
 type fakeClockForURL struct{}
@@ -52,7 +57,6 @@ func TestSwitchVideoWithURL(t *testing.T) {
 	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}}
 	handlers := &Handlers{
 		Users:          users,
-		SwitchVideo:    ucSwitch,
 		Reserve:        ucReserve,
 		StartOrReserve: &usecase.StartOrReserve{YT: yt, Clock: clock, SwitchVideo: ucSwitch, Reserve: ucReserve},
 	}

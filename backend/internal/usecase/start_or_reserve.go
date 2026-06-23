@@ -41,7 +41,13 @@ func (uc *StartOrReserve) Execute(ctx context.Context, in StartOrReserveInput) (
 		return StartOrReserveOutput{}, fmt.Errorf("get_video_live_details: %w", err)
 	}
 
-	if details.IsLiveContent && IsLiveNotStarted(details, uc.Clock.Now()) {
+	// 非 live 動画は Reserve も SwitchVideo も適切でないため、明示的に invalid_argument を返す。
+	// SwitchVideo に fallthrough すると GetActiveLiveChatID の生 API error になりエラー体験が不安定になる。
+	if !details.IsLiveContent {
+		return StartOrReserveOutput{}, &domain.APIError{Code: domain.ErrCodeInvalidArgument, Message: "video is not a live stream"}
+	}
+
+	if IsLiveNotStarted(details, uc.Clock.Now()) {
 		// pre-fetch 済み details を渡し Reserve 側の GetVideoLiveDetails 再呼び出しを回避する。
 		out, rerr := uc.Reserve.Execute(ctx, ReserveInput{VideoID: in.VideoID, Details: &details})
 		if rerr != nil {

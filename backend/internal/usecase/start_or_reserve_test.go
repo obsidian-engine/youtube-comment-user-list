@@ -75,6 +75,34 @@ func TestStartOrReserve_DispatchesToSwitch_WhenStarted(t *testing.T) {
 	}
 }
 
+func TestStartOrReserve_NotLiveContent_ReturnsInvalidArgument(t *testing.T) {
+	ctx := context.Background()
+	state := memory.NewStateRepo()
+	now := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
+	yt := &fakeYTForReserve{
+		details: port.VideoLiveDetails{IsLiveContent: false},
+	}
+	clock := fixedClock{t: now}
+	uc := &usecase.StartOrReserve{
+		YT:          yt,
+		Clock:       clock,
+		SwitchVideo: &usecase.SwitchVideo{YT: yt, Users: memory.NewUserRepo(), State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}},
+		Reserve:     &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: &snapshot.NopCoordinator{}},
+	}
+
+	_, err := uc.Execute(ctx, usecase.StartOrReserveInput{VideoID: "vid-not-live"})
+	if err == nil {
+		t.Fatal("expected invalid_argument error, got nil")
+	}
+	apiErr, ok := err.(*domain.APIError)
+	if !ok {
+		t.Fatalf("expected *domain.APIError, got %T: %v", err, err)
+	}
+	if apiErr.Code != domain.ErrCodeInvalidArgument {
+		t.Errorf("Code = %v, want ErrCodeInvalidArgument", apiErr.Code)
+	}
+}
+
 func TestIsLiveNotStarted(t *testing.T) {
 	now := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
 	tests := []struct {

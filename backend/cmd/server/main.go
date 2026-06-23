@@ -89,7 +89,6 @@ func main() {
 
 	h := &ahttp.Handlers{
 		Status:         ucStatus,
-		SwitchVideo:    ucSwitch,
 		Pull:           ucPull,
 		Reset:          ucReset,
 		Reserve:        ucReserve,

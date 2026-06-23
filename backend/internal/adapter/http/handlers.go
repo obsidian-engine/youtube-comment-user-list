@@ -19,7 +19,6 @@ import (
 
 type Handlers struct {
 	Status         *usecase.Status
-	SwitchVideo    *usecase.SwitchVideo
 	Pull           *usecase.Pull
 	Reset          *usecase.Reset
 	Reserve        *usecase.Reserve
