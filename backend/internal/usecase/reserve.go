@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/logging"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/domain"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
@@ -29,9 +28,8 @@ type Reserve struct {
 	Snap     snapshot.Coordinator
 }
 
-// Execute: videoId を予約状態に遷移。ACTIVE 中なら conflict、非 live なら invalid argument。
-// 別 videoId への予約時は旧配信の users/comments/Coordinator video を切替え、
-// 次回 snapshot save が旧配信データを新 videoId key で書き込む事故を防ぐ。
+// Execute: videoId を RESERVED 状態に遷移する。
+// state 遷移成功後に旧配信の in-memory data / snapshot pointer を新 videoId に切替える (transitionSnapshot)。
 func (uc *Reserve) Execute(ctx context.Context, in ReserveInput) (ReserveOutput, error) {
 	if in.VideoID == "" {
 		return ReserveOutput{}, &domain.APIError{Code: domain.ErrCodeInvalidArgument, Message: "videoId is required"}
@@ -41,56 +39,37 @@ func (uc *Reserve) Execute(ctx context.Context, in ReserveInput) (ReserveOutput,
 	if err != nil {
 		return ReserveOutput{}, fmt.Errorf("state_get: %w", err)
 	}
-	if cur.Status == domain.StatusActive {
-		return ReserveOutput{}, &domain.APIError{Code: domain.ErrCodeConflict, Message: "stream is currently active, reset first"}
+	if err := cur.CanReserve(); err != nil {
+		return ReserveOutput{}, err
 	}
 
-	var details port.VideoLiveDetails
-	if in.Details != nil {
-		details = *in.Details
-	} else {
-		var err error
-		details, err = uc.YT.GetVideoLiveDetails(ctx, in.VideoID)
-		if err != nil {
-			return ReserveOutput{}, fmt.Errorf("get_video_live_details: %w", err)
-		}
+	details, err := uc.resolveDetails(ctx, in)
+	if err != nil {
+		return ReserveOutput{}, err
 	}
 	if !details.IsLiveContent {
 		return ReserveOutput{}, &domain.APIError{Code: domain.ErrCodeInvalidArgument, Message: "video is not a live stream"}
 	}
 
-	now := uc.Clock.Now()
-	newState := domain.LiveState{
-		Status:               domain.StatusReserved,
-		VideoID:              in.VideoID,
-		LiveChatID:           details.LiveChatID, // チャット未開なら空
-		AutonomousMonitoring: true,
-		ReservedAt:           now,
-		ScheduledStartTime:   details.ScheduledStartTime,
-	}
+	newState := domain.NewReservedState(in.VideoID, details.LiveChatID, details.ScheduledStartTime, uc.Clock.Now())
 	if err := uc.State.Set(ctx, newState); err != nil {
 		return ReserveOutput{}, fmt.Errorf("state_set: %w", err)
 	}
 
-	// state 遷移成功後に旧配信の in-memory data をクリアする。
-	// state 更新前にクリアすると state.Set 失敗時に「in-memory は空だが state は旧 videoId」
-	// という不整合が残り、background save が旧 key に空 data を書き込んでしまう。
-	if cur.VideoID != "" && cur.VideoID != in.VideoID {
-		if uc.Users != nil {
-			uc.Users.Clear()
-		}
-		if uc.Comments != nil {
-			uc.Comments.Clear()
-		}
-	}
-
-	// Coordinator の video pointer を新 videoId に切替える。SetVideo なしで Flush すると
-	// coordinator.videoID が旧値のままで save() が旧 key に書く。
-	uc.Snap.SetVideo(in.VideoID, details.LiveChatID, "", "")
-	uc.Snap.MarkDirty()
-	if err := uc.Snap.Flush(ctx); err != nil {
-		logging.Log(ctx, "warn", "SNAPSHOT", "reserve: snapshot flush failed: %v", err)
-	}
+	clearForNewVideo(uc.Users, uc.Comments, cur.VideoID, in.VideoID)
+	syncSnapshotVideo(ctx, uc.Snap, in.VideoID, details.LiveChatID, "", "", "reserve")
 
 	return ReserveOutput{State: newState}, nil
+}
+
+// resolveDetails は Details が pre-fetched (StartOrReserve 経由) ならそれを、なければ YouTube API から取得する。
+func (uc *Reserve) resolveDetails(ctx context.Context, in ReserveInput) (port.VideoLiveDetails, error) {
+	if in.Details != nil {
+		return *in.Details, nil
+	}
+	d, err := uc.YT.GetVideoLiveDetails(ctx, in.VideoID)
+	if err != nil {
+		return port.VideoLiveDetails{}, fmt.Errorf("get_video_live_details: %w", err)
+	}
+	return d, nil
 }

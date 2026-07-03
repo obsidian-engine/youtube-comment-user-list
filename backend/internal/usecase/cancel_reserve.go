@@ -27,12 +27,11 @@ func (uc *CancelReserve) Execute(ctx context.Context) (CancelReserveOutput, erro
 	if err != nil {
 		return CancelReserveOutput{}, fmt.Errorf("state_get: %w", err)
 	}
-	// ACTIVE 中のキャンセルは state 破壊につながるため拒否する
-	if cur.Status == domain.StatusActive {
-		return CancelReserveOutput{}, &domain.APIError{Code: domain.ErrCodeConflict, Message: "stream is currently active, reset first"}
+	if err := cur.CanReserve(); err != nil {
+		return CancelReserveOutput{}, err
 	}
 
-	newState := domain.LiveState{Status: domain.StatusWaiting}
+	newState := domain.NewWaitingState()
 	if err := uc.State.Set(ctx, newState); err != nil {
 		return CancelReserveOutput{}, fmt.Errorf("state_set: %w", err)
 	}

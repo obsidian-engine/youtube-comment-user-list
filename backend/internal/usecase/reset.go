@@ -34,11 +34,7 @@ func (uc *Reset) Execute(ctx context.Context) (ResetOutput, error) {
 		uc.Comments.Clear()
 	}
 
-	// StateをWAITINGに戻す
-	newState := domain.LiveState{
-		Status:        domain.StatusWaiting,
-		NextPageToken: "",
-	}
+	newState := domain.NewWaitingState()
 
 	if err := uc.State.Set(ctx, newState); err != nil {
 		return ResetOutput{}, fmt.Errorf("state_set: %w", err)

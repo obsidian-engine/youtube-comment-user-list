@@ -29,6 +29,16 @@ type Coordinator interface {
 }
 
 // coordinator は GCS sink を持つ Coordinator 実装です。
+//
+// Lock order (deadlock 予防のため必ず遵守):
+//
+//	saveMu → mu の順で取得する (逆は禁止)
+//
+// - saveMu: save() の直列化。sink への write 順序が逆転しないよう save() 全体を保護する。
+// - mu: field (videoID / liveChatID / dirty / lastSaved 等) の保護。short critical section のみ。
+//
+// mu を保持したまま saveMu を取得する path を追加してはならない (mu 保持中に sink I/O を待つと
+// Restore / SetVideo / Flush 経路が全て詰まる)。
 type coordinator struct {
 	sink        port.SnapshotSink
 	userRepo    port.UserSnapshotSource
@@ -47,6 +57,17 @@ type coordinator struct {
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+}
+
+// saveContext は save 直前に整合性ガード後の videoId / タイトル情報 + state を保持する内部 struct。
+// reconcileVideoID の出力を buildSnapshot / writeSnapshot に受け渡す。
+type saveContext struct {
+	videoID      string
+	liveChatID   string
+	videoTitle   string
+	channelTitle string
+	state        *domain.LiveState
+	skip         bool // true のとき save 全体を no-op で終える (Reset race 保護)
 }
 
 // NewCoordinator は coordinator を生成します。
@@ -272,70 +293,94 @@ func (c *coordinator) LastSavedAt() time.Time {
 	return c.lastSaved
 }
 
-// save は snapshot を組み立てて sink に書き込みます。
-// saveMu で直列化し、並列 save による上書き race を防ぎます。
-//
-// 整合性ガード: coordinator の videoID と stateRepo の VideoID が食い違う場合、
-// state を single source of truth として扱い videoID を state.VideoID に強制上書きします。
-// 呼び出し側の SetVideo 忘れによる「旧配信 data を新 videoId key で保存する」事故を
-// save 層で遮断する目的です。state.VideoID が空 (Reset 途中) の場合は save を skip します。
+// save は snapshot を組み立てて sink に書き込みます。saveMu で直列化します。
+// 3 段構成: (1) reconcileVideoID で state を SoT に整合、(2) buildSnapshot で組み立て、(3) writeSnapshot で永続化。
 func (c *coordinator) save(ctx context.Context, videoID, liveChatID, videoTitle, channelTitle string) error {
 	c.saveMu.Lock()
 	defer c.saveMu.Unlock()
 
-	userSnap := c.userRepo.Dump()
-	comments := c.commentRepo.Dump()
+	sctx := c.reconcileVideoID(ctx, videoID, liveChatID, videoTitle, channelTitle)
+	if sctx.skip {
+		return nil
+	}
+	snap := c.buildSnapshot(sctx)
+	return c.writeSnapshot(ctx, snap, sctx.videoID)
+}
 
-	var liveState *domain.LiveState
-	if c.stateRepo != nil {
-		st, err := c.stateRepo.Get(ctx)
-		if err != nil {
-			log.Printf("[WARN] snapshot: state.Get failed, saving without state: %v", err)
-		} else {
-			liveState = &st
-
-			if st.VideoID != videoID {
-				if st.VideoID == "" {
-					log.Printf("[WARN] snapshot: skip save because state.VideoID is empty but coord.videoID=%q (likely reset race)", videoID)
-					return nil
-				}
-				log.Printf("[WARN] snapshot: videoId mismatch coord=%q state=%q; using state.VideoID as source of truth", videoID, st.VideoID)
-				videoID = st.VideoID
-				liveChatID = st.LiveChatID
-				videoTitle = ""
-				channelTitle = ""
-				c.mu.Lock()
-				c.videoID = st.VideoID
-				c.liveChatID = st.LiveChatID
-				c.videoTitle = ""
-				c.channelTitle = ""
-				c.mu.Unlock()
-			}
-		}
+// reconcileVideoID は coord.videoID と stateRepo.VideoID の不整合を検出し、state を SoT として補正した
+// saveContext を返します。state 取得失敗時は state なしで続行、state.VideoID が空 (Reset race) なら skip=true。
+//
+// 呼び出し規約: saveMu 保持中に呼ぶこと (coord field 書き換えの直列化のため)。
+func (c *coordinator) reconcileVideoID(ctx context.Context, videoID, liveChatID, videoTitle, channelTitle string) saveContext {
+	sctx := saveContext{
+		videoID:      videoID,
+		liveChatID:   liveChatID,
+		videoTitle:   videoTitle,
+		channelTitle: channelTitle,
+	}
+	if c.stateRepo == nil {
+		return sctx
 	}
 
-	snap := &port.Snapshot{
+	st, err := c.stateRepo.Get(ctx)
+	if err != nil {
+		log.Printf("[WARN] snapshot: state.Get failed, saving without state: %v", err)
+		return sctx
+	}
+	sctx.state = &st
+
+	if st.VideoID == videoID {
+		return sctx
+	}
+	if st.VideoID == "" {
+		log.Printf("[WARN] snapshot: skip save because state.VideoID is empty but coord.videoID=%q (likely reset race)", videoID)
+		sctx.skip = true
+		return sctx
+	}
+
+	log.Printf("[WARN] snapshot: videoId mismatch coord=%q state=%q; using state.VideoID as source of truth", videoID, st.VideoID)
+	sctx.videoID = st.VideoID
+	sctx.liveChatID = st.LiveChatID
+	sctx.videoTitle = ""
+	sctx.channelTitle = ""
+
+	c.mu.Lock()
+	c.videoID = st.VideoID
+	c.liveChatID = st.LiveChatID
+	c.videoTitle = ""
+	c.channelTitle = ""
+	c.mu.Unlock()
+
+	return sctx
+}
+
+// buildSnapshot は saveContext と repo dump を組み合わせて *port.Snapshot を返します。副作用なし。
+func (c *coordinator) buildSnapshot(sctx saveContext) *port.Snapshot {
+	userSnap := c.userRepo.Dump()
+	comments := c.commentRepo.Dump()
+	return &port.Snapshot{
 		SchemaVersion: 1,
-		VideoID:       videoID,
-		LiveChatID:    liveChatID,
-		VideoTitle:    videoTitle,
-		ChannelTitle:  channelTitle,
+		VideoID:       sctx.videoID,
+		LiveChatID:    sctx.liveChatID,
+		VideoTitle:    sctx.videoTitle,
+		ChannelTitle:  sctx.channelTitle,
 		SavedAt:       time.Now(),
 		Users:         userSnap.Users,
 		Comments:      comments,
 		ProcessedMsgs: userSnap.ProcessedMsgs,
-		State:         liveState,
+		State:         sctx.state,
 	}
+}
 
+// writeSnapshot は sink に snapshot 本体と current pointer を書き込みます。
+func (c *coordinator) writeSnapshot(ctx context.Context, snap *port.Snapshot, videoID string) error {
 	if err := c.sink.Save(ctx, snap); err != nil {
 		return fmt.Errorf("save snapshot: %w", err)
 	}
-
 	ptr := &port.CurrentPointer{VideoID: videoID, SavedAt: time.Now()}
 	if err := c.sink.SaveCurrent(ctx, ptr); err != nil {
 		return fmt.Errorf("save current pointer: %w", err)
 	}
-
 	return nil
 }
 
