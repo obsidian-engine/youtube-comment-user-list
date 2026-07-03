@@ -607,6 +607,144 @@ func TestRestoreFor_LoadError(t *testing.T) {
 	}
 }
 
+// TestRestore_mismatchSnapshot_skipsRestore: snap.VideoID != snap.State.VideoID の汚染 snapshot は
+// users/comments/state いずれも復元しない (整合性ガード)
+func TestRestore_mismatchSnapshot_skipsRestore(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+	sr := memory.NewStateRepo()
+
+	now := time.Now()
+	contaminatedState := domain.LiveState{
+		Status:     domain.StatusActive,
+		VideoID:    "prev-vid", // key と食い違う
+		LiveChatID: "prev-chat",
+	}
+	snap := &port.Snapshot{
+		SchemaVersion: 1,
+		VideoID:       "new-vid",
+		LiveChatID:    "new-chat",
+		Users: []domain.User{
+			{ChannelID: "ch-prev", DisplayName: "prev user", JoinedAt: now},
+		},
+		Comments: []domain.Comment{
+			{ID: "c-prev", ChannelID: "ch-prev", DisplayName: "prev user", Message: "old"},
+		},
+		State: &contaminatedState,
+	}
+	_ = sink.Save(context.Background(), snap)
+	_ = sink.SaveCurrent(context.Background(), &port.CurrentPointer{VideoID: "new-vid"})
+
+	c := snapshot.NewCoordinator(sink, ur, cr, sr, 30*time.Second)
+	if err := c.Restore(context.Background()); err != nil {
+		t.Fatalf("Restore should not return error on mismatch snapshot: %v", err)
+	}
+
+	if ur.Count() != 0 {
+		t.Errorf("users.Count = %d, want 0 (contaminated snapshot should not be restored)", ur.Count())
+	}
+	if cr.Count() != 0 {
+		t.Errorf("comments.Count = %d, want 0 (contaminated snapshot should not be restored)", cr.Count())
+	}
+	gotState, _ := sr.Get(context.Background())
+	if gotState.VideoID != "" {
+		t.Errorf("state.VideoID = %q, want empty (contaminated state should not be restored)", gotState.VideoID)
+	}
+}
+
+// TestRestoreFor_mismatchSnapshot_returnsFalse: RestoreFor 経路でも汚染 snapshot は復元しない
+func TestRestoreFor_mismatchSnapshot_returnsFalse(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+	sr := memory.NewStateRepo()
+
+	now := time.Now()
+	contaminatedState := domain.LiveState{
+		Status:  domain.StatusActive,
+		VideoID: "prev-vid",
+	}
+	snap := &port.Snapshot{
+		SchemaVersion: 1,
+		VideoID:       "new-vid",
+		Users: []domain.User{
+			{ChannelID: "ch-prev", DisplayName: "prev", JoinedAt: now},
+		},
+		State: &contaminatedState,
+	}
+	_ = sink.Save(context.Background(), snap)
+
+	c := snapshot.NewCoordinator(sink, ur, cr, sr, 30*time.Second)
+	restored, err := c.RestoreFor(context.Background(), "new-vid")
+	if err != nil {
+		t.Fatalf("RestoreFor should not return error on mismatch snapshot: %v", err)
+	}
+	if restored {
+		t.Error("RestoreFor should return false for contaminated snapshot")
+	}
+	if ur.Count() != 0 {
+		t.Errorf("users should not be restored on mismatch, got %d", ur.Count())
+	}
+}
+
+// TestSave_videoIdMismatch_usesStateAsSoT: coord.videoID != state.VideoID の場合、
+// state.VideoID を SoT として snapshot を書く (呼び出し側の SetVideo 忘れを save 層で補正)
+func TestSave_videoIdMismatch_usesStateAsSoT(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+	sr := memory.NewStateRepo()
+
+	// state は new-vid、coord は勘違いして prev-vid のまま
+	_ = sr.Set(context.Background(), domain.LiveState{
+		Status: domain.StatusReserved, VideoID: "new-vid", LiveChatID: "new-chat",
+	})
+
+	c := snapshot.NewCoordinator(sink, ur, cr, sr, 30*time.Second)
+	c.SetVideo("prev-vid", "prev-chat", "", "") // 意図的に古い値をセット
+	c.MarkDirty()
+
+	if err := c.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush returned error: %v", err)
+	}
+
+	// snapshot は state.VideoID (new-vid) で保存されているべき
+	if saved, _ := sink.Load(context.Background(), "new-vid"); saved == nil {
+		t.Error("expected snapshot at new-vid key, got nil")
+	}
+	if saved, _ := sink.Load(context.Background(), "prev-vid"); saved != nil {
+		t.Error("snapshot should NOT be saved at prev-vid key (state is SoT)")
+	}
+	ptr, _ := sink.LoadCurrent(context.Background())
+	if ptr == nil || ptr.VideoID != "new-vid" {
+		t.Errorf("current.json videoId = %+v, want new-vid", ptr)
+	}
+}
+
+// TestSave_emptyStateVideoID_skipsSave: state.VideoID="" (Reset 中) は save を skip する
+func TestSave_emptyStateVideoID_skipsSave(t *testing.T) {
+	t.Helper()
+	sink := newFakeSink()
+	ur, cr := newTestRepos()
+	sr := memory.NewStateRepo()
+
+	// state.VideoID は空 (Reset 直後), coord は旧 videoId が残っている想定
+	_ = sr.Set(context.Background(), domain.LiveState{Status: domain.StatusWaiting, VideoID: ""})
+
+	c := snapshot.NewCoordinator(sink, ur, cr, sr, 30*time.Second)
+	c.SetVideo("stale-vid", "stale-chat", "", "")
+	c.MarkDirty()
+
+	if err := c.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush returned error: %v", err)
+	}
+
+	if sink.getSaveCount() != 0 {
+		t.Errorf("save should be skipped when state.VideoID is empty, got saveCount=%d", sink.getSaveCount())
+	}
+}
+
 // TestRestoreFor_DoesNotUpdateLastSavedAt: RestoreFor は lastSaved を変更しない
 func TestRestoreFor_DoesNotUpdateLastSavedAt(t *testing.T) {
 	t.Helper()

@@ -87,6 +87,20 @@ func (c *coordinator) Restore(ctx context.Context) error {
 		return nil
 	}
 
+	// 整合性ガード: snap.VideoID と snap.State.VideoID が食い違う snapshot は
+	// 過去に coord.videoID と state.VideoID がズレた状態で save された汚染 snapshot と判断する。
+	// users / comments / state いずれも復元せず、pointer だけ空にして clean start する。
+	if snap.State != nil && snap.State.VideoID != "" && snap.State.VideoID != snap.VideoID {
+		log.Printf("[WARN] snapshot: restore skipped because videoId mismatch snap.VideoID=%q state.VideoID=%q (contaminated snapshot)",
+			snap.VideoID, snap.State.VideoID)
+		c.mu.Lock()
+		c.videoID = ""
+		c.liveChatID = ""
+		c.lastSaved = time.Time{}
+		c.mu.Unlock()
+		return nil
+	}
+
 	c.userRepo.LoadFrom(port.UserSnapshot{Users: snap.Users, ProcessedMsgs: snap.ProcessedMsgs})
 	c.commentRepo.LoadFrom(snap.Comments)
 
@@ -222,6 +236,13 @@ func (c *coordinator) RestoreFor(ctx context.Context, videoID string) (bool, err
 		return false, nil
 	}
 
+	// 整合性ガード: Restore() と同じ理由で mismatch snapshot は無視する
+	if snap.State != nil && snap.State.VideoID != "" && snap.State.VideoID != snap.VideoID {
+		log.Printf("[WARN] snapshot: restoreFor %s skipped because videoId mismatch snap.VideoID=%q state.VideoID=%q (contaminated snapshot)",
+			videoID, snap.VideoID, snap.State.VideoID)
+		return false, nil
+	}
+
 	c.userRepo.LoadFrom(port.UserSnapshot{Users: snap.Users, ProcessedMsgs: snap.ProcessedMsgs})
 	c.commentRepo.LoadFrom(snap.Comments)
 
@@ -253,6 +274,11 @@ func (c *coordinator) LastSavedAt() time.Time {
 
 // save は snapshot を組み立てて sink に書き込みます。
 // saveMu で直列化し、並列 save による上書き race を防ぎます。
+//
+// 整合性ガード: coordinator の videoID と stateRepo の VideoID が食い違う場合、
+// state を single source of truth として扱い videoID を state.VideoID に強制上書きします。
+// 呼び出し側の SetVideo 忘れによる「旧配信 data を新 videoId key で保存する」事故を
+// save 層で遮断する目的です。state.VideoID が空 (Reset 途中) の場合は save を skip します。
 func (c *coordinator) save(ctx context.Context, videoID, liveChatID, videoTitle, channelTitle string) error {
 	c.saveMu.Lock()
 	defer c.saveMu.Unlock()
@@ -267,6 +293,24 @@ func (c *coordinator) save(ctx context.Context, videoID, liveChatID, videoTitle,
 			log.Printf("[WARN] snapshot: state.Get failed, saving without state: %v", err)
 		} else {
 			liveState = &st
+
+			if st.VideoID != videoID {
+				if st.VideoID == "" {
+					log.Printf("[WARN] snapshot: skip save because state.VideoID is empty but coord.videoID=%q (likely reset race)", videoID)
+					return nil
+				}
+				log.Printf("[WARN] snapshot: videoId mismatch coord=%q state=%q; using state.VideoID as source of truth", videoID, st.VideoID)
+				videoID = st.VideoID
+				liveChatID = st.LiveChatID
+				videoTitle = ""
+				channelTitle = ""
+				c.mu.Lock()
+				c.videoID = st.VideoID
+				c.liveChatID = st.LiveChatID
+				c.videoTitle = ""
+				c.channelTitle = ""
+				c.mu.Unlock()
+			}
 		}
 	}
 
