@@ -21,14 +21,17 @@ type ReserveOutput struct {
 }
 
 type Reserve struct {
-	YT    port.YouTubePort
-	State port.StateRepo
-	Clock port.Clock
-	Snap  snapshot.Coordinator
+	YT       port.YouTubePort
+	Users    port.UserRepo    // 別 videoId 予約時のクリア対象。nil 許容 (test 用)。
+	Comments port.CommentRepo // 別 videoId 予約時のクリア対象。nil 許容 (test 用)。
+	State    port.StateRepo
+	Clock    port.Clock
+	Snap     snapshot.Coordinator
 }
 
 // Execute: videoId を予約状態に遷移。ACTIVE 中なら conflict、非 live なら invalid argument。
-// users/comments は触らない (実際の切替は monitor → SwitchVideo に任せる)。
+// 別 videoId への予約時は旧配信の users/comments/Coordinator video を切替え、
+// 次回 snapshot save が旧配信データを新 videoId key で書き込む事故を防ぐ。
 func (uc *Reserve) Execute(ctx context.Context, in ReserveInput) (ReserveOutput, error) {
 	if in.VideoID == "" {
 		return ReserveOutput{}, &domain.APIError{Code: domain.ErrCodeInvalidArgument, Message: "videoId is required"}
@@ -56,6 +59,18 @@ func (uc *Reserve) Execute(ctx context.Context, in ReserveInput) (ReserveOutput,
 		return ReserveOutput{}, &domain.APIError{Code: domain.ErrCodeInvalidArgument, Message: "video is not a live stream"}
 	}
 
+	// 別 videoId への予約は旧配信の in-memory state をクリアする。
+	// クリアしないと Snap.Flush が旧配信の users/comments を新 videoId key で GCS に保存し、
+	// リロード / 再デプロイ後の Restore で旧データが復活する。
+	if cur.VideoID != "" && cur.VideoID != in.VideoID {
+		if uc.Users != nil {
+			uc.Users.Clear()
+		}
+		if uc.Comments != nil {
+			uc.Comments.Clear()
+		}
+	}
+
 	now := uc.Clock.Now()
 	newState := domain.LiveState{
 		Status:               domain.StatusReserved,
@@ -69,6 +84,9 @@ func (uc *Reserve) Execute(ctx context.Context, in ReserveInput) (ReserveOutput,
 		return ReserveOutput{}, fmt.Errorf("state_set: %w", err)
 	}
 
+	// Coordinator の video pointer を新 videoId に切替える。SetVideo なしで Flush すると
+	// coordinator.videoID が旧値のままで save() が旧 key に書く。
+	uc.Snap.SetVideo(in.VideoID, details.LiveChatID, "", "")
 	uc.Snap.MarkDirty()
 	if err := uc.Snap.Flush(ctx); err != nil {
 		logging.Log(ctx, "warn", "SNAPSHOT", "reserve: snapshot flush failed: %v", err)

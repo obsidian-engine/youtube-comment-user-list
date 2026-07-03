@@ -149,6 +149,76 @@ func TestReserve_NotLiveContent_ReturnsInvalidArgument(t *testing.T) {
 	}
 }
 
+func TestReserve_DifferentVideoID_ClearsPreviousUsersAndComments(t *testing.T) {
+	ctx := context.Background()
+
+	state := memory.NewStateRepo()
+	// 旧配信 (WAITING or ENDED 等 ACTIVE 以外) の state を残した状態から開始する
+	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusWaiting, VideoID: "prev-vid"})
+
+	users := memory.NewUserRepo()
+	_ = users.UpsertWithJoinTime("ch-prev-1", "prev user", time.Now())
+	_ = users.UpsertWithJoinTime("ch-prev-2", "prev user 2", time.Now())
+	comments := memory.NewCommentRepo()
+	_ = comments.Add(domain.Comment{ID: "msg-prev", ChannelID: "ch-prev-1", DisplayName: "prev user", Message: "prev"})
+
+	yt := &fakeYTForReserve{
+		details: port.VideoLiveDetails{
+			IsLiveContent:      true,
+			ScheduledStartTime: time.Date(2026, 7, 1, 18, 0, 0, 0, time.UTC),
+		},
+	}
+	clock := fixedClock{t: time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)}
+
+	uc := &usecase.Reserve{
+		YT: yt, Users: users, Comments: comments,
+		State: state, Clock: clock, Snap: &snapshot.NopCoordinator{},
+	}
+
+	if _, err := uc.Execute(ctx, usecase.ReserveInput{VideoID: "new-vid"}); err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if users.Count() != 0 {
+		t.Errorf("users.Count = %d, want 0 (should be cleared for different videoId)", users.Count())
+	}
+	if comments.Count() != 0 {
+		t.Errorf("comments.Count = %d, want 0 (should be cleared for different videoId)", comments.Count())
+	}
+}
+
+func TestReserve_SameVideoID_KeepsUsersAndComments(t *testing.T) {
+	ctx := context.Background()
+
+	state := memory.NewStateRepo()
+	// 同 videoId の再予約 (例: RESERVED 中に予約時刻を更新するケース)
+	_ = state.Set(ctx, domain.LiveState{Status: domain.StatusReserved, VideoID: "same-vid"})
+
+	users := memory.NewUserRepo()
+	_ = users.UpsertWithJoinTime("ch-1", "user", time.Now())
+	comments := memory.NewCommentRepo()
+	_ = comments.Add(domain.Comment{ID: "msg-1", ChannelID: "ch-1", DisplayName: "user", Message: "hello"})
+
+	yt := &fakeYTForReserve{details: port.VideoLiveDetails{IsLiveContent: true}}
+	clock := fixedClock{t: time.Now()}
+
+	uc := &usecase.Reserve{
+		YT: yt, Users: users, Comments: comments,
+		State: state, Clock: clock, Snap: &snapshot.NopCoordinator{},
+	}
+
+	if _, err := uc.Execute(ctx, usecase.ReserveInput{VideoID: "same-vid"}); err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if users.Count() != 1 {
+		t.Errorf("users.Count = %d, want 1 (should keep for same videoId)", users.Count())
+	}
+	if comments.Count() != 1 {
+		t.Errorf("comments.Count = %d, want 1 (should keep for same videoId)", comments.Count())
+	}
+}
+
 func TestReserve_YTAPIError_ReturnsWrappedError(t *testing.T) {
 	ctx := context.Background()
 

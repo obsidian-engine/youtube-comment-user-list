@@ -78,7 +78,7 @@ func main() {
 	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
 	ucPull := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
 	ucReset := &usecase.Reset{Users: users, Comments: comments, State: state, Snap: coord}
-	ucReserve := &usecase.Reserve{YT: yt, State: state, Clock: clock, Snap: coord}
+	ucReserve := &usecase.Reserve{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
 	ucCancelReserve := &usecase.CancelReserve{State: state, Snap: coord}
 	ucStartOrReserve := &usecase.StartOrReserve{
 		YT:          yt,
