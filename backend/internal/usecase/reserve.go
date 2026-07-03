@@ -59,18 +59,6 @@ func (uc *Reserve) Execute(ctx context.Context, in ReserveInput) (ReserveOutput,
 		return ReserveOutput{}, &domain.APIError{Code: domain.ErrCodeInvalidArgument, Message: "video is not a live stream"}
 	}
 
-	// 別 videoId への予約は旧配信の in-memory state をクリアする。
-	// クリアしないと Snap.Flush が旧配信の users/comments を新 videoId key で GCS に保存し、
-	// リロード / 再デプロイ後の Restore で旧データが復活する。
-	if cur.VideoID != "" && cur.VideoID != in.VideoID {
-		if uc.Users != nil {
-			uc.Users.Clear()
-		}
-		if uc.Comments != nil {
-			uc.Comments.Clear()
-		}
-	}
-
 	now := uc.Clock.Now()
 	newState := domain.LiveState{
 		Status:               domain.StatusReserved,
@@ -82,6 +70,18 @@ func (uc *Reserve) Execute(ctx context.Context, in ReserveInput) (ReserveOutput,
 	}
 	if err := uc.State.Set(ctx, newState); err != nil {
 		return ReserveOutput{}, fmt.Errorf("state_set: %w", err)
+	}
+
+	// state 遷移成功後に旧配信の in-memory data をクリアする。
+	// state 更新前にクリアすると state.Set 失敗時に「in-memory は空だが state は旧 videoId」
+	// という不整合が残り、background save が旧 key に空 data を書き込んでしまう。
+	if cur.VideoID != "" && cur.VideoID != in.VideoID {
+		if uc.Users != nil {
+			uc.Users.Clear()
+		}
+		if uc.Comments != nil {
+			uc.Comments.Clear()
+		}
 	}
 
 	// Coordinator の video pointer を新 videoId に切替える。SetVideo なしで Flush すると
