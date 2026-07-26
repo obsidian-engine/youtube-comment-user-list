@@ -58,12 +58,33 @@ func CORSMiddleware(frontendOrigin string) func(stdhttp.Handler) stdhttp.Handler
 
 			// すべてのリクエストに対して基本的なCORSヘッダーを設定
 			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With,X-API-Key")
 			w.Header().Set("Access-Control-Max-Age", "86400")
 
 			if r.Method == stdhttp.MethodOptions {
 				w.WriteHeader(StatusNoContent)
 				log.Printf("[CORS] Handled preflight request for %s", r.URL.Path)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// APIKeyMiddleware は共有 API key を検証するミドルウェア。
+// X-API-Key header が secret と一致しない場合は 401 を返す。
+// OPTIONS は CORSMiddleware 側で既に短絡されるが、順序変更耐性のためここでも素通りさせる (二重防御)。
+func APIKeyMiddleware(secret string) func(stdhttp.Handler) stdhttp.Handler {
+	return func(next stdhttp.Handler) stdhttp.Handler {
+		return stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+			if r.Method == stdhttp.MethodOptions {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			if r.Header.Get("X-API-Key") != secret {
+				renderError(w, r, stdhttp.StatusUnauthorized, "unauthorized", "invalid or missing API key")
 				return
 			}
 

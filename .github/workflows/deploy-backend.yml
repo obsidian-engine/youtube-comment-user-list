@@ -49,4 +49,4 @@ jobs:
             --min-instances 0 \
             --max-instances 1 \
             --set-env-vars FRONTEND_ORIGIN=${{ secrets.FRONTEND_ORIGIN }},POLL_SEC=${{ secrets.POLL_SEC }},GCS_BUCKET=${{ secrets.GCS_BUCKET }} \
-            --set-secrets YT_API_KEY=yt-api-key:latest
+            --set-secrets YT_API_KEY=yt-api-key:latest,API_KEY=api-key:latest

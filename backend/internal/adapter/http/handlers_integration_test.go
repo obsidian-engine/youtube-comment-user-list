@@ -72,7 +72,7 @@ func newTestServerWithReserve(yt port.YouTubePort) *httptest.Server {
 		Users:          users,
 		Coord:          coord,
 	}
-	return httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
+	return httptest.NewServer(ahttp.NewRouter(h, "http://example.com", ""))
 }
 
 // fakeCoordinator は LastSavedAt を制御できるテスト用 Coordinator 実装です。
@@ -105,7 +105,7 @@ func newTestServerWithCoord(frontend string, coord snapshot.Coordinator) *httpte
 		Users:          users,
 		Coord:          coord,
 	}
-	router := ahttp.NewRouter(h, frontend)
+	router := ahttp.NewRouter(h, frontend, "")
 	return httptest.NewServer(router)
 }
 
@@ -176,7 +176,7 @@ func newTestServerWithHistory(sink *fakeSnapshotSink) *httptest.Server {
 		ListHistory:    &usecase.ListHistorySnapshots{Sink: sink},
 		GetHistory:     &usecase.GetHistorySnapshot{Sink: sink},
 	}
-	router := ahttp.NewRouter(h, "http://example.com")
+	router := ahttp.NewRouter(h, "http://example.com", "")
 	return httptest.NewServer(router)
 }
 
@@ -444,7 +444,7 @@ func TestRouter_StatusResponseHasNoLogsField(t *testing.T) {
 	// NewRouter が組む production middleware 順 (Recover 外側 → Collector 内側) を利用する。
 	// /reset handler 内で deliberately panic させる stub を上書きするのではなく、
 	// panicHandler を直接 chi に乗せた router を構築して endpoint を追加する。
-	router := ahttp.NewRouter(h, "http://example.com")
+	router := ahttp.NewRouter(h, "http://example.com", "")
 
 	// router は chi.Router だが stdhttp.Handler なので httptest.NewServer に渡す。
 	// panic を起こすための専用 endpoint は NewRouter が公開していないため、
@@ -559,7 +559,7 @@ func TestReserve_ConflictWhenActive(t *testing.T) {
 		Users:          users,
 		Coord:          coord,
 	}
-	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
+	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com", ""))
 	defer ts.Close()
 
 	body := strings.NewReader(`{"videoId":"VID999"}`)
@@ -649,7 +649,7 @@ func TestCancelReserve_ConflictWhenActive(t *testing.T) {
 		Users:          users,
 		Coord:          coord,
 	}
-	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
+	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com", ""))
 	defer ts.Close()
 
 	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/cancel-reserve", nil)
@@ -690,7 +690,7 @@ func TestCancelReserve_Success(t *testing.T) {
 		Users:          users,
 		Coord:          coord,
 	}
-	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com"))
+	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com", ""))
 	defer ts.Close()
 
 	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/cancel-reserve", nil)

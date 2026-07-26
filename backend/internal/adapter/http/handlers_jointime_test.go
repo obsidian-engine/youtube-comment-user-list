@@ -39,7 +39,7 @@ func TestHandlers_UsersEndpointWithJoinTime(t *testing.T) {
 	}
 
 	// Create router
-	router := NewRouter(h, "http://localhost:5173")
+	router := NewRouter(h, "http://localhost:5173", "")
 
 	// Test /users.json endpoint
 	req := httptest.NewRequest("GET", "/users.json", nil)

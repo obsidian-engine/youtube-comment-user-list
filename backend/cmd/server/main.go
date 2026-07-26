@@ -100,7 +100,7 @@ func main() {
 		GetHistory:     getHistory,
 		StartOrReserve: ucStartOrReserve,
 	}
-	srv := &http.Server{Addr: ":" + cfg.Port, Handler: ahttp.NewRouter(h, cfg.FrontendOrigin)}
+	srv := &http.Server{Addr: ":" + cfg.Port, Handler: ahttp.NewRouter(h, cfg.FrontendOrigin, cfg.APIKey)}
 
 	// グレースフルシャットダウンのためのコンテキスト設定
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

@@ -30,7 +30,7 @@ func TestCORSMiddleware(t *testing.T) {
 			expectedHeaders: map[string]string{
 				"Access-Control-Allow-Origin":  "https://example.com",
 				"Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-				"Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
+				"Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With,X-API-Key",
 				"Access-Control-Max-Age":       "86400",
 				"Vary":                         "Origin",
 			},
@@ -47,7 +47,7 @@ func TestCORSMiddleware(t *testing.T) {
 			expectedHeaders: map[string]string{
 				"Access-Control-Allow-Origin":  "https://example.com",
 				"Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-				"Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
+				"Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With,X-API-Key",
 				"Access-Control-Max-Age":       "86400",
 				"Vary":                         "Origin",
 			},
@@ -61,7 +61,7 @@ func TestCORSMiddleware(t *testing.T) {
 			expectedStatus: 200,
 			expectedHeaders: map[string]string{
 				"Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-				"Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
+				"Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With,X-API-Key",
 				"Access-Control-Max-Age":       "86400",
 			},
 		},
@@ -79,7 +79,7 @@ func TestCORSMiddleware(t *testing.T) {
 			expectedHeaders: map[string]string{
 				"Access-Control-Allow-Origin":  "https://app.example.com",
 				"Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-				"Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
+				"Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With,X-API-Key",
 				"Access-Control-Max-Age":       "86400",
 				"Vary":                         "Origin",
 			},
@@ -295,5 +295,49 @@ func TestRecoverMiddleware_NoPanicPassesThrough(t *testing.T) {
 	}
 	if w.Body.String() != "ok" {
 		t.Errorf("Expected body 'ok', got %q", w.Body.String())
+	}
+}
+
+func newOKHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("ok"))
+	})
+}
+
+func TestAPIKeyMiddleware_NoKeyReturns401(t *testing.T) {
+	mw := APIKeyMiddleware("testkey")(newOKHandler())
+
+	req := httptest.NewRequest("POST", "/reset", nil)
+	w := httptest.NewRecorder()
+	mw.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401, got %d", w.Code)
+	}
+}
+
+func TestAPIKeyMiddleware_MatchingKeyReturns200(t *testing.T) {
+	mw := APIKeyMiddleware("testkey")(newOKHandler())
+
+	req := httptest.NewRequest("POST", "/reset", nil)
+	req.Header.Set("X-API-Key", "testkey")
+	w := httptest.NewRecorder()
+	mw.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Errorf("Expected 200, got %d", w.Code)
+	}
+}
+
+func TestAPIKeyMiddleware_OptionsSkipsAuth(t *testing.T) {
+	mw := APIKeyMiddleware("testkey")(newOKHandler())
+
+	req := httptest.NewRequest("OPTIONS", "/reset", nil)
+	w := httptest.NewRecorder()
+	mw.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Errorf("Expected 200 (OPTIONS skips auth), got %d", w.Code)
 	}
 }

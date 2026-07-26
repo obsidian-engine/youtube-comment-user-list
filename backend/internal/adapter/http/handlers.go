@@ -108,7 +108,7 @@ func collectLogs(collector *logging.Collector) []LogDetail {
 	return logs
 }
 
-func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
+func NewRouter(h *Handlers, frontendOrigin string, apiKey string) stdhttp.Handler {
 	r := chi.NewRouter()
 
 	// ミドルウェアの設定
@@ -116,9 +116,11 @@ func NewRouter(h *Handlers, frontendOrigin string) stdhttp.Handler {
 	// RecoverMiddleware を最外周にし、内側全 handler の panic を catch して Cloud Run server log に stack trace を残す。
 	// CollectorMiddleware は usecase / handler 層で context から取り出して frontend に logs を返すためのもの。
 	// 設計判断: panic 時の stack trace は frontend に流さず (security 観点と非対称性回避)、server log のみ。
+	// APIKeyMiddleware は CORSMiddleware の後段に置き、OPTIONS preflight が CORS 側で先に return されて認証をスキップする。
 	r.Use(RecoverMiddleware)
 	r.Use(LoggingMiddleware)
 	r.Use(CORSMiddleware(frontendOrigin))
+	r.Use(APIKeyMiddleware(apiKey))
 	r.Use(CollectorMiddleware)
 
 	r.Get("/status", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {

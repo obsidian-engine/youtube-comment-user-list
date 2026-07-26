@@ -15,6 +15,7 @@ type Config struct {
 	YouTubeAPIKey  string
 	LogLevel       string
 	GCSBucket      string
+	APIKey         string
 }
 
 // Load は環境変数から設定を読み込み、検証します
@@ -25,6 +26,7 @@ func Load() (*Config, error) {
 		YouTubeAPIKey:  os.Getenv("YT_API_KEY"),
 		LogLevel:       getEnv("LOG_LEVEL", "info"),
 		GCSBucket:      os.Getenv("GCS_BUCKET"),
+		APIKey:         os.Getenv("API_KEY"),
 	}
 
 	if err := config.Validate(); err != nil {
@@ -71,6 +73,11 @@ func (c *Config) Validate() error {
 		if c.FrontendOrigin == "" {
 			return errors.New("FRONTEND_ORIGIN is required in production environment")
 		}
+
+		// APIKeyは本番環境では必須（共有key認証のため）
+		if c.APIKey == "" {
+			return errors.New("API_KEY is required in production environment")
+		}
 	}
 
 	// ログレベルの検証
@@ -84,6 +91,7 @@ func (c *Config) Validate() error {
 	log.Printf("  Port: %s", c.Port)
 	log.Printf("  Frontend Origin: %s", maskString(c.FrontendOrigin))
 	log.Printf("  YouTube API Key: %s", maskString(c.YouTubeAPIKey))
+	log.Printf("  API Key: %s", maskString(c.APIKey))
 	log.Printf("  Log Level: %s", c.LogLevel)
 
 	return nil

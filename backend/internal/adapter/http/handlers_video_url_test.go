@@ -61,7 +61,7 @@ func TestSwitchVideoWithURL(t *testing.T) {
 		StartOrReserve: &usecase.StartOrReserve{YT: yt, Clock: clock, SwitchVideo: ucSwitch, Reserve: ucReserve},
 	}
 
-	router := NewRouter(handlers, "*")
+	router := NewRouter(handlers, "*", "")
 
 	tests := []struct {
 		name            string
