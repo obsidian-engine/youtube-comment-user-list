@@ -536,6 +536,35 @@ func TestReserve_EmptyVideoID(t *testing.T) {
 	}
 }
 
+// TestReserve_InvalidVideoID: videoId が不正形式なら 400 を返す。
+func TestReserve_InvalidVideoID(t *testing.T) {
+	yt := &fakeYTForReserve{isLive: true}
+	ts := newTestServerWithReserve(yt)
+	defer ts.Close()
+
+	body := bytes.NewReader([]byte(`{"videoId":"not-a-valid-id!"}`))
+	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/reserve", body)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := stdhttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /reserve: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != stdhttp.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", res.StatusCode)
+	}
+
+	var resp map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	message, _ := resp["message"].(string)
+	if !strings.HasPrefix(message, "Invalid video ID or URL") {
+		t.Errorf("message = %v, want prefix %q", resp["message"], "Invalid video ID or URL")
+	}
+}
+
 // TestReserve_ConflictWhenActive: ACTIVE 状態での Reserve は 409 を返す。
 func TestReserve_ConflictWhenActive(t *testing.T) {
 	yt := &fakeYTForReserve{isLive: true}
