@@ -488,7 +488,7 @@ func TestReserve_Success(t *testing.T) {
 	ts := newTestServerWithReserve(yt)
 	defer ts.Close()
 
-	body := strings.NewReader(`{"videoId":"VID123"}`)
+	body := strings.NewReader(`{"videoId":"VID12345678"}`)
 	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/reserve", body)
 	req.Header.Set("Content-Type", "application/json")
 	res, err := stdhttp.DefaultClient.Do(req)
@@ -508,8 +508,8 @@ func TestReserve_Success(t *testing.T) {
 	if resp["status"] != "RESERVED" {
 		t.Errorf("status = %v, want RESERVED", resp["status"])
 	}
-	if resp["videoId"] != "VID123" {
-		t.Errorf("videoId = %v, want VID123", resp["videoId"])
+	if resp["videoId"] != "VID12345678" {
+		t.Errorf("videoId = %v, want VID12345678", resp["videoId"])
 	}
 	if _, ok := resp["scheduledStartTime"]; !ok {
 		t.Error("scheduledStartTime field missing")
@@ -533,6 +533,35 @@ func TestReserve_EmptyVideoID(t *testing.T) {
 
 	if res.StatusCode != stdhttp.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", res.StatusCode)
+	}
+}
+
+// TestReserve_InvalidVideoID: videoId が不正形式なら 400 を返す。
+func TestReserve_InvalidVideoID(t *testing.T) {
+	yt := &fakeYTForReserve{isLive: true}
+	ts := newTestServerWithReserve(yt)
+	defer ts.Close()
+
+	body := bytes.NewReader([]byte(`{"videoId":"not-a-valid-id!"}`))
+	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/reserve", body)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := stdhttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /reserve: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != stdhttp.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", res.StatusCode)
+	}
+
+	var resp map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	message, _ := resp["message"].(string)
+	if !strings.HasPrefix(message, "Invalid video ID or URL") {
+		t.Errorf("message = %v, want prefix %q", resp["message"], "Invalid video ID or URL")
 	}
 }
 
@@ -562,7 +591,7 @@ func TestReserve_ConflictWhenActive(t *testing.T) {
 	ts := httptest.NewServer(ahttp.NewRouter(h, "http://example.com", ""))
 	defer ts.Close()
 
-	body := strings.NewReader(`{"videoId":"VID999"}`)
+	body := strings.NewReader(`{"videoId":"VID99999999"}`)
 	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/reserve", body)
 	req.Header.Set("Content-Type", "application/json")
 	res, err := stdhttp.DefaultClient.Do(req)
@@ -584,7 +613,7 @@ func TestReserve_VideoNotFound(t *testing.T) {
 	ts := newTestServerWithReserve(yt)
 	defer ts.Close()
 
-	body := strings.NewReader(`{"videoId":"UNKNOWN"}`)
+	body := strings.NewReader(`{"videoId":"UNKNOWN0000"}`)
 	req, _ := stdhttp.NewRequest(stdhttp.MethodPost, ts.URL+"/reserve", body)
 	req.Header.Set("Content-Type", "application/json")
 	res, err := stdhttp.DefaultClient.Do(req)
@@ -675,7 +704,7 @@ func TestCancelReserve_Success(t *testing.T) {
 	// 事前に RESERVED 状態を作る
 	_ = state.Set(context.Background(), domain.LiveState{
 		Status:  domain.StatusReserved,
-		VideoID: "VID123",
+		VideoID: "VID12345678",
 	})
 
 	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, State: state, Clock: clock, Snap: coord}

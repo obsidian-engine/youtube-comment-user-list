@@ -87,8 +87,10 @@ func renderBadGateway(w stdhttp.ResponseWriter, r *stdhttp.Request, message stri
 }
 
 // renderUsecaseError は usecase 層 error を ErrorResponse に変換する。
-// domain.APIError を含む場合は機械可読 Code + 対応 HTTP status に振り分ける。
-// それ以外は fallbackStatus + fallbackErr ("bad_gateway" 等) を使う。
+// domain.APIError を含む場合は機械可読 Code + 対応 HTTP status に振り分け、
+// Message には domain 層が管理する apiErr.Message を使う。
+// それ以外は fallbackStatus + fallbackErr ("bad_gateway" 等) と呼び出し元の固定 message を使う。
+// 生の err.Error() を client に返さない (内部実装の詳細露出を防ぐ)。詳細は server log に出す。
 func renderUsecaseError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error, message string, collector *logging.Collector, fallbackStatus int, fallbackErr string) {
 	var apiErr *domain.APIError
 	if errors.As(err, &apiErr) {
@@ -98,7 +100,7 @@ func renderUsecaseError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error,
 			Request:        r,
 			HTTPCode:       status,
 			Error:          fallbackErr,
-			Message:        message,
+			Message:        apiErr.Message,
 			Code:           string(apiErr.Code),
 			Collector:      collector,
 		})

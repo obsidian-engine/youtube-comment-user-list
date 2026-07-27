@@ -204,7 +204,7 @@ func NewRouter(h *Handlers, frontendOrigin string, apiKey string) stdhttp.Handle
 		out, err := h.StartOrReserve.Execute(r.Context(), usecase.StartOrReserveInput{VideoID: videoID})
 		if err != nil {
 			log.Printf("[SWITCH_VIDEO] Execute error: %v", err)
-			renderUsecaseError(w, r, err, "Failed to switch video: "+err.Error(), collector, StatusBadGateway, "bad_gateway")
+			renderUsecaseError(w, r, err, "Failed to switch video", collector, StatusBadGateway, "bad_gateway")
 			return
 		}
 
@@ -228,7 +228,7 @@ func NewRouter(h *Handlers, frontendOrigin string, apiKey string) stdhttp.Handle
 		out, err := h.Pull.Execute(r.Context())
 		if err != nil {
 			log.Printf("[PULL] Error: %v", err)
-			renderUsecaseError(w, r, err, err.Error(), collector, StatusInternalServerError, "internal_error")
+			renderUsecaseError(w, r, err, "Failed to pull messages", collector, StatusInternalServerError, "internal_error")
 			return
 		}
 
@@ -249,7 +249,7 @@ func NewRouter(h *Handlers, frontendOrigin string, apiKey string) stdhttp.Handle
 		out, err := h.Reset.Execute(r.Context())
 		if err != nil {
 			log.Printf("[RESET] Error: %v", err)
-			renderUsecaseError(w, r, err, "Failed to reset: "+err.Error(), collector, StatusInternalServerError, "internal_error")
+			renderUsecaseError(w, r, err, "Failed to reset", collector, StatusInternalServerError, "internal_error")
 			return
 		}
 
@@ -312,10 +312,20 @@ func NewRouter(h *Handlers, frontendOrigin string, apiKey string) stdhttp.Handle
 			renderBadRequestWithCollector(w, r, "Invalid JSON", collector)
 			return
 		}
-		out, err := h.Reserve.Execute(r.Context(), usecase.ReserveInput{VideoID: req.VideoID})
+		if req.VideoID == "" {
+			renderBadRequestWithCollector(w, r, "videoId is required", collector)
+			return
+		}
+		videoID, err := ExtractVideoID(req.VideoID)
+		if err != nil {
+			log.Printf("[RESERVE] Invalid video ID or URL: %v", err)
+			renderBadRequestWithCollector(w, r, "Invalid video ID or URL: "+err.Error(), collector)
+			return
+		}
+		out, err := h.Reserve.Execute(r.Context(), usecase.ReserveInput{VideoID: videoID})
 		if err != nil {
 			log.Printf("[RESERVE] Execute error: %v", err)
-			renderUsecaseError(w, r, err, "Failed to reserve: "+err.Error(), collector, StatusInternalServerError, "internal_error")
+			renderUsecaseError(w, r, err, "Failed to reserve", collector, StatusInternalServerError, "internal_error")
 			return
 		}
 		response := ReserveResponse{
@@ -335,7 +345,7 @@ func NewRouter(h *Handlers, frontendOrigin string, apiKey string) stdhttp.Handle
 		out, err := h.CancelReserve.Execute(r.Context())
 		if err != nil {
 			log.Printf("[CANCEL_RESERVE] Execute error: %v", err)
-			renderUsecaseError(w, r, err, "Failed to cancel reserve: "+err.Error(), collector, StatusInternalServerError, "internal_error")
+			renderUsecaseError(w, r, err, "Failed to cancel reserve", collector, StatusInternalServerError, "internal_error")
 			return
 		}
 		response := CancelReserveResponse{
