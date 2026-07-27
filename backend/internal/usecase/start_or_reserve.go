@@ -56,7 +56,7 @@ func (uc *StartOrReserve) Execute(ctx context.Context, in StartOrReserveInput) (
 		return StartOrReserveOutput{State: out.State, Dispatched: "reserve"}, nil
 	}
 
-	out, serr := uc.SwitchVideo.Execute(ctx, SwitchVideoInput{VideoID: in.VideoID})
+	out, serr := uc.SwitchVideo.Execute(ctx, SwitchVideoInput(in))
 	if serr != nil {
 		return StartOrReserveOutput{}, serr
 	}
