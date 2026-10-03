@@ -293,6 +293,9 @@ describe('App Integration (MSW)', () => {
       { timeout: 3000 },
     )
 
+    // 1 回目の取得が終わるまでボタンは disabled のままで、先に押すと click が無視される
+    await waitFor(() => expect(refreshButton).toBeEnabled(), { timeout: 3000 })
+
     // サーバー状態を停止中に変更
     currentStatus = 'WAITING'
 
