@@ -1,6 +1,44 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@theme {
+  --color-c-bg: #f3f0e6;
+  --color-c-bg-2: #fdfcf8;
+  --color-c-bg-3: #ece7d8;
+  --color-c-ink: #0a0a0f;
+  --color-c-ink-dim: #4a4a56;
+  --color-c-ink-mute: #6a6a78;
+  --color-c-accent: #d6003f;
+  --color-c-accent-2: #005f78;
+  --color-c-success: #2d7a3f;
+  --color-c-error: #b3001b;
+
+  --font-display: 'Zen Dots', 'Zen Kaku Gothic New', sans-serif;
+  --font-body:
+    'Zen Kaku Gothic New', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+
+  --grid-template-columns-chips: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
 
 /* ================================================================
    Design tokens — Bold Editorial / Broadcast Newsprint
