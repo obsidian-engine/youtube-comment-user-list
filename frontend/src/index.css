@@ -64,6 +64,8 @@
   --gutter: clamp(20px, 4vw, 48px);
 }
 
+/* tailwind 4 では layer 外の宣言が utility より優先されるため、要素向けの基本スタイルは base layer に置く */
+@layer base {
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -114,6 +116,7 @@ body::before {
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse at 50% 25%, #000 18%, transparent 65%);
   -webkit-mask-image: radial-gradient(ellipse at 50% 25%, #000 18%, transparent 65%);
+}
 }
 
 /* ================================================================
