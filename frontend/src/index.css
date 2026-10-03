@@ -18,18 +18,9 @@
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
   --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-
-  --grid-template-columns-chips: repeat(auto-fill, minmax(180px, 1fr));
 }
 
-/*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
+/* tailwind 4 で border の既定色が currentcolor になったため、v3 と同じ gray-200 を既定にする */
 @layer base {
   *,
   ::after,
