@@ -59,6 +59,7 @@ interface LoadingStates {
 
 interface AppState {
   status: string
+  autonomousMonitoring: boolean
   users: User[]
   videoId: string
   currentVideoId?: string
@@ -96,6 +97,7 @@ type AddEntryFn = (
 export function useAppState(addEntry?: AddEntryFn) {
   const [state, setState] = useState<AppState>({
     status: 'WAITING',
+    autonomousMonitoring: false,
     users: [],
     videoId: localStorage.getItem('videoId') || '',
     currentVideoId: undefined,
@@ -182,6 +184,7 @@ export function useAppState(addEntry?: AddEntryFn) {
           return {
             ...prev,
             status,
+            autonomousMonitoring: st.autonomousMonitoring ?? false,
             users: finalUsers,
             startTime: st.startedAt,
             scheduledStartTime: st.scheduledStartTime,
@@ -359,6 +362,11 @@ export function useAppState(addEntry?: AddEntryFn) {
     }, [handleAsyncAction, pullAction]),
 
     onPullSilent: useCallback(async () => {
+      // backend の monitor が 60 秒ごとに pull しているため、ここでも pull すると YouTube API を二重に消費する
+      if (state.status === 'ACTIVE' && state.autonomousMonitoring) {
+        await refresh()
+        return
+      }
       await handleAsyncAction(
         pullAction,
         'pulling',
@@ -366,7 +374,7 @@ export function useAppState(addEntry?: AddEntryFn) {
         '取得',
         pullControllerRef,
       )
-    }, [handleAsyncAction, pullAction]),
+    }, [state.status, state.autonomousMonitoring, refresh, handleAsyncAction, pullAction]),
 
     onReset: useCallback(async () => {
       setState((prev) => ({ ...prev, skippedCount: 0 }))

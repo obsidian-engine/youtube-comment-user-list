@@ -59,6 +59,7 @@ describe('useAppState', () => {
 
     expect(result.current.state).toEqual({
       status: 'WAITING',
+      autonomousMonitoring: false,
       active: false,
       reserved: false,
       users: [],
@@ -341,6 +342,47 @@ describe('useAppState', () => {
     expect(mockPostPull).toHaveBeenCalled()
     expect(result.current.state.infoMsg).toBe('') // メッセージなし
     expect(result.current.state.errorMsg).toBe('')
+  })
+
+  test('サーバーが自動監視中のとき onPullSilent は pull せず再読み込みだけする', async () => {
+    mockGetStatus.mockResolvedValue({ status: 'ACTIVE', autonomousMonitoring: true })
+    mockGetUsers.mockResolvedValue([])
+
+    const { result } = renderHook(() => useAppState())
+
+    await act(async () => {
+      await result.current.actions.refresh()
+    })
+    mockGetStatus.mockClear()
+
+    await act(async () => {
+      await result.current.actions.onPullSilent()
+    })
+
+    expect(mockPostPull).not.toHaveBeenCalled()
+    expect(mockGetStatus).toHaveBeenCalledTimes(1)
+  })
+
+  test('自動監視でない ACTIVE のとき onPullSilent は pull する', async () => {
+    mockPostPull.mockResolvedValue({
+      addedCount: 0,
+      skippedCount: 0,
+      autoReset: false,
+      pollingIntervalMillis: 60000,
+    })
+    mockGetStatus.mockResolvedValue({ status: 'ACTIVE', autonomousMonitoring: false })
+    mockGetUsers.mockResolvedValue([])
+
+    const { result } = renderHook(() => useAppState())
+
+    await act(async () => {
+      await result.current.actions.refresh()
+    })
+    await act(async () => {
+      await result.current.actions.onPullSilent()
+    })
+
+    expect(mockPostPull).toHaveBeenCalledTimes(1)
   })
 
   test('snapshotSavedAt がある場合 snapshotRestoreMsg をセットする (今日の場合 HH:MM 形式)', async () => {
