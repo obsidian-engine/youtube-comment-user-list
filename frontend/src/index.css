@@ -1,6 +1,35 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@theme {
+  --color-c-bg: #f3f0e6;
+  --color-c-bg-2: #fdfcf8;
+  --color-c-bg-3: #ece7d8;
+  --color-c-ink: #0a0a0f;
+  --color-c-ink-dim: #4a4a56;
+  --color-c-ink-mute: #6a6a78;
+  --color-c-accent: #d6003f;
+  --color-c-accent-2: #005f78;
+  --color-c-success: #2d7a3f;
+  --color-c-error: #b3001b;
+
+  --font-display: 'Zen Dots', 'Zen Kaku Gothic New', sans-serif;
+  --font-body:
+    'Zen Kaku Gothic New', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* tailwind 4 で border の既定色が currentcolor になったため、v3 と同じ gray-200 を既定にする */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
 
 /* ================================================================
    Design tokens — Bold Editorial / Broadcast Newsprint
@@ -26,6 +55,8 @@
   --gutter: clamp(20px, 4vw, 48px);
 }
 
+/* tailwind 4 では layer 外の宣言が utility より優先されるため、要素向けの基本スタイルは base layer に置く */
+@layer base {
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -76,6 +107,7 @@ body::before {
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse at 50% 25%, #000 18%, transparent 65%);
   -webkit-mask-image: radial-gradient(ellipse at 50% 25%, #000 18%, transparent 65%);
+}
 }
 
 /* ================================================================
