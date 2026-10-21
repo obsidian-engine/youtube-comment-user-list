@@ -1,12 +1,4 @@
-import {
-  MIN_SESSION_SECRET_LENGTH,
-  SESSION_COOKIE,
-  jsonResponse,
-  misconfigured,
-  readCookie,
-  unauthorized,
-  verifySession,
-} from './_session.js'
+import { jsonResponse, misconfigured } from './_response.js'
 
 // backend の X-API-Key はこの関数の環境変数にだけ置き、ブラウザの JS には含めない。
 // vercel.json の rewrite が /api/b/<path> を /api/proxy?path=<path> に変換して呼ぶ。
@@ -24,14 +16,10 @@ const ALLOWED_PATHS = [
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    const secret = process.env.SESSION_SECRET ?? ''
     const backendUrl = process.env.BACKEND_URL ?? ''
     const apiKey = process.env.API_KEY ?? ''
-    if (secret.length < MIN_SESSION_SECRET_LENGTH || !backendUrl || !apiKey) {
+    if (!backendUrl || !apiKey) {
       return misconfigured()
-    }
-    if (!verifySession(readCookie(req, SESSION_COOKIE), secret)) {
-      return unauthorized()
     }
 
     const url = new URL(req.url)

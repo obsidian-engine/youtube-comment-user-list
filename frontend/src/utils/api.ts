@@ -2,26 +2,6 @@
 // backend の API key は関数側の環境変数にだけ置き、bundle に含めない。
 export const BASE = '/api/b'
 
-// session cookie が有効なら true を返す。
-export async function checkSession(signal?: AbortSignal): Promise<boolean> {
-  const res = await fetch('/api/login', { signal })
-  if (res.status === 401) return false
-  await throwIfError(res)
-  return true
-}
-
-export async function login(passphrase: string, signal?: AbortSignal): Promise<boolean> {
-  const res = await fetch('/api/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ passphrase }),
-    signal,
-  })
-  if (res.status === 401) return false
-  await throwIfError(res)
-  return true
-}
-
 export class HttpError extends Error {
   constructor(
     public readonly status: number,
