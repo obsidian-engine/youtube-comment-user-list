@@ -147,11 +147,18 @@ go run cmd/server/main.go
 ```bash
 cd frontend
 cp .env.example .env
-# .env に VITE_BACKEND_URL / VITE_API_KEY を設定
+# .env に BACKEND_URL / API_KEY を設定 (vite の dev server の proxy だけが読み、bundle には含まれない)
 npm install
 npm run dev
 ```
 
+### 本番 (Vercel) の環境変数
+Vercel の関数 (`frontend/api/proxy.ts`) が backend の API key を header に追加して中継します。API key をブラウザへ渡さないため、`VITE_` の変数は使いません。
+
+| 変数 | 内容 |
+|---|---|
+| `BACKEND_URL` | Cloud Run の URL |
+| `API_KEY` | backend の `api-key` secret と同じ値 |
 ### テスト・Lint
 ```bash
 cd backend && go test ./internal/...
