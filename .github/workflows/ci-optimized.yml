@@ -77,7 +77,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: stable
+          go-version-file: backend/go.mod
           cache: true
           cache-dependency-path: backend/go.sum
       
@@ -98,7 +98,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: stable
+          go-version-file: backend/go.mod
           cache: true
           cache-dependency-path: backend/go.sum
       
