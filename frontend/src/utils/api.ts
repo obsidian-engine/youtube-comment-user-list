@@ -1,11 +1,6 @@
-export const BASE = import.meta.env.VITE_BACKEND_URL || ''
-const API_KEY = import.meta.env.VITE_API_KEY || ''
-
-// authHeaders は全 fetch 呼び出しに共通で付与する X-API-Key header を返す。
-// extra とマージして spread することで既存の Content-Type 指定と両立させる。
-function authHeaders(extra?: Record<string, string>): Record<string, string> {
-  return { ...extra, 'X-API-Key': API_KEY }
-}
+// backend へは Vercel の関数 (api/proxy.ts) を経由して接続する。
+// backend の API key は関数側の環境変数にだけ置き、bundle に含めない。
+export const BASE = '/api/b'
 
 export class HttpError extends Error {
   constructor(
@@ -85,7 +80,7 @@ export type StatusResponse = {
 }
 
 export async function getStatus(signal?: AbortSignal): Promise<StatusResponse> {
-  const res = await fetch(`${BASE}/status`, { headers: authHeaders(), signal })
+  const res = await fetch(`${BASE}/status`, { signal })
   return json<StatusResponse>(res)
 }
 
@@ -99,7 +94,7 @@ export type User = {
 }
 
 export async function getUsers(signal?: AbortSignal): Promise<User[] | null> {
-  const res = await fetch(`${BASE}/users.json`, { headers: authHeaders(), signal })
+  const res = await fetch(`${BASE}/users.json`, { signal })
   return json<User[] | null>(res)
 }
 
@@ -119,7 +114,7 @@ export async function postSwitchVideo(
 ): Promise<SwitchVideoResponse> {
   const res = await fetch(`${BASE}/switch-video`, {
     method: 'POST',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ videoId }),
     signal,
   })
@@ -141,12 +136,12 @@ export type PullResponse = {
 }
 
 export async function postPull(signal?: AbortSignal): Promise<PullResponse> {
-  const res = await fetch(`${BASE}/pull`, { method: 'POST', headers: authHeaders(), signal })
+  const res = await fetch(`${BASE}/pull`, { method: 'POST', signal })
   return json<PullResponse>(res)
 }
 
 export async function postReset(signal?: AbortSignal): Promise<void> {
-  const res = await fetch(`${BASE}/reset`, { method: 'POST', headers: authHeaders(), signal })
+  const res = await fetch(`${BASE}/reset`, { method: 'POST', signal })
   await throwIfError(res)
 }
 
@@ -171,10 +166,7 @@ async function fetchWithRetry<T>(
 
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch(url, {
-        ...options,
-        headers: authHeaders(options.headers as Record<string, string>),
-      })
+      const res = await fetch(url, options)
       if (!res.ok) {
         return parseErrorResponse(res)
       }
@@ -228,7 +220,7 @@ export interface HistorySnapshot {
 }
 
 export async function getHistorySnapshots(signal?: AbortSignal): Promise<HistorySummary[]> {
-  const res = await fetch(`${BASE}/history/snapshots`, { headers: authHeaders(), signal })
+  const res = await fetch(`${BASE}/history/snapshots`, { signal })
   if (!res.ok) return parseErrorResponse(res)
   const data = (await res.json()) as { items?: HistorySummary[] }
   return data.items ?? []
@@ -239,7 +231,6 @@ export async function getHistorySnapshot(
   signal?: AbortSignal,
 ): Promise<HistorySnapshot> {
   const res = await fetch(`${BASE}/history/snapshots/${encodeURIComponent(videoId)}`, {
-    headers: authHeaders(),
     signal,
   })
   if (!res.ok) return parseErrorResponse(res)

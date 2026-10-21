@@ -62,6 +62,12 @@ func (c *Config) Validate() error {
 	// 環境変数の取得
 	env := getEnv("GO_ENV", "development")
 
+	// Cloud Run は K_SERVICE を必ず設定する。GO_ENV の設定を忘れても、
+	// API_KEY が空のまま起動して全 endpoint が認証なしになることを防ぐ。
+	if os.Getenv("K_SERVICE") != "" {
+		env = "production"
+	}
+
 	// 本番環境での必須項目チェック
 	if env == "production" {
 		// YouTubeAPIKeyは本番環境では必須
