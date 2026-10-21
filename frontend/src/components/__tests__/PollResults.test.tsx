@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PollResults } from '../PollTab/PollResults'
 
@@ -165,9 +165,7 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await act(async () => {
-        await user.click(screen.getByText('hoge'))
-      })
+      await user.click(screen.getByText('hoge'))
       expect(screen.getByText('taro')).toBeInTheDocument()
       expect(screen.getByText('hanako')).toBeInTheDocument()
       expect(screen.queryByText('UC1')).toBeNull()
@@ -189,9 +187,7 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await act(async () => {
-        await user.click(screen.getByText('hoge'))
-      })
+      await user.click(screen.getByText('hoge'))
       expect(screen.getByText('@tarochannel')).toBeInTheDocument()
       expect(screen.queryByText('UC1')).toBeNull()
     })
@@ -209,9 +205,7 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await act(async () => {
-        await user.click(screen.getByText('hoge'))
-      })
+      await user.click(screen.getByText('hoge'))
       expect(screen.getByText('hoge投票')).toBeInTheDocument()
     })
 
@@ -235,9 +229,7 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await act(async () => {
-        await user.click(screen.getByText('hoge'))
-      })
+      await user.click(screen.getByText('hoge'))
       expect(screen.getByText('名前')).toBeInTheDocument()
       expect(screen.getByText('ハンドル')).toBeInTheDocument()
       expect(screen.getByText('コメント')).toBeInTheDocument()
@@ -257,12 +249,8 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await act(async () => {
-        await user.click(screen.getByText('hoge'))
-      })
-      await act(async () => {
-        await user.click(screen.getByText('hoge'))
-      })
+      await user.click(screen.getByText('hoge'))
+      await user.click(screen.getByText('hoge'))
       expect(screen.queryByText('taro')).toBeNull()
     })
 
@@ -277,9 +265,7 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await act(async () => {
-        await user.click(screen.getByText('fuga'))
-      })
+      await user.click(screen.getByText('fuga'))
       expect(screen.getByText('投票したユーザーはいません')).toBeInTheDocument()
     })
   })
@@ -304,12 +290,8 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await act(async () => {
-        await user.click(screen.getByText('hoge'))
-      })
-      await act(async () => {
-        await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
-      })
+      await user.click(screen.getByText('hoge'))
+      await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       expect(writeTextSpy).toHaveBeenCalledWith('\t\thoge\ttaro\t')
       expect(screen.getByRole('button', { name: 'コピー済' })).toBeInTheDocument()
     })
@@ -329,12 +311,8 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await act(async () => {
-        await user.click(screen.getByText('hoge'))
-      })
-      await act(async () => {
-        await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
-      })
+      await user.click(screen.getByText('hoge'))
+      await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       expect(writeTextSpy).toHaveBeenCalledWith('\t\thoge\ttaro\t@tarochannel')
     })
 
@@ -354,12 +332,8 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await act(async () => {
-        await user.click(screen.getByText('hoge'))
-      })
-      await act(async () => {
-        await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
-      })
+      await user.click(screen.getByText('hoge'))
+      await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       expect(writeTextSpy).toHaveBeenCalledWith('\t\thoge\ttaro\t@tarochannel\n\t\thoge\thanako\t')
     })
 
@@ -380,12 +354,8 @@ describe('PollResults', () => {
           savedAt="2026-06-20T10:00:00Z"
         />,
       )
-      await act(async () => {
-        await user.click(screen.getByText('hoge'))
-      })
-      await act(async () => {
-        await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
-      })
+      await user.click(screen.getByText('hoge'))
+      await user.click(screen.getByRole('button', { name: 'クリップボードにコピー' }))
       expect(writeTextSpy).toHaveBeenCalledWith(
         '2026-06-20T10:00:00Z\tVIDEO123\thoge\ttaro\t@tarochannel',
       )
@@ -407,12 +377,8 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await act(async () => {
-        await user.click(screen.getByText('hoge'))
-      })
-      await act(async () => {
-        await user.click(screen.getByRole('button', { name: 'ハンドルをクリップボードにコピー' }))
-      })
+      await user.click(screen.getByText('hoge'))
+      await user.click(screen.getByRole('button', { name: 'ハンドルをクリップボードにコピー' }))
       expect(writeTextSpy).toHaveBeenCalledWith('tarochannel\n')
     })
 
@@ -431,12 +397,8 @@ describe('PollResults', () => {
           isLoading={false}
         />,
       )
-      await act(async () => {
-        await user.click(screen.getByText('hoge'))
-      })
-      await act(async () => {
-        await user.click(screen.getByRole('button', { name: 'ハンドルをクリップボードにコピー' }))
-      })
+      await user.click(screen.getByText('hoge'))
+      await user.click(screen.getByRole('button', { name: 'ハンドルをクリップボードにコピー' }))
       expect(screen.getByRole('button', { name: 'コピー済', hidden: false })).toHaveTextContent(
         'コピー済',
       )
