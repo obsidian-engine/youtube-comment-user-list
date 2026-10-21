@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"crypto/subtle"
 	"log"
 	stdhttp "net/http"
 	"runtime/debug"
@@ -83,7 +84,8 @@ func APIKeyMiddleware(secret string) func(stdhttp.Handler) stdhttp.Handler {
 				return
 			}
 
-			if r.Header.Get("X-API-Key") != secret {
+			// != は先頭から一致した長さで応答時間が変わるため、定数時間で比べる。
+			if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-API-Key")), []byte(secret)) != 1 {
 				renderError(w, r, stdhttp.StatusUnauthorized, "unauthorized", "invalid or missing API key")
 				return
 			}
