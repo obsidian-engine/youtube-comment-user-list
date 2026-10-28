@@ -3,11 +3,11 @@ module github.com/obsidian-engine/youtube-comment-user-list/backend
 go 1.27.3
 
 require (
-	cloud.google.com/go/storage v1.69.0
+	cloud.google.com/go/storage v1.70.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-chi/render v1.0.3
 	github.com/joho/godotenv v1.5.1
-	google.golang.org/api v0.306.0
+	google.golang.org/api v0.307.0
 )
 
 require (
