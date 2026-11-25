@@ -12,6 +12,7 @@ const ALLOWED_PATHS = [
   /^reset$/,
   /^comments$/,
   /^history\/snapshots(\/[A-Za-z0-9_-]+)?$/,
+  /^reply-targets(\/[A-Za-z0-9_-]+)?$/,
 ]
 
 export default {

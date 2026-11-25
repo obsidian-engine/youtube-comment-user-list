@@ -236,3 +236,23 @@ export async function getHistorySnapshot(
   if (!res.ok) return parseErrorResponse(res)
   return res.json() as Promise<HistorySnapshot>
 }
+
+export type ReplyTarget = {
+  channelId: string
+  setAt: string
+}
+
+export async function getReplyTargets(signal?: AbortSignal): Promise<ReplyTarget[]> {
+  const res = await fetch(`${BASE}/reply-targets`, { signal })
+  const body = await json<{ targets: ReplyTarget[] }>(res)
+  return body.targets ?? []
+}
+
+export async function putReplyTarget(channelId: string, enabled: boolean): Promise<void> {
+  const res = await fetch(`${BASE}/reply-targets/${encodeURIComponent(channelId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  })
+  await throwIfError(res)
+}

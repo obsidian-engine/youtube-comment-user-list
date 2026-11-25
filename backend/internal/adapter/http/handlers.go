@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	stdhttp "net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -29,6 +30,21 @@ type Handlers struct {
 	Coord          snapshot.Coordinator
 	ListHistory    *usecase.ListHistorySnapshots
 	GetHistory     *usecase.GetHistorySnapshot
+	ReplyTargets   *usecase.ReplyTargets
+}
+
+// channelIDPattern は YouTube のチャンネル ID として受け付ける形式。path に使うので記号を制限する。
+var channelIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+// ReplyTargetResponse は自動返信のフラグ 1 件の応答。
+type ReplyTargetResponse struct {
+	ChannelID string    `json:"channelId"`
+	SetAt     time.Time `json:"setAt"`
+}
+
+// ReplyTargetListResponse は GET /reply-targets の応答。
+type ReplyTargetListResponse struct {
+	Targets []ReplyTargetResponse `json:"targets"`
 }
 
 // StatusResponse represents the response for /status endpoint
@@ -300,6 +316,43 @@ func NewRouter(h *Handlers, frontendOrigin string, apiKey string) stdhttp.Handle
 		resp := newHistorySnapshotResponse(out.Snapshot)
 		resp.Logs = collectLogs(collector)
 		render.JSON(w, r, resp)
+	})
+
+	r.Get("/reply-targets", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		collector := collectorFromRequest(r)
+		targets, err := h.ReplyTargets.List(r.Context())
+		if err != nil {
+			log.Printf("[REPLY_TARGETS] List error: %v", err)
+			renderInternalErrorWithCollector(w, r, "Failed to list reply targets", collector)
+			return
+		}
+		resp := ReplyTargetListResponse{Targets: make([]ReplyTargetResponse, len(targets))}
+		for i, t := range targets {
+			resp.Targets[i] = ReplyTargetResponse{ChannelID: t.ChannelID, SetAt: t.SetAt}
+		}
+		render.JSON(w, r, resp)
+	})
+
+	r.Put("/reply-targets/{channelID}", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		collector := collectorFromRequest(r)
+		channelID := chi.URLParam(r, "channelID")
+		if !channelIDPattern.MatchString(channelID) {
+			renderBadRequestWithCollector(w, r, "Invalid channel ID", collector)
+			return
+		}
+		var req struct {
+			Enabled *bool `json:"enabled"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Enabled == nil {
+			renderBadRequestWithCollector(w, r, "enabled is required", collector)
+			return
+		}
+		if err := h.ReplyTargets.Set(r.Context(), channelID, *req.Enabled); err != nil {
+			log.Printf("[REPLY_TARGETS] Set error: %v", err)
+			renderInternalErrorWithCollector(w, r, "Failed to update reply target", collector)
+			return
+		}
+		render.JSON(w, r, map[string]bool{"enabled": *req.Enabled})
 	})
 
 	r.Post("/reserve", func(w stdhttp.ResponseWriter, r *stdhttp.Request) {

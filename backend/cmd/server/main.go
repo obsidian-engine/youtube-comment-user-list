@@ -17,6 +17,7 @@ import (
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/system"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/adapter/youtube"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/config"
+	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/monitor"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/usecase/snapshot"
@@ -51,6 +52,7 @@ func main() {
 	var coord snapshot.Coordinator
 	var listHistory *usecase.ListHistorySnapshots
 	var getHistory *usecase.GetHistorySnapshot
+	var replyTargetStore port.ReplyTargetStore = memory.NewReplyTargetStore()
 	if cfg.GCSBucket != "" {
 		storageClient, err := storage.NewClient(initCtx)
 		if err != nil {
@@ -61,6 +63,7 @@ func main() {
 		coord = snapshot.NewCoordinator(sink, users, comments, state, 60*time.Second)
 		listHistory = &usecase.ListHistorySnapshots{Sink: sink}
 		getHistory = &usecase.GetHistorySnapshot{Sink: sink}
+		replyTargetStore = gcs.NewReplyTargetStore(storageClient, cfg.GCSBucket)
 	} else {
 		coord = &snapshot.NopCoordinator{}
 	}
@@ -99,6 +102,7 @@ func main() {
 		ListHistory:    listHistory,
 		GetHistory:     getHistory,
 		StartOrReserve: ucStartOrReserve,
+		ReplyTargets:   &usecase.ReplyTargets{Store: replyTargetStore, Clock: clock},
 	}
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: ahttp.NewRouter(h, cfg.FrontendOrigin, cfg.APIKey)}
 

@@ -64,6 +64,15 @@ export const handlers = [
     videoId = undefined
     return new HttpResponse(null, { status: 200 })
   }),
+
+  // 自動返信のフラグ
+  http.get('*/reply-targets', () => {
+    return HttpResponse.json({ targets: [] })
+  }),
+  http.put('*/reply-targets/:channelId', async ({ request }) => {
+    const body = (await request.json()) as { enabled: boolean }
+    return HttpResponse.json({ enabled: body.enabled })
+  }),
 ]
 
 export const __mock = {

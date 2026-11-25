@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Tooltip } from './Tooltip'
 import { isJapaneseTextTooLong, truncateJapaneseText } from '../utils/textUtils'
 import { SELECT_CLASS } from '../utils/styles'
+import { useReplyTargets } from '../hooks/useReplyTargets'
+import { ReplyTargetCheckbox, ReplyTargetError } from './ReplyTargetCheckbox'
 
 interface User {
   channelId?: string
@@ -229,6 +231,7 @@ export function UserTable({
   onToggleCommentTime,
 }: UserTableProps) {
   const [sortState, setSortState] = useState<SortState>({ field: null, order: 'asc' })
+  const replyTargets = useReplyTargets()
 
   useEffect(() => {
     setSortState({ field: null, order: 'asc' })
@@ -389,6 +392,7 @@ export function UserTable({
         </div>
       </div>
 
+      <ReplyTargetError message={replyTargets.error} />
       <table className="w-full table-fixed" style={{ fontSize: '14px', lineHeight: '1.7' }}>
         <thead>
           <tr>
@@ -446,6 +450,14 @@ export function UserTable({
                 </td>
                 <td style={{ padding: '10px 16px', color: 'var(--c-ink)', fontWeight: 500 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {typeof user !== 'string' && user.channelId && (
+                      <ReplyTargetCheckbox
+                        channelId={user.channelId}
+                        displayName={getUserDisplayName(user)}
+                        checked={replyTargets.isTarget(user.channelId)}
+                        onToggle={replyTargets.toggle}
+                      />
+                    )}
                     <Tooltip
                       content={getUserDisplayName(user)}
                       disabled={!isJapaneseTextTooLong(getUserDisplayName(user), 30)}

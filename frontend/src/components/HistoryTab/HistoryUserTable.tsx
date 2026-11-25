@@ -3,6 +3,8 @@ import type { User } from '../../utils/api'
 import { sortUsersStable } from '../../utils/sortUsers'
 import { Tooltip } from '../Tooltip'
 import { isJapaneseTextTooLong, truncateJapaneseText } from '../../utils/textUtils'
+import { useReplyTargets } from '../../hooks/useReplyTargets'
+import { ReplyTargetCheckbox, ReplyTargetError } from '../ReplyTargetCheckbox'
 
 interface HistoryUserTableProps {
   users: User[]
@@ -93,6 +95,7 @@ const thStyle: React.CSSProperties = {
 
 export function HistoryUserTable({ users }: HistoryUserTableProps) {
   const sorted = useMemo(() => sortUsersStable(users), [users])
+  const replyTargets = useReplyTargets()
 
   const formatDate = (iso: string | undefined): string => {
     if (!iso) return '--'
@@ -126,6 +129,7 @@ export function HistoryUserTable({ users }: HistoryUserTableProps) {
         background: 'var(--c-bg-2)',
       }}
     >
+      <ReplyTargetError message={replyTargets.error} />
       <table className="w-full table-fixed" style={{ fontSize: '14px', lineHeight: 1.7 }}>
         <thead>
           <tr>
@@ -174,6 +178,14 @@ export function HistoryUserTable({ users }: HistoryUserTableProps) {
                 </td>
                 <td style={{ padding: '10px 16px', color: 'var(--c-ink)', fontWeight: 500 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {user.channelId && (
+                      <ReplyTargetCheckbox
+                        channelId={user.channelId}
+                        displayName={name}
+                        checked={replyTargets.isTarget(user.channelId)}
+                        onToggle={replyTargets.toggle}
+                      />
+                    )}
                     <Tooltip
                       content={name}
                       disabled={!isJapaneseTextTooLong(name, 30)}
