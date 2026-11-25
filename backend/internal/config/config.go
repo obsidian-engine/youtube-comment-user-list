@@ -18,6 +18,19 @@ type Config struct {
 	APIKey         string
 	// AutoReplyEnabled は自動返信を有効にするか。AUTO_REPLY_ENABLED=true のときだけ有効にする。
 	AutoReplyEnabled bool
+	// AutoReplyDailyLimit は 1 日 (太平洋時間の 0 時区切り) に bot が投稿する件数の上限。
+	AutoReplyDailyLimit int
+	// AutoReplyIntervalSec は bot の投稿と投稿の間隔 (秒)。
+	AutoReplyIntervalSec int
+	// Bot* は bot アカウントのログイン許可。3 つすべてがそろったときだけ投稿する。
+	BotClientID     string
+	BotClientSecret string
+	BotRefreshToken string
+}
+
+// BotConfigured は bot アカウントのログイン許可がそろっているかを返します
+func (c *Config) BotConfigured() bool {
+	return c.BotClientID != "" && c.BotClientSecret != "" && c.BotRefreshToken != ""
 }
 
 // Load は環境変数から設定を読み込み、検証します
@@ -30,7 +43,12 @@ func Load() (*Config, error) {
 		GCSBucket:      os.Getenv("GCS_BUCKET"),
 		APIKey:         os.Getenv("API_KEY"),
 
-		AutoReplyEnabled: os.Getenv("AUTO_REPLY_ENABLED") == "true",
+		AutoReplyEnabled:     os.Getenv("AUTO_REPLY_ENABLED") == "true",
+		AutoReplyDailyLimit:  getEnvInt("AUTO_REPLY_DAILY_LIMIT", 100),
+		AutoReplyIntervalSec: getEnvInt("AUTO_REPLY_INTERVAL_SEC", 10),
+		BotClientID:          os.Getenv("BOT_CLIENT_ID"),
+		BotClientSecret:      os.Getenv("BOT_CLIENT_SECRET"),
+		BotRefreshToken:      os.Getenv("BOT_REFRESH_TOKEN"),
 	}
 
 	if err := config.Validate(); err != nil {
@@ -105,6 +123,14 @@ func (c *Config) Validate() error {
 	log.Printf("  Log Level: %s", c.LogLevel)
 
 	return nil
+}
+
+// getEnvInt は環境変数を正の整数として取得し、無いか読み取れない場合はデフォルト値を返します
+func getEnvInt(key string, defaultValue int) int {
+	if n, err := strconv.Atoi(os.Getenv(key)); err == nil && n > 0 {
+		return n
+	}
+	return defaultValue
 }
 
 // getEnv は環境変数を取得し、存在しない場合はデフォルト値を返します

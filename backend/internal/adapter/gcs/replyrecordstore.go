@@ -7,11 +7,40 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/api/iterator"
 )
+
+// CountSentSince は reply-records/ の object のうち、since 以降に更新されたものだけを読んで集計する。
+// 1 日の上限の判定に使い、読めなかった object があれば error を返す (上限を超えて投稿しないため)。
+func (s *ReplyRecordStore) CountSentSince(ctx context.Context, since time.Time) (int, error) {
+	n := 0
+	it := s.client.Bucket(s.bucket).Objects(ctx, &storage.Query{Prefix: replyRecordPrefix})
+	for {
+		attrs, err := it.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return 0, fmt.Errorf("gcs: list reply records: %w", err)
+		}
+		if !strings.HasSuffix(attrs.Name, ".json") || attrs.Updated.Before(since) {
+			continue
+		}
+		videoID := strings.TrimSuffix(strings.TrimPrefix(attrs.Name, replyRecordPrefix), ".json")
+		doc, _, err := s.Load(ctx, videoID)
+		if err != nil {
+			return 0, err
+		}
+		n += port.CountSent(doc, since)
+	}
+	return n, nil
+}
 
 const replyRecordPrefix = "reply-records/"
 

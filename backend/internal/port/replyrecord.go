@@ -35,4 +35,17 @@ type ReplyRecordDoc struct {
 type ReplyRecordStore interface {
 	Load(ctx context.Context, videoID string) (ReplyRecordDoc, int64, error)
 	Save(ctx context.Context, videoID string, doc ReplyRecordDoc, version int64) error
+	// CountSentSince はすべての動画の記録から、since 以降に YouTube へ送った投稿の件数を返す。
+	CountSentSince(ctx context.Context, since time.Time) (int, error)
+}
+
+// CountSent は doc の中で since 以降に YouTube へ送った投稿の件数を返す。
+func CountSent(doc ReplyRecordDoc, since time.Time) int {
+	n := 0
+	for _, r := range doc.Records {
+		if r.Sent && !r.At.Before(since) {
+			n++
+		}
+	}
+	return n
 }

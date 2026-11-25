@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/obsidian-engine/youtube-comment-user-list/backend/internal/port"
 )
@@ -34,6 +35,16 @@ func (s *ReplyRecordStore) Save(_ context.Context, videoID string, doc port.Repl
 	s.docs[videoID] = copyRecords(doc)
 	s.versions[videoID]++
 	return nil
+}
+
+func (s *ReplyRecordStore) CountSentSince(_ context.Context, since time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, doc := range s.docs {
+		n += port.CountSent(doc, since)
+	}
+	return n, nil
 }
 
 func copyRecords(doc port.ReplyRecordDoc) port.ReplyRecordDoc {

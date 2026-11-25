@@ -120,6 +120,27 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// 自動返信の投稿: bot のログイン許可がそろっているときだけ待ち行列を動かす。
+	// 取得の処理 (monitor と HTTP) が Enqueue を読むので、それらを起動する前に設定する。
+	// そろっていなければ判定までを行い、投稿する予定をログに出力する。
+	if cfg.AutoReplyEnabled && cfg.BotConfigured() {
+		queue := usecase.NewReplyQueue(usecase.ReplyQueue{
+			Poster:     youtube.NewPoster(cfg.BotClientID, cfg.BotClientSecret, cfg.BotRefreshToken),
+			State:      state,
+			Targets:    replyTargetStore,
+			Records:    replyRecordStore,
+			Clock:      clock,
+			Interval:   time.Duration(cfg.AutoReplyIntervalSec) * time.Second,
+			RetryWait:  5 * time.Second,
+			DailyLimit: cfg.AutoReplyDailyLimit,
+		})
+		autoReply.Enqueue = queue.Enqueue
+		go queue.Run(ctx)
+		log.Printf("Auto reply queue started (interval=%ds, dailyLimit=%d)", cfg.AutoReplyIntervalSec, cfg.AutoReplyDailyLimit)
+	} else if cfg.AutoReplyEnabled {
+		log.Printf("[WARN] auto reply is enabled but bot credentials are missing; replies are only logged")
+	}
+
 	// Monitor goroutine: RESERVED 状態を監視して配信開始時に SwitchVideo を自動実行する。
 	// signal.NotifyContext の ctx をそのまま渡すことで、シャットダウン時に自然停止する。
 	mon := monitor.New(ucSwitch, ucPull, yt, state, clock)
