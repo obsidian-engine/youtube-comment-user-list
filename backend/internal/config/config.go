@@ -16,6 +16,8 @@ type Config struct {
 	LogLevel       string
 	GCSBucket      string
 	APIKey         string
+	// AutoReplyEnabled は自動返信を有効にするか。AUTO_REPLY_ENABLED=true のときだけ有効にする。
+	AutoReplyEnabled bool
 }
 
 // Load は環境変数から設定を読み込み、検証します
@@ -27,6 +29,8 @@ func Load() (*Config, error) {
 		LogLevel:       getEnv("LOG_LEVEL", "info"),
 		GCSBucket:      os.Getenv("GCS_BUCKET"),
 		APIKey:         os.Getenv("API_KEY"),
+
+		AutoReplyEnabled: os.Getenv("AUTO_REPLY_ENABLED") == "true",
 	}
 
 	if err := config.Validate(); err != nil {

@@ -301,17 +301,20 @@ func (a *API) ListLiveChatMessages(ctx context.Context, liveChatID string, pageT
 		if item.AuthorDetails != nil && item.Snippet != nil {
 			// publishedAtを解析
 			publishedAt, err := time.Parse(time.RFC3339, item.Snippet.PublishedAt)
+			publishedAtUnknown := false
 			if err != nil {
 				log.Printf("[YOUTUBE_API] Failed to parse publishedAt for message %s: raw=%q err=%v", item.Id, item.Snippet.PublishedAt, err)
 				publishedAt = time.Now()
+				publishedAtUnknown = true
 			}
 
 			messages = append(messages, port.ChatMessage{
-				ID:          item.Id,
-				ChannelID:   item.AuthorDetails.ChannelId,
-				DisplayName: item.AuthorDetails.DisplayName,
-				Message:     item.Snippet.DisplayMessage,
-				PublishedAt: publishedAt,
+				ID:                 item.Id,
+				ChannelID:          item.AuthorDetails.ChannelId,
+				DisplayName:        item.AuthorDetails.DisplayName,
+				Message:            item.Snippet.DisplayMessage,
+				PublishedAt:        publishedAt,
+				PublishedAtUnknown: publishedAtUnknown,
 			})
 		} else {
 			skippedCount++

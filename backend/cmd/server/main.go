@@ -53,6 +53,7 @@ func main() {
 	var listHistory *usecase.ListHistorySnapshots
 	var getHistory *usecase.GetHistorySnapshot
 	var replyTargetStore port.ReplyTargetStore = memory.NewReplyTargetStore()
+	var replyRecordStore port.ReplyRecordStore = memory.NewReplyRecordStore()
 	if cfg.GCSBucket != "" {
 		storageClient, err := storage.NewClient(initCtx)
 		if err != nil {
@@ -64,6 +65,7 @@ func main() {
 		listHistory = &usecase.ListHistorySnapshots{Sink: sink}
 		getHistory = &usecase.GetHistorySnapshot{Sink: sink}
 		replyTargetStore = gcs.NewReplyTargetStore(storageClient, cfg.GCSBucket)
+		replyRecordStore = gcs.NewReplyRecordStore(storageClient, cfg.GCSBucket)
 	} else {
 		coord = &snapshot.NopCoordinator{}
 	}
@@ -79,7 +81,15 @@ func main() {
 	// UseCases
 	ucStatus := &usecase.Status{Users: users, State: state}
 	ucSwitch := &usecase.SwitchVideo{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
-	ucPull := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
+	autoReply := &usecase.AutoReply{
+		Enabled: cfg.AutoReplyEnabled,
+		Targets: replyTargetStore,
+		Records: replyRecordStore,
+		Snap:    coord,
+		Clock:   clock,
+	}
+	log.Printf("Auto reply enabled=%t", cfg.AutoReplyEnabled)
+	ucPull := &usecase.Pull{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord, AutoReply: autoReply}
 	ucReset := &usecase.Reset{Users: users, Comments: comments, State: state, Snap: coord}
 	ucReserve := &usecase.Reserve{YT: yt, Users: users, Comments: comments, State: state, Clock: clock, Snap: coord}
 	ucCancelReserve := &usecase.CancelReserve{State: state, Snap: coord}

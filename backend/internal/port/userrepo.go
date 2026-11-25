@@ -17,6 +17,9 @@ type UserRepo interface {
 	// UpsertWithMessageUpdated は UpsertWithMessage と同様だが、実際に更新されたかどうかを返します。
 	// 重複メッセージの場合は false を返し、新規または更新の場合は true を返します。
 	UpsertWithMessageUpdated(channelID string, displayName string, joinedAt time.Time, messageID string) (bool, error)
+	// UpsertWithMessageResult は UpsertWithMessageUpdated と同様だが、一覧に新しく登録したかどうかも返します。
+	// 自動返信は、新しく登録した視聴者を「今の配信で初めてのコメント」の候補にします。
+	UpsertWithMessageResult(channelID string, displayName string, joinedAt time.Time, messageID string) (updated bool, isNew bool, err error)
 	// ListUsersSortedByJoinTime は User構造体の配列を参加時間順（早い順）で返します。
 	// returns non-nil slice (empty slice when no users)
 	ListUsersSortedByJoinTime() []domain.User

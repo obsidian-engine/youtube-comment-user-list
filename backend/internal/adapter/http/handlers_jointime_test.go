@@ -148,6 +148,11 @@ func (m *MockUserRepoWithJoinTime) UpsertWithMessageUpdated(channelID string, di
 	return false, nil
 }
 
+func (m *MockUserRepoWithJoinTime) UpsertWithMessageResult(channelID string, displayName string, joinedAt time.Time, messageID string) (bool, bool, error) {
+	// Not needed for this test but required by interface
+	return false, false, nil
+}
+
 func (m *MockUserRepoWithJoinTime) Clear() {
 	// Not needed for this test but required by interface
 	m.users = []domain.User{}

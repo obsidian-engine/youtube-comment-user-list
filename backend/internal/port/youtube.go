@@ -12,6 +12,8 @@ type ChatMessage struct {
 	DisplayName string
 	Message     string // コメント本文
 	PublishedAt time.Time
+	// PublishedAtUnknown は YouTube の投稿時刻を読み取れず、取得時刻で PublishedAt を埋めたことを表す。
+	PublishedAtUnknown bool
 }
 
 // VideoMeta は videos.list から取得した動画メタデータです。

@@ -85,6 +85,8 @@ func (f *fakeCoordinator) LastSavedAt() time.Time {
 	return f.savedAt
 }
 
+func (f *fakeCoordinator) RestoreHealthy() bool { return true }
+
 func newTestServer(frontend string) *httptest.Server {
 	return newTestServerWithCoord(frontend, &snapshot.NopCoordinator{})
 }

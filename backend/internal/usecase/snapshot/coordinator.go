@@ -26,6 +26,8 @@ type Coordinator interface {
 	// LastSavedAt は最終 save 成功時刻を返します。
 	// Restore 復元時刻 (snap.SavedAt) も含みます。zero は未保存を意味します。
 	LastSavedAt() time.Time
+	// RestoreHealthy は直近の RestoreFor が error か、別の動画の snapshot による復元の中止で失敗していなければ true を返します。
+	RestoreHealthy() bool
 }
 
 // coordinator は GCS sink を持つ Coordinator 実装です。
@@ -54,6 +56,9 @@ type coordinator struct {
 	channelTitle string
 	dirty        bool
 	lastSaved    time.Time
+	// restoreFailed は直近の RestoreFor が error か、別の動画の snapshot だったため復元しなかったことを表す。
+	// 保存が無い (新しい動画) 場合は失敗に含めない。
+	restoreFailed bool
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -251,9 +256,11 @@ func (c *coordinator) Stop() {
 func (c *coordinator) RestoreFor(ctx context.Context, videoID string) (bool, error) {
 	snap, err := c.sink.Load(ctx, videoID)
 	if err != nil {
+		c.setRestoreFailed(true)
 		return false, fmt.Errorf("snapshot: restoreFor %s: %w", videoID, err)
 	}
 	if snap == nil {
+		c.setRestoreFailed(false)
 		return false, nil
 	}
 
@@ -261,8 +268,10 @@ func (c *coordinator) RestoreFor(ctx context.Context, videoID string) (bool, err
 	if snap.State != nil && snap.State.VideoID != "" && snap.State.VideoID != snap.VideoID {
 		log.Printf("[WARN] snapshot: restoreFor %s skipped because videoId mismatch snap.VideoID=%q state.VideoID=%q (contaminated snapshot)",
 			videoID, snap.VideoID, snap.State.VideoID)
+		c.setRestoreFailed(true)
 		return false, nil
 	}
+	c.setRestoreFailed(false)
 
 	c.userRepo.LoadFrom(port.UserSnapshot{Users: snap.Users, ProcessedMsgs: snap.ProcessedMsgs})
 	c.commentRepo.LoadFrom(snap.Comments)
@@ -282,6 +291,20 @@ func (c *coordinator) RestoreFor(ctx context.Context, videoID string) (bool, err
 	log.Printf("[INFO] snapshot: restoredFor videoId=%s users=%d comments=%d",
 		snap.VideoID, len(snap.Users), len(snap.Comments))
 	return true, nil
+}
+
+func (c *coordinator) setRestoreFailed(failed bool) {
+	c.mu.Lock()
+	c.restoreFailed = failed
+	c.mu.Unlock()
+}
+
+// RestoreHealthy は直近の RestoreFor が失敗していないかを返します。
+// 自動返信は、既にコメントした人を新規と誤判定しないよう、false の間は投稿しません。
+func (c *coordinator) RestoreHealthy() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return !c.restoreFailed
 }
 
 // LastSavedAt は最終 save 成功時刻を返します。zero は未保存を意味します。
@@ -395,3 +418,4 @@ func (n *NopCoordinator) Flush(_ context.Context) error                        {
 func (n *NopCoordinator) Start(_ context.Context)                              {}
 func (n *NopCoordinator) Stop()                                                {}
 func (n *NopCoordinator) LastSavedAt() time.Time                               { return time.Time{} }
+func (n *NopCoordinator) RestoreHealthy() bool                                 { return true }

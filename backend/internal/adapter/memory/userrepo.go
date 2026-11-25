@@ -66,17 +66,24 @@ func (r *UserRepo) UpsertWithJoinTime(channelID string, displayName string, join
 // UpsertWithMessageUpdated adds a user with join time and message ID for deduplication
 // Returns true if the user data was actually updated (not a duplicate message)
 func (r *UserRepo) UpsertWithMessageUpdated(channelID string, displayName string, joinedAt time.Time, messageID string) (bool, error) {
+	updated, _, err := r.UpsertWithMessageResult(channelID, displayName, joinedAt, messageID)
+	return updated, err
+}
+
+// UpsertWithMessageResult は UpsertWithMessageUpdated と同じ処理で、一覧に新しく登録したかどうかも返す。
+func (r *UserRepo) UpsertWithMessageResult(channelID string, displayName string, joinedAt time.Time, messageID string) (bool, bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	// メッセージIDの重複チェック
 	if r.processedMsgs[messageID] {
 		// 既に処理済みのメッセージの場合、何もしない
-		return false, nil
+		return false, false, nil
 	}
 
+	existingUser, exists := r.usersByID[channelID]
 	// 既存ユーザーの場合は参加時間を保持、発言数をインクリメント
-	if existingUser, exists := r.usersByID[channelID]; exists {
+	if exists {
 		existingUser.DisplayName = displayName    // 表示名は更新
 		existingUser.CommentCount++               // 発言数をインクリメント
 		existingUser.LatestCommentedAt = joinedAt // 最新コメント時間を更新
@@ -96,7 +103,7 @@ func (r *UserRepo) UpsertWithMessageUpdated(channelID string, displayName string
 	// メッセージIDを処理済みとして記録
 	r.processedMsgs[messageID] = true
 
-	return true, nil
+	return true, !exists, nil
 }
 
 // UpsertWithMessage adds a user with join time and message ID for deduplication (backward compatibility)

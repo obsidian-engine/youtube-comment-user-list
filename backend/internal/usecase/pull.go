@@ -25,6 +25,8 @@ type Pull struct {
 	State    port.StateRepo
 	Clock    port.Clock
 	Snap     snapshot.Coordinator // 必須 (GCS 不要な場合は NopCoordinator を渡す)
+	// AutoReply は一覧に新しく登録した視聴者を自動返信の候補として判定する。nil なら判定しない。
+	AutoReply *AutoReply
 }
 
 // Execute: コメント取得・ユーザー追加、終了検知→WAITING へ（autoReset）。
@@ -116,12 +118,15 @@ func (uc *Pull) Execute(ctx context.Context) (PullOutput, error) {
 	now := uc.Clock.Now()
 	for _, msg := range items {
 		// UpsertWithMessageUpdatedを使用してメッセージIDによる重複チェックを実行し、実際に更新された場合のみカウント
-		updated, err := uc.Users.UpsertWithMessageUpdated(msg.ChannelID, msg.DisplayName, msg.PublishedAt, msg.ID)
+		updated, isNew, err := uc.Users.UpsertWithMessageResult(msg.ChannelID, msg.DisplayName, msg.PublishedAt, msg.ID)
 		if err != nil {
 			return PullOutput{}, fmt.Errorf("user_upsert: %w", err)
 		}
 		if updated {
 			addedCount++
+		}
+		if isNew {
+			uc.AutoReply.Consider(ctx, state.VideoID, msg)
 		}
 
 		// コメント保存
