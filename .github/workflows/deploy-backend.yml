@@ -48,5 +48,5 @@ jobs:
             --concurrency 80 \
             --min-instances 0 \
             --max-instances 1 \
-            --set-env-vars GO_ENV=production,FRONTEND_ORIGIN=${{ secrets.FRONTEND_ORIGIN }},POLL_SEC=${{ secrets.POLL_SEC }},GCS_BUCKET=${{ secrets.GCS_BUCKET }} \
-            --set-secrets YT_API_KEY=yt-api-key:latest,API_KEY=api-key:latest
+            --set-env-vars GO_ENV=production,FRONTEND_ORIGIN=${{ secrets.FRONTEND_ORIGIN }},POLL_SEC=${{ secrets.POLL_SEC }},GCS_BUCKET=${{ secrets.GCS_BUCKET }},AUTO_REPLY_ENABLED=true \
+            --set-secrets YT_API_KEY=yt-api-key:latest,API_KEY=api-key:latest,BOT_CLIENT_ID=BOT_CLIENT_ID:latest,BOT_CLIENT_SECRET=BOT_CLIENT_SECRET:latest,BOT_REFRESH_TOKEN=BOT_REFRESH_TOKEN:latest
